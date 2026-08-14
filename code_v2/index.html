@@ -1,0 +1,2437 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>CogniBridge — Product UI</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.css">
+    <script src="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.js"></script>
+    <script src="https://cdn.plot.ly/plotly-2.35.2.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/mathjs/12.4.1/math.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
+    <script>if(window.pdfjsLib)pdfjsLib.GlobalWorkerOptions.workerSrc='https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';</script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --bg-app:#fff;--bg-sidebar:#f7f6f3;--bg-card:#fff;--bg-hover:#efedea;
+            --bg-input:#fff;--bg-tag:#f0f0ee;--bg-topbar:rgba(255,255,255,.85);
+            --text-primary:#37352f;--text-secondary:#6b6a67;--text-muted:#9b9a97;
+            --border:#e9e9e7;--border-light:#f0f0ee;--accent:#2383e2;--accent-hover:#0b6bcb;
+            --red:#ff6b6b;--green:#52c41a;--orange:#fa8c16;--yellow:#faad14;--purple:#9b59f7;--pink:#eb2f96;
+        }
+        body.dark{--bg-app:#191919;--bg-sidebar:#202020;--bg-card:#2f2f2f;--bg-hover:#37352f;
+            --bg-input:#37352f;--bg-tag:#37352f;--bg-topbar:rgba(25,25,25,.85);
+            --text-primary:#e6e6e6;--text-secondary:#a0a0a0;--text-muted:#6b6a67;--border:#3a3a38;--border-light:#2f2f2f;}
+        *{margin:0;padding:0;box-sizing:border-box}
+        body{font-family:'Inter',-apple-system,sans-serif;background:var(--bg-app);color:var(--text-primary)}
+        .page-view{display:none}.page-view.active{display:block}
+        .nav-item{display:flex;align-items:center;gap:8px;padding:6px 8px;border-radius:6px;cursor:pointer;font-size:14px;color:var(--text-primary)}
+        .nav-item:hover{background:var(--bg-hover)}.nav-item.active{background:var(--bg-hover);font-weight:500}
+        .btn-primary{background:var(--accent);color:#fff;padding:8px 16px;border-radius:6px;font-size:14px;border:none;cursor:pointer}
+        .btn-primary:hover{background:var(--accent-hover)}
+        .btn-secondary{background:var(--bg-hover);color:var(--text-primary);padding:8px 16px;border-radius:6px;font-size:14px;border:1px solid var(--border);cursor:pointer}
+        .card{background:var(--bg-card);border:1px solid var(--border);border-radius:8px;padding:16px}
+        .input{background:var(--bg-input);border:1px solid var(--border);border-radius:6px;padding:8px 12px;color:var(--text-primary);font-size:14px;outline:none}
+        .input:focus{border-color:var(--accent)}
+        .tag{display:inline-flex;padding:2px 8px;border-radius:4px;font-size:12px;font-weight:500}
+        .placeholder-box{border:2px dashed var(--border);border-radius:8px;padding:40px;text-align:center;color:var(--text-muted)}
+        .scrollbar::-webkit-scrollbar{width:6px}.scrollbar::-webkit-scrollbar-thumb{background:var(--text-muted);border-radius:3px}
+        .progress-bar{background:var(--bg-tag);height:4px;border-radius:2px;overflow:hidden}
+        /* PDF.js official textLayer — matches WPS/Viewer behavior exactly */
+        .textLayer{position:absolute;text-align:initial;inset:0;overflow:hidden;line-height:1;
+            text-size-adjust:none;forced-color-adjust:none;transform-origin:0 0;caret-color:CanvasText;z-index:0;}
+        .textLayer span,.textLayer br{position:absolute;white-space:pre;cursor:text;transform-origin:0% 0%;color:transparent;line-height:1;}
+        .textLayer span.markedContent{z-index:-1;}
+        .textLayer ::selection{background:rgba(0,0,255,.25);}
+        .textLayer .endOfContent{display:block;position:absolute;inset:100% 0 0;z-index:0;cursor:default;user-select:none;}
+        .textLayer .endOfContent.active{top:0;}
+        .pdf-page-gap{height:16px;user-select:none;pointer-events:none;}
+        .reader-notes-panel{transition:width .2s ease,min-width .2s ease,padding .2s ease,border .2s ease;}
+        .reader-notes-panel.collapsed{width:36px!important;min-width:36px!important;padding:8px 4px!important;border-left:1px solid var(--border);}
+        .reader-notes-panel.collapsed #reader-notes-content{display:none;}
+        .reader-notes-panel.collapsed #reader-note-count{display:none;}
+        .reader-notes-panel.collapsed h3{display:none;}
+        .pageDiv{position:relative;margin:0 auto;}
+        .canvasWrapper{overflow:hidden;}
+        /* Smooth scroll */
+        #reader-content-area{scroll-behavior:smooth;}
+    </style>
+</head>
+<body>
+
+<div class="flex h-screen overflow-hidden">
+    <!-- SIDEBAR -->
+    <aside id="app-sidebar" class="flex-shrink-0 flex flex-col overflow-y-auto scrollbar transition-all duration-200" style="width:240px;min-width:240px;background:var(--bg-sidebar);border-right:1px solid var(--border);">
+        <div style="padding:12px;cursor:pointer;display:flex;align-items:center;gap:8px;">
+            <div style="width:32px;height:32px;border-radius:8px;background:linear-gradient(135deg,#2383e2,#722ed1);display:flex;align-items:center;justify-content:center;color:#fff;font-weight:700;font-size:14px;">CB</div>
+            <div><div style="font-weight:600;font-size:14px;">CogniBridge</div><div style="font-size:11px;color:var(--text-muted);">智学桥</div></div>
+        </div>
+        <div style="margin:0 8px 8px;padding:6px 8px;border-radius:6px;background:var(--bg-hover);font-size:13px;color:var(--text-muted);cursor:pointer;">🔍 Search...</div>
+        <div style="padding:0 8px;flex:1;">
+            <div style="font-size:11px;font-weight:600;color:var(--text-muted);text-transform:uppercase;padding:4px 8px;margin-bottom:4px;">Workspace</div>
+            <div class="nav-item active" onclick="showPage('dashboard')">📊 Dashboard</div>
+            <div class="nav-item" onclick="showPage('pretest')">🧪 Pre-Assessment</div>
+            <div class="nav-item" onclick="showPage('tutor')">🧮 Math Tutor</div>
+            <div class="nav-item" onclick="showPage('plotter')">📉 Function Plotter</div>
+            <div class="nav-item" onclick="showPage('reader')">📖 Reader</div>
+            <div class="nav-item" onclick="showPage('notes')">📝 Notes</div>
+            <div class="nav-item" onclick="showPage('graph')">🗺️ Knowledge Graph</div>
+            <div style="font-size:11px;font-weight:600;color:var(--text-muted);text-transform:uppercase;padding:4px 8px;margin-top:16px;margin-bottom:4px;">Community</div>
+            <div class="nav-item" onclick="showPage('forum')">💬 Student Forum</div>
+            <div style="font-size:11px;font-weight:600;color:var(--text-muted);text-transform:uppercase;padding:4px 8px;margin-top:16px;margin-bottom:4px;">Bookshelf</div>
+            <div class="nav-item" onclick="showPage('bookshelf')">📚 All Materials</div>
+        </div>
+        <div style="border-top:1px solid var(--border);padding:12px;" id="sidebar-user-area">
+            <!-- Dynamic user profile rendered by renderSidebarUser() -->
+        </div>
+    </aside>
+
+    <!-- MAIN -->
+    <main class="flex-1 overflow-y-auto scrollbar" style="background:var(--bg-app);">
+        <div style="display:flex;align-items:center;gap:8px;padding:8px 12px;position:sticky;top:0;z-index:40;background:var(--bg-topbar);backdrop-filter:blur(8px);border-bottom:1px solid var(--border-light);">
+            <button id="sidebar-toggle-btn" onclick="toggleSidebar()" style="width:32px;height:32px;border-radius:6px;border:none;background:transparent;cursor:pointer;color:var(--text-muted);display:flex;align-items:center;justify-content:center;font-size:18px;transition:all .15s;" onmouseenter="this.style.background='var(--bg-hover)'" onmouseleave="this.style.background='transparent'" title="Toggle sidebar">☰</button>
+            <span style="color:var(--border);font-size:12px;">/</span>
+            <span id="breadcrumb" style="font-size:13px;color:var(--text-muted);">Dashboard</span>
+            <div style="flex:1"></div>
+            <button onclick="toggleTheme()" id="theme-btn" style="width:28px;height:28px;border-radius:6px;border:none;background:transparent;cursor:pointer;color:var(--text-muted);">🌙</button>
+        </div>
+
+        <!-- ===== LOGIN / REGISTER ===== -->
+        <div id="page-login" class="page-view" style="max-width:400px;margin:0 auto;padding:60px 24px;text-align:center;">
+            <div style="font-size:48px;margin-bottom:8px;">🎓</div>
+            <h1 style="font-size:24px;font-weight:700;margin-bottom:4px;">Welcome to CogniBridge</h1>
+            <p style="color:var(--text-muted);font-size:14px;margin-bottom:32px;">AI-powered math transition platform</p>
+            
+            <!-- Login Form -->
+            <div id="login-form">
+                <input id="login-email" class="input" style="width:100%;margin-bottom:12px;" placeholder="📧 Email" type="email">
+                <input id="login-password" class="input" style="width:100%;margin-bottom:16px;" placeholder="🔒 Password" type="password">
+                <button class="btn-primary" style="width:100%;padding:12px;font-size:16px;" onclick="authLogin()">🚀 Log In</button>
+                <p style="margin-top:16px;font-size:13px;color:var(--text-muted);">
+                    Don't have an account? <a href="#" onclick="authToggleMode()" style="color:var(--accent);">Create one</a>
+                </p>
+                <p style="margin-top:8px;font-size:12px;">
+                    <a href="#" onclick="authShowForgot()" style="color:var(--text-muted);">Forgot password?</a>
+                </p>
+            </div>
+            
+            <!-- Register Form (hidden by default) -->
+            <div id="register-form" style="display:none;">
+                <input id="reg-name" class="input" style="width:100%;margin-bottom:12px;" placeholder="👤 Your name">
+                <input id="reg-email" class="input" style="width:100%;margin-bottom:12px;" placeholder="📧 Email" type="email">
+                <input id="reg-password" class="input" style="width:100%;margin-bottom:8px;" placeholder="🔒 Password" type="password">
+                <div style="text-align:left;font-size:11px;color:var(--text-muted);margin-bottom:12px;">
+                    Password strength: <span id="pwd-strength">Enter password</span>
+                </div>
+                <button class="btn-primary" style="width:100%;padding:12px;font-size:16px;" onclick="authRegister()">✨ Create Account</button>
+                <p style="margin-top:16px;font-size:13px;color:var(--text-muted);">
+                    Already have an account? <a href="#" onclick="authToggleMode()" style="color:var(--accent);">Log in</a>
+                </p>
+            </div>
+            
+            <!-- Forgot Password Form (hidden by default) -->
+            <div id="forgot-form" style="display:none;">
+                <p style="font-size:13px;color:var(--text-muted);margin-bottom:16px;">Enter your email and we'll generate a reset link (check server console).</p>
+                <input id="forgot-email" class="input" style="width:100%;margin-bottom:16px;" placeholder="📧 Email" type="email">
+                <button class="btn-primary" style="width:100%;padding:12px;font-size:16px;" onclick="authForgotPassword()">📨 Send Reset Link</button>
+                <p style="margin-top:16px;font-size:13px;color:var(--text-muted);">
+                    <a href="#" onclick="authShowLogin()" style="color:var(--accent);">Back to login</a>
+                </p>
+            </div>
+            
+            <!-- Guest Entry -->
+            <div style="margin-top:24px;padding-top:24px;border-top:1px solid var(--border);">
+                <button class="btn-secondary" style="width:100%;" onclick="authContinueAsGuest()">🌐 Continue as Guest</button>
+                <p style="font-size:12px;color:var(--text-muted);margin-top:8px;">Your progress will be saved locally</p>
+            </div>
+        </div>
+
+        <!-- ===== DASHBOARD (placeholder) ===== -->
+        <div id="page-dashboard" class="page-view active" style="max-width:900px;margin:0 auto;padding:40px 48px;">
+            <div style="margin-bottom:32px;">
+                <div style="font-size:13px;color:var(--text-muted);margin-bottom:4px;">📊 Dashboard</div>
+                <h1 style="font-size:28px;font-weight:700;">Good afternoon, Yueming 👋</h1>
+            </div>
+            <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:16px;margin-bottom:32px;">
+                <div class="card"><div style="font-size:24px;margin-bottom:4px;">🧮</div><div style="font-size:24px;font-weight:700;">87%</div><div style="font-size:12px;color:var(--text-muted);">Math Proficiency</div></div>
+                <div class="card"><div style="font-size:24px;margin-bottom:4px;">📖</div><div style="font-size:24px;font-weight:700;">12</div><div style="font-size:12px;color:var(--text-muted);">Documents Read</div></div>
+                <div class="card"><div style="font-size:24px;margin-bottom:4px;">✅</div><div style="font-size:24px;font-weight:700;">156</div><div style="font-size:12px;color:var(--text-muted);">Problems Solved</div></div>
+                <div class="card"><div style="font-size:24px;margin-bottom:4px;">🔥</div><div style="font-size:24px;font-weight:700;">14</div><div style="font-size:12px;color:var(--text-muted);">Day Streak</div></div>
+            </div>
+            <h2 style="font-size:18px;font-weight:600;margin-bottom:12px;">📚 My Bookshelf</h2>
+            <div class="card" style="margin-bottom:32px;padding:12px;">
+                <div id="dash-bs-tabs" style="display:flex;gap:4px;border-bottom:1px solid var(--border);padding-bottom:8px;margin-bottom:12px;flex-wrap:wrap;"></div>
+                <div id="dash-bs-grid" style="display:grid;grid-template-columns:repeat(5,1fr);gap:8px;min-height:120px;"></div>
+                <button class="btn-secondary" style="width:100%;margin-top:8px;border-style:dashed;font-size:13px;padding:8px;" onclick="bsUpload()">📎 Upload PDF / PPTX</button>
+            </div>
+            <h2 style="font-size:18px;font-weight:600;margin-bottom:12px;">📋 Recent Activity</h2>
+            <div class="card" style="margin-bottom:32px;">
+                <div class="placeholder-box">📋 Your recent learning activity will appear here<br><span style="font-size:12px;">Knowledge points · Reading progress · Last note · Forum activity</span></div>
+            </div>
+            <h2 style="font-size:18px;font-weight:600;margin-bottom:12px;">📊 Math Skill Breakdown</h2>
+            <div class="card" id="math-skill-card" style="margin-bottom:32px;">
+                <div class="placeholder-box" id="math-skill-placeholder">📊 Your math skill analysis will appear here<br><span style="font-size:12px;">Complete pre-assessment to see your knowledge breakdown</span></div>
+                <div id="math-skill-content" style="display:none;"></div>
+            </div>
+            <h2 style="font-size:18px;font-weight:600;margin-bottom:12px;display:flex;align-items:center;gap:8px;">📋 Study Plan <button class="btn-secondary" style="font-size:11px;padding:2px 8px;margin-left:auto;" onclick="togglePlanEdit()">Edit ✏️</button></h2>
+            <div class="card" id="study-plan-card">
+                <div class="placeholder-box" id="study-plan-placeholder">📋 AI-generated study plan based on your assessment<br><span style="font-size:12px;">Complete pre-assessment to unlock personalised plan</span></div>
+                <div id="study-plan-content" style="display:none;"></div>
+            </div>
+        </div>
+
+        <!-- ===== PRE-ASSESSMENT (FULL FUNCTIONAL) ===== -->
+        <div id="page-pretest" class="page-view" style="max-width:600px;margin:0 auto;padding:40px 48px;">
+            <!-- Welcome -->
+            <div id="pt-welcome" style="text-align:center;">
+                <div style="font-size:60px;margin-bottom:16px;">🧪</div>
+                <h1 style="font-size:28px;font-weight:700;margin-bottom:8px;">Math Transition Diagnostic</h1>
+                <p style="color:var(--text-muted);font-size:14px;margin-bottom:24px;">Pre-Assessment · 3 min personalised gap analysis</p>
+                <div class="card" style="text-align:left;margin-bottom:24px;">
+                    <div style="display:flex;flex-direction:column;gap:8px;">
+                        <div style="font-size:14px;">✅ Weak high school knowledge identified</div>
+                        <div style="font-size:14px;">✅ University transition warnings</div>
+                        <div style="font-size:14px;">✅ Personalised learning path</div>
+                        <div style="font-size:14px;">✅ Unlock full knowledge graph & AI practice</div>
+                    </div>
+                </div>
+                <button class="btn-primary" style="width:100%;padding:12px;font-size:16px;margin-bottom:8px;" onclick="ptGo(1)">🚀 Start Assessment (3 min)</button>
+                <button class="btn-secondary" style="width:100%;padding:8px;" onclick="showPage('dashboard')">👀 Skip for now</button>
+            </div>
+            <!-- Step 1 -->
+            <div id="pt-step1" style="display:none;">
+                <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;">
+                    <h2 style="font-size:20px;font-weight:700;">📋 Basic Information</h2>
+                    <span class="tag" style="background:rgba(35,131,226,.1);color:var(--accent);">Step 1/4</span>
+                </div>
+                <div class="progress-bar" style="margin-bottom:24px;"><div style="background:var(--accent);height:4px;border-radius:2px;width:25%;"></div></div>
+                <div class="card" style="display:flex;flex-direction:column;gap:20px;">
+                    <div><label style="font-size:14px;font-weight:500;display:block;margin-bottom:8px;">A-Level Mathematics Grade</label>
+                        <select id="pt-alevel" class="input" style="width:100%;"><option value="">Select...</option><option>A*</option><option>A</option><option>B</option><option>C</option><option>D</option><option>E</option></select></div>
+                    <div><label style="font-size:14px;font-weight:500;display:block;margin-bottom:8px;">Further Mathematics?</label>
+                        <div style="display:flex;gap:12px;"><label><input type="radio" name="pt-fm" value="yes"> Yes</label><label><input type="radio" name="pt-fm" value="no" checked> No</label></div></div>
+                    <div><label style="font-size:14px;font-weight:500;display:block;margin-bottom:8px;">University</label>
+                        <input id="pt-uni" class="input" style="width:100%;" value="Queen Mary University of London"></div>
+                    <div><label style="font-size:14px;font-weight:500;display:block;margin-bottom:8px;">Major</label>
+                        <select id="pt-major" class="input" style="width:100%;"><option value="math">Mathematics</option><option value="cs" selected>Computer Science / Info & Computing</option><option value="engineering">Engineering</option><option value="physics">Physics</option><option value="economics">Economics</option></select></div>
+                    <div><label style="font-size:14px;font-weight:500;display:block;margin-bottom:8px;">Year</label>
+                        <div style="display:flex;gap:12px;"><label><input type="radio" name="pt-year" value="freshman" checked> First Year</label><label><input type="radio" name="pt-year" value="senior"> Second Year+</label></div></div>
+                </div>
+                <div style="display:flex;gap:8px;margin-top:16px;"><button class="btn-secondary" style="flex:1;" onclick="ptGo(0)">← Back</button><button class="btn-primary" style="flex:1;" onclick="ptGo(2)">Next →</button></div>
+            </div>
+            <!-- Step 2 -->
+            <div id="pt-step2" style="display:none;">
+                <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;">
+                    <h2 style="font-size:20px;font-weight:700;">📊 High School Knowledge Self-Assessment</h2>
+                    <span class="tag" style="background:rgba(35,131,226,.1);color:var(--accent);">Step 2/4</span>
+                </div>
+                <div class="progress-bar" style="margin-bottom:16px;"><div style="background:var(--accent);height:4px;border-radius:2px;width:50%;"></div></div>
+                <p style="font-size:12px;color:var(--text-muted);margin-bottom:16px;">Rate your confidence on each topic</p>
+                <div id="pt-knowledge-list" style="display:flex;flex-direction:column;gap:8px;"></div>
+                <div style="display:flex;gap:8px;margin-top:16px;"><button class="btn-secondary" style="flex:1;" onclick="ptGo(1)">← Back</button><button class="btn-primary" style="flex:1;" onclick="ptGo(3)">Next →</button></div>
+            </div>
+            <!-- Step 3 -->
+            <div id="pt-step3" style="display:none;">
+                <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;">
+                    <h2 style="font-size:20px;font-weight:700;">⚠️ University Transition Warnings</h2>
+                    <span class="tag" style="background:rgba(35,131,226,.1);color:var(--accent);">Step 3/4</span>
+                </div>
+                <div class="progress-bar" style="margin-bottom:16px;"><div style="background:var(--accent);height:4px;border-radius:2px;width:75%;"></div></div>
+                <div class="card" style="background:rgba(250,140,22,.06);border-color:rgba(250,140,22,.3);margin-bottom:16px;">
+                    <p style="font-size:14px;">Based on your major <strong>Computer Science</strong>, rate your familiarity:</p>
+                </div>
+                <div id="pt-transition-list" style="display:flex;flex-direction:column;gap:8px;"></div>
+                <div style="display:flex;gap:8px;margin-top:16px;"><button class="btn-secondary" style="flex:1;" onclick="ptGo(2)">← Back</button><button class="btn-primary" style="flex:1;" onclick="ptGo(4)">Next →</button></div>
+            </div>
+            <!-- Step 4 -->
+            <div id="pt-step4" style="display:none;">
+                <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;">
+                    <h2 style="font-size:20px;font-weight:700;">🧮 Quick Assessment</h2>
+                    <span class="tag" style="background:rgba(35,131,226,.1);color:var(--accent);">Step 4/4</span>
+                </div>
+                <div class="progress-bar" style="margin-bottom:16px;"><div style="background:var(--accent);height:4px;border-radius:2px;width:90%;"></div></div>
+                <p style="font-size:12px;color:var(--text-muted);margin-bottom:16px;">10 questions (5 Basic + 2 Intermediate + 3 Hard)</p>
+                <div id="pt-quiz-list" style="display:flex;flex-direction:column;gap:16px;"></div>
+                <div style="display:flex;gap:8px;margin-top:16px;"><button class="btn-secondary" style="flex:1;" onclick="ptGo(3)">← Back</button><button class="btn-primary" style="flex:1;" onclick="ptGenerateReport()">📊 Generate Report</button></div>
+            </div>
+            <!-- Report -->
+            <div id="pt-report" style="display:none;">
+                <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;">
+                    <h2 style="font-size:20px;font-weight:700;">📊 Diagnostic Report</h2>
+                    <span class="tag" style="background:rgba(82,196,26,.1);color:var(--green);">✓ Complete</span>
+                </div>
+                <div class="progress-bar" style="margin-bottom:24px;"><div style="background:var(--green);height:4px;border-radius:2px;width:100%;"></div></div>
+                <div id="pt-report-content" style="display:flex;flex-direction:column;gap:16px;"></div>
+                <div style="display:flex;gap:8px;margin-top:16px;"><button class="btn-primary" style="flex:1;padding:12px;" onclick="showPage('graph')">📊 View Graph</button><button class="btn-secondary" style="flex:1;padding:12px;" onclick="showPage('tutor')">🚀 Start Learning</button></div>
+            </div>
+        </div>
+
+        <!-- ===== MATH TUTOR (FUNCTIONAL) ===== -->
+        <div id="page-tutor" class="page-view" style="max-width:720px;margin:0 auto;padding:32px 48px;">
+            <h1 style="font-size:24px;font-weight:700;margin-bottom:16px;">🧮 AI Problem Solver</h1>
+            <div style="display:flex;background:var(--bg-tag);border-radius:10px;padding:3px;margin-bottom:4px;">
+                <button id="tutor-mode-general" style="flex:1;padding:8px;border-radius:8px;border:none;font-size:13px;font-weight:600;background:var(--accent);color:#fff;cursor:pointer;" onclick="tutorSwitchMode('general')">⚡ General Mode</button>
+                <button id="tutor-mode-deep" style="flex:1;padding:8px;border-radius:8px;border:none;font-size:13px;font-weight:600;background:transparent;color:var(--text-secondary);cursor:pointer;" onclick="tutorSwitchMode('deep')">🧠 Deep Learning Mode</button>
+            </div>
+            <p id="tutor-mode-desc" style="font-size:11px;color:var(--text-muted);margin-bottom:16px;">⚡ Direct answers with knowledge sources, method breakdowns & easy explanations</p>
+            <!-- Uploaded materials -->
+            <div id="tutor-materials" style="margin-bottom:12px;"></div>
+            <!-- Chat area -->
+            <div id="tutor-chat" style="min-height:calc(100vh - 320px);display:flex;flex-direction:column;gap:12px;margin-bottom:16px;">
+                <div style="text-align:center;padding:40px 20px;color:var(--text-muted);font-size:13px;">💬 Ask a question or upload materials to get started<br><span style="font-size:11px;">Powered by Qwen3.6-35B-A3B</span></div>
+            </div>
+            <!-- Quick examples -->
+            <div style="display:flex;gap:6px;margin-bottom:12px;flex-wrap:wrap;">
+                <button onclick="tutorSendQuick('Evaluate: lim(x→0) sin(x)/x')" style="font-size:11px;padding:5px 10px;border-radius:999px;background:var(--bg-input);border:1px solid var(--border);color:var(--text-secondary);cursor:pointer;">lim sin(x)/x</button>
+                <button onclick="tutorSendQuick('Prove that a²+b² ≥ 2ab for all real numbers')" style="font-size:11px;padding:5px 10px;border-radius:999px;background:var(--bg-input);border:1px solid var(--border);color:var(--text-secondary);cursor:pointer;">Proof: a²+b²≥2ab</button>
+                <button onclick="tutorSendQuick('Find the eigenvalues of matrix [[2,1],[1,2]]')" style="font-size:11px;padding:5px 10px;border-radius:999px;background:var(--bg-input);border:1px solid var(--border);color:var(--text-secondary);cursor:pointer;">Eigenvalues</button>
+                <button onclick="tutorSendQuick('Does the series Σ(1/n²) converge?')" style="font-size:11px;padding:5px 10px;border-radius:999px;background:var(--bg-input);border:1px solid var(--border);color:var(--text-secondary);cursor:pointer;">Σ1/n² converge?</button>
+            </div>
+            <!-- Input -->
+            <div class="card" style="display:flex;align-items:center;gap:12px;">
+                <span style="font-size:20px;cursor:pointer;" onclick="tutorUploadMaterial()">📎</span>
+                <input id="tutor-input" class="input" style="flex:1;border:none;background:transparent;" placeholder="Ask a math question..." onkeypress="if(event.key==='Enter')tutorSend()">
+                <button class="btn-primary" onclick="tutorSend()">Send</button>
+            </div>
+        </div>
+
+        <!-- ===== NOTES (FUNCTIONAL) ===== -->
+        <div id="page-notes" class="page-view" style="max-width:800px;margin:0 auto;padding:32px 48px;">
+            <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:24px;">
+                <div>
+                    <h1 style="font-size:24px;font-weight:700;">📝 My Notes</h1>
+                    <p style="font-size:13px;color:var(--text-muted);margin-top:4px;" id="notes-count">0 notes</p>
+                </div>
+                <button class="btn-primary" style="font-size:13px;" onclick="notesNewNote()">+ New Note</button>
+            </div>
+            <!-- Tags filter -->
+            <div id="notes-tags" style="display:flex;gap:6px;margin-bottom:16px;flex-wrap:wrap;"></div>
+            <!-- Notes list -->
+            <div id="notes-list-view">
+                <div id="notes-list" style="display:flex;flex-direction:column;gap:12px;"></div>
+            </div>
+            <!-- Full-page Editor -->
+            <div id="notes-editor-view" style="display:none;">
+                <button onclick="notesCloseEditor()" class="btn-secondary" style="margin-bottom:16px;font-size:13px;">← Back to Notes</button>
+                <input id="notes-editor-title" class="input" style="width:100%;font-size:20px;font-weight:600;margin-bottom:12px;padding:12px;" placeholder="Note title...">
+                <div style="display:flex;gap:8px;align-items:center;margin-bottom:16px;">
+                    <input id="notes-editor-tag" class="input" style="flex:1;font-size:13px;" placeholder="Tag (e.g. Calculus, Algebra, Reading Note)">
+                    <span style="font-size:11px;color:var(--text-muted);" id="notes-editor-meta"></span>
+                </div>
+                <textarea id="notes-editor-content" style="width:100%;min-height:400px;padding:16px;border-radius:8px;border:1px solid var(--border);background:var(--bg-input);color:var(--text-primary);font-size:15px;line-height:1.8;resize:vertical;outline:none;font-family:inherit;" placeholder="Write your note here..."></textarea>
+                <div style="display:flex;gap:8px;margin-top:16px;">
+                    <button class="btn-primary" style="flex:1;padding:10px;font-size:14px;" onclick="notesSaveFromEditor()">💾 Save Note</button>
+                    <button class="btn-secondary" style="padding:10px;" onclick="notesCloseEditor()">Cancel</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- ===== FUNCTION PLOTTER (FULL FUNCTIONAL) ===== -->
+        <div id="page-plotter" class="page-view">
+            <div style="display:flex;height:calc(100vh - 49px);">
+                <aside style="width:300px;border-right:1px solid var(--border);background:var(--bg-sidebar);display:flex;flex-direction:column;overflow-y:auto;" class="scrollbar">
+                    <!-- 2D Panel -->
+                    <div id="plot-panel-2d">
+                        <div style="padding:16px;border-bottom:1px solid var(--border);">
+                            <div style="font-size:11px;font-weight:600;text-transform:uppercase;color:var(--text-muted);margin-bottom:8px;">Functions f(x)</div>
+                            <div id="plot-func-list"></div>
+                            <button class="btn-secondary" style="width:100%;margin-top:8px;font-size:13px;" onclick="plotAddFunc()">+ Add Function</button>
+                        </div>
+                        <div style="padding:16px;border-bottom:1px solid var(--border);">
+                            <div style="font-size:11px;font-weight:600;text-transform:uppercase;color:var(--text-muted);margin-bottom:8px;">Axis Range</div>
+                            <div style="display:flex;align-items:center;gap:8px;margin-bottom:6px;"><span style="font-size:12px;width:16px;">X:</span><input type="number" id="plot-xmin" value="-5" step="0.5" class="input" style="width:56px;text-align:center;font-size:13px;"><span style="font-size:12px;color:var(--text-muted)">to</span><input type="number" id="plot-xmax" value="5" step="0.5" class="input" style="width:56px;text-align:center;font-size:13px;"></div>
+                            <div style="display:flex;align-items:center;gap:8px;"><span style="font-size:12px;width:16px;">Y:</span><input type="number" id="plot-ymin" value="" placeholder="auto" step="0.5" class="input" style="width:56px;text-align:center;font-size:13px;"><span style="font-size:12px;color:var(--text-muted)">to</span><input type="number" id="plot-ymax" value="" placeholder="auto" step="0.5" class="input" style="width:56px;text-align:center;font-size:13px;"></div>
+                        </div>
+                        <div style="padding:16px;border-bottom:1px solid var(--border);">
+                            <div style="font-size:11px;font-weight:600;text-transform:uppercase;color:var(--text-muted);margin-bottom:8px;">Quick Examples</div>
+                            <div id="plot-examples" style="display:flex;flex-wrap:wrap;gap:6px;"></div>
+                        </div>
+                        <div style="padding:16px;border-bottom:1px solid var(--border);">
+                            <div style="font-size:11px;font-weight:600;text-transform:uppercase;color:var(--text-muted);margin-bottom:8px;">📐 Conic Sections</div>
+                            <div id="plot-conics" style="display:flex;flex-wrap:wrap;gap:6px;margin-bottom:8px;"></div>
+                            <div id="plot-conic-params" style="display:none;"><div id="plot-conic-fields"></div><button class="btn-primary" style="width:100%;font-size:12px;padding:6px;margin-top:8px;" onclick="plotDrawConic(currentPlotConicType)">📊 Render Conic</button></div>
+                        </div>
+                        <div style="padding:16px;">
+                            <button class="btn-primary" style="width:100%;margin-bottom:8px;" onclick="plotRender()">📊 Render</button>
+                            <div style="display:flex;gap:8px;"><button class="btn-secondary" style="flex:1;font-size:13px;" onclick="plotReset()">🔄 Reset</button><button class="btn-secondary" style="flex:1;font-size:13px;color:var(--red);" onclick="plotClear()">🗑 Clear</button></div>
+                        </div>
+                    </div>
+                </aside>
+                <div style="flex:1;display:flex;flex-direction:column;overflow:hidden;">
+                    <div style="display:flex;justify-content:space-between;align-items:center;padding:12px;border-bottom:1px solid var(--border);">
+                        <div style="display:flex;background:var(--bg-tag);border-radius:10px;padding:3px;">
+                            <button id="plot-mode-2d" style="padding:8px 20px;border-radius:8px;border:none;font-size:13px;font-weight:600;background:var(--accent);color:#fff;cursor:pointer;" onclick="plotSwitchMode('2d')">📈 2D Mode</button>
+                            <button id="plot-mode-3d" style="padding:8px 20px;border-radius:8px;border:none;font-size:13px;font-weight:600;background:transparent;color:var(--text-secondary);cursor:pointer;" onclick="plotSwitchMode('3d')">🗺️ 3D Mode</button>
+                        </div>
+                        <span id="plot-info" style="font-size:12px;color:var(--text-muted);">2D · Enter f(x) and click Render</span>
+                    </div>
+                    <div id="plot-canvas" style="flex:1;min-height:400px;"></div>
+                    <div style="padding:6px 16px;border-top:1px solid var(--border);font-size:12px;display:flex;justify-content:space-between;color:var(--text-muted);background:var(--bg-sidebar);">
+                        <span id="plot-status">Ready · Enter a function and click Render</span><span>CogniBridge Function Plotter</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- ===== READER (FUNCTIONAL) ===== -->
+        <div id="page-reader" class="page-view">
+            <div style="display:flex;height:calc(100vh - 49px);">
+                <aside style="width:220px;border-right:1px solid var(--border);background:var(--bg-sidebar);padding:12px;flex-shrink:0;overflow-y:auto;" class="scrollbar">
+                    <button onclick="readerOpenBookshelf()" class="btn-secondary" style="width:100%;margin-bottom:12px;font-size:13px;">📚 Open Bookshelf</button>
+                    <div id="reader-sidebar-info">
+                        <div style="font-size:11px;color:var(--text-muted);margin-bottom:4px;">Document</div>
+                        <div style="font-size:14px;font-weight:600;" id="reader-doc-title">No document open</div>
+                        <div style="font-size:12px;color:var(--text-muted);" id="reader-doc-meta">Open from bookshelf</div>
+                    </div>
+                </aside>
+                <div style="flex:1;display:flex;flex-direction:column;overflow:hidden;">
+                    <div style="padding:8px 24px;border-bottom:1px solid var(--border);background:var(--bg-card);"><span style="font-size:14px;font-weight:500;" id="reader-toolbar">Select text to translate, annotate or ask AI</span></div>
+                    <div id="reader-content-area" style="flex:1;overflow-y:auto;padding:32px 16px;background:var(--bg-tag);" class="scrollbar">
+                        <div class="placeholder-box" style="max-width:600px;margin:0 auto;min-height:calc(100vh - 250px);background:var(--bg-card);">
+                            📖 Reading Area<br><span style="font-size:12px;">Open a document from the bookshelf to start reading</span><br><br>
+                            <button class="btn-primary" onclick="readerOpenBookshelf()">📚 Open Bookshelf</button>
+                        </div>
+                    </div>
+                    <div id="reader-float-menu" style="display:none;position:fixed;z-index:50;align-items:center;gap:4px;padding:6px 8px;border-radius:10px;box-shadow:0 4px 12px rgba(0,0,0,.15);background:var(--bg-card);border:1px solid var(--border);">
+                        <button onclick="readerAction('translate')" style="padding:6px 12px;border-radius:6px;border:none;font-size:12px;font-weight:600;background:#2383e2;color:#fff;cursor:pointer;">🌐 Translate</button>
+                        <button onclick="readerAction('highlight')" style="padding:6px 12px;border-radius:6px;border:none;font-size:12px;font-weight:600;background:#faad14;color:#fff;cursor:pointer;">🖍 Highlight</button>
+                        <button onclick="readerAction('note')" style="padding:6px 12px;border-radius:6px;border:none;font-size:12px;font-weight:600;background:#52c41a;color:#fff;cursor:pointer;">📝 Note</button>
+                        <button onclick="readerAction('ai')" style="padding:6px 12px;border-radius:6px;border:none;font-size:12px;font-weight:600;background:#722ed1;color:#fff;cursor:pointer;">🤖 Ask AI</button>
+                    </div>
+                    <div id="reader-action-panel" style="display:none;max-width:600px;margin:0 auto;padding:0 16px 16px;"></div>
+                </div>
+                <aside id="reader-notes-aside" class="reader-notes-panel" style="width:280px;border-left:1px solid var(--border);background:var(--bg-card);padding:16px;flex-shrink:0;overflow-y:auto;transition:width .2s ease,min-width .2s ease,padding .2s ease,border .2s ease;" class="scrollbar">
+                    <div style="display:flex;align-items:center;gap:8px;margin-bottom:12px;">
+                        <h3 style="font-size:14px;font-weight:600;">📝 Notes</h3>
+                        <span style="margin-left:auto;font-size:12px;color:var(--text-muted);" id="reader-note-count">0 notes</span>
+                        <button onclick="toggleNotesPanel()" id="notes-toggle-btn" style="width:24px;height:24px;border-radius:4px;border:none;background:var(--bg-hover);color:var(--text-muted);cursor:pointer;font-size:12px;flex-shrink:0;" title="Collapse notes">▶</button>
+                    </div>
+                    <div id="reader-notes-content">
+                        <div style="margin-bottom:12px;">
+                            <textarea id="reader-quick-note" placeholder="Quick note..." style="width:100%;padding:8px;border-radius:6px;font-size:12px;resize:none;border:1px solid var(--border);background:var(--bg-input);color:var(--text-primary);outline:none;" rows="2"></textarea>
+                            <button class="btn-secondary" style="width:100%;font-size:12px;padding:4px;margin-top:4px;" onclick="readerSaveQuickNote()">+ Add Note</button>
+                        </div>
+                        <div id="reader-notes-list" style="display:flex;flex-direction:column;gap:8px;margin-bottom:16px;"></div>
+                        <div style="border-top:1px solid var(--border);padding-top:12px;">
+                            <h3 style="font-size:11px;font-weight:600;text-transform:uppercase;color:var(--text-muted);margin-bottom:8px;">🎨 Highlights</h3>
+                            <div id="reader-highlights-list" style="display:flex;flex-direction:column;gap:4px;"></div>
+                        </div>
+                    </div>
+                </aside>
+            </div>
+        </div>
+
+        <!-- Reader Bookshelf Modal -->
+        <div id="reader-bs-modal" style="display:none;position:fixed;inset:0;z-index:50;align-items:center;justify-content:center;padding:16px;background:rgba(0,0,0,.5);" onclick="if(event.target===this)readerCloseBookshelf()">
+            <div style="border-radius:16px;max-width:800px;width:100%;max-height:80vh;display:flex;flex-direction:column;overflow:hidden;background:var(--bg-card);border:1px solid var(--border);">
+                <div style="display:flex;align-items:center;justify-content:space-between;padding:16px 24px;border-bottom:1px solid var(--border);">
+                    <div><h3 style="font-size:18px;font-weight:700;">📚 My Bookshelf</h3><p style="font-size:12px;color:var(--text-muted);">Click a document to open it</p></div>
+                    <div style="display:flex;align-items:center;gap:8px;">
+                        <button class="btn-secondary" style="font-size:13px;" onclick="bsUpload()">📎 Upload</button>
+                        <button onclick="readerCloseBookshelf()" style="font-size:20px;color:var(--text-muted);background:none;border:none;cursor:pointer;">✕</button>
+                    </div>
+                </div>
+                <div id="reader-bs-tabs" style="display:flex;gap:4px;padding:8px 24px;border-bottom:1px solid var(--border);flex-wrap:wrap;"></div>
+                <div style="flex:1;overflow-y:auto;padding:24px;" class="scrollbar">
+                    <div id="reader-bs-grid" style="display:grid;grid-template-columns:repeat(4,1fr);gap:12px;"></div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Upload Category Modal -->
+        <div id="bs-upload-modal" style="display:none;position:fixed;inset:0;z-index:60;align-items:center;justify-content:center;padding:16px;background:rgba(0,0,0,.5);" onclick="if(event.target===this)bsCloseUpload()">
+            <div class="card" style="max-width:400px;width:100%;background:var(--bg-card);">
+                <h3 style="font-size:18px;font-weight:700;margin-bottom:4px;">Select Category</h3>
+                <p style="font-size:12px;color:var(--text-muted);margin-bottom:16px;" id="bs-upload-filename">file.pdf</p>
+                <div id="bs-upload-cats" style="display:flex;flex-direction:column;gap:8px;margin-bottom:16px;"></div>
+                <div style="display:flex;gap:8px;"><button class="btn-primary" style="flex:1;padding:8px;" onclick="bsConfirmUpload()">✅ Confirm</button><button class="btn-secondary" onclick="bsCloseUpload()">Cancel</button></div>
+            </div>
+        </div>
+
+        <!-- ===== KNOWLEDGE GRAPH (placeholder) ===== -->
+        <div id="page-graph" class="page-view" style="max-width:900px;margin:0 auto;padding:32px 48px;">
+            <h1 style="font-size:24px;font-weight:700;margin-bottom:16px;">🗺️ Knowledge Graph</h1>
+            <div style="display:flex;gap:16px;margin-bottom:16px;font-size:12px;"><span>🟢 Mastered</span><span>🟡 Learning</span><span>🔴 Not started</span></div>
+            <div class="placeholder-box" style="min-height:400px;">🗺️ Interactive knowledge graph — Complete pre-assessment to unlock</div>
+        </div>
+
+        <!-- ===== FORUM (placeholder) ===== -->
+        <div id="page-forum" class="page-view">
+            <div style="display:flex;height:calc(100vh - 49px);">
+                <aside style="width:220px;border-right:1px solid var(--border);background:var(--bg-sidebar);padding:12px;flex-shrink:0;overflow-y:auto;" class="scrollbar">
+                    <div style="font-size:11px;font-weight:600;text-transform:uppercase;color:var(--text-muted);margin-bottom:4px;">🌍 Community</div>
+                    <div class="nav-item active" style="font-size:13px;">🔥 All Posts</div>
+                    <div class="nav-item" style="font-size:13px;">⭐ Following</div>
+                    <div style="font-size:11px;font-weight:600;text-transform:uppercase;color:var(--text-muted);margin-top:16px;margin-bottom:4px;">🇬🇧 UK Students</div>
+                    <div class="nav-item" style="font-size:13px;">🏫 Queen Mary</div>
+                    <div style="font-size:11px;font-weight:600;text-transform:uppercase;color:var(--text-muted);margin-top:16px;margin-bottom:4px;">🌏 International</div>
+                    <div class="nav-item" style="font-size:13px;">🇨🇳 Chinese Students</div>
+                </aside>
+                <div style="flex:1;overflow-y:auto;padding:24px 32px;max-width:720px;margin:0 auto;width:100%;">
+                    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;"><h1 style="font-size:22px;font-weight:700;">🔥 Trending Discussions</h1><button class="btn-primary" style="font-size:13px;">✏️ New Post</button></div>
+                    <div class="placeholder-box" style="min-height:300px;">💬 Forum posts will appear here</div>
+                </div>
+            </div>
+        </div>
+
+        <!-- ===== BOOKSHELF (FUNCTIONAL) ===== -->
+        <div id="page-bookshelf" class="page-view" style="max-width:1000px;margin:0 auto;padding:40px 48px;">
+            <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:24px;">
+                <div><h1 style="font-size:24px;font-weight:700;">📚 My Bookshelf</h1><p style="color:var(--text-muted);font-size:13px;margin-top:4px;" id="bs-page-count">All your study materials</p></div>
+                <button class="btn-secondary" style="border-style:dashed;" onclick="bsUpload()">📎 Upload PDF</button>
+            </div>
+            <div id="bs-page-tabs" style="display:flex;gap:4px;border-bottom:1px solid var(--border);padding-bottom:8px;margin-bottom:16px;"></div>
+            <div id="bs-page-grid" style="display:grid;grid-template-columns:repeat(5,1fr);gap:12px;min-height:300px;"></div>
+        </div>
+
+        <!-- ===== PROFILE ===== -->
+        <div id="page-profile" class="page-view" style="max-width:600px;margin:0 auto;padding:40px 48px;">
+            <h1 style="font-size:24px;font-weight:700;margin-bottom:24px;">👤 Profile</h1>
+            <div class="card" style="margin-bottom:24px;text-align:center;padding:32px;">
+                <div id="profile-avatar" style="width:80px;height:80px;border-radius:50%;background:linear-gradient(135deg,#ff8c00,#e91e63);display:flex;align-items:center;justify-content:center;color:#fff;font-size:32px;font-weight:600;margin:0 auto 16px;">U</div>
+                <div id="profile-name" style="font-size:20px;font-weight:600;">User</div>
+                <div id="profile-email" style="font-size:14px;color:var(--text-muted);margin-top:4px;">email@example.com</div>
+            </div>
+            <div class="card" style="margin-bottom:24px;">
+                <h2 style="font-size:16px;font-weight:600;margin-bottom:16px;">Basic Information</h2>
+                <div style="display:flex;flex-direction:column;gap:16px;">
+                    <div>
+                        <label style="font-size:13px;font-weight:500;color:var(--text-secondary);display:block;margin-bottom:6px;">Name</label>
+                        <input id="profile-input-name" class="input" style="width:100%;" placeholder="Your name">
+                    </div>
+                    <div>
+                        <label style="font-size:13px;font-weight:500;color:var(--text-secondary);display:block;margin-bottom:6px;">University</label>
+                        <input id="profile-input-uni" class="input" style="width:100%;" placeholder="Your university">
+                    </div>
+                    <div>
+                        <label style="font-size:13px;font-weight:500;color:var(--text-secondary);display:block;margin-bottom:6px;">Major</label>
+                        <input id="profile-input-major" class="input" style="width:100%;" placeholder="Your major">
+                    </div>
+                    <div>
+                        <label style="font-size:13px;font-weight:500;color:var(--text-secondary);display:block;margin-bottom:6px;">Year</label>
+                        <select id="profile-input-year" class="input" style="width:100%;">
+                            <option value="freshman">First Year</option>
+                            <option value="sophomore">Second Year</option>
+                            <option value="junior">Third Year</option>
+                            <option value="senior">Fourth Year+</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label style="font-size:13px;font-weight:500;color:var(--text-secondary);display:block;margin-bottom:6px;">A-Level Mathematics Grade</label>
+                        <select id="profile-input-alevel" class="input" style="width:100%;">
+                            <option value="">Not specified</option>
+                            <option value="A*">A*</option>
+                            <option value="A">A</option>
+                            <option value="B">B</option>
+                            <option value="C">C</option>
+                            <option value="D">D</option>
+                        </select>
+                    </div>
+                    <div style="display:flex;align-items:center;gap:8px;">
+                        <input type="checkbox" id="profile-input-fm" style="accent-color:var(--accent);">
+                        <label for="profile-input-fm" style="font-size:13px;color:var(--text-secondary);">I took Further Mathematics</label>
+                    </div>
+                </div>
+                <button class="btn-primary" style="width:100%;margin-top:20px;padding:10px;" onclick="saveProfile()">💾 Save Changes</button>
+            </div>
+        </div>
+
+    </main>
+</div>
+
+<!-- AI Chat Dialog -->
+<div id="ai-chat-modal" style="display:none;position:fixed;bottom:0;right:24px;z-index:100;width:440px;max-width:calc(100vw - 48px);height:600px;max-height:calc(100vh - 100px);flex-direction:column;border-radius:16px 16px 0 0;box-shadow:0 -4px 24px rgba(0,0,0,.2);background:var(--bg-card);border:1px solid var(--border);overflow:hidden;">
+    <!-- Header -->
+    <div style="display:flex;align-items:center;justify-content:space-between;padding:12px 16px;border-bottom:1px solid var(--border);background:linear-gradient(135deg,rgba(114,46,209,.08),rgba(35,131,226,.08));">
+        <div style="display:flex;align-items:center;gap:8px;">
+            <div style="width:32px;height:32px;border-radius:8px;background:linear-gradient(135deg,#722ed1,#9b59f7);display:flex;align-items:center;justify-content:center;color:#fff;font-size:14px;">🤖</div>
+            <div>
+                <div style="font-size:15px;font-weight:700;color:var(--text-primary);">AI Tutor</div>
+                <div style="font-size:10px;color:var(--text-muted);">Qwen3.6 · CogniBridge</div>
+            </div>
+        </div>
+        <button onclick="closeAIChat()" style="width:28px;height:28px;border-radius:6px;border:none;background:transparent;color:var(--text-muted);cursor:pointer;font-size:16px;">✕</button>
+    </div>
+    <!-- Quoted text -->
+    <div id="ai-chat-quote" style="display:none;padding:8px 16px;font-size:12px;color:var(--text-secondary);font-style:italic;background:rgba(114,46,209,.04);border-bottom:1px solid var(--border);border-left:3px solid #722ed1;"></div>
+    <!-- Messages area -->
+    <div id="ai-chat-messages" style="flex:1;overflow-y:auto;padding:16px;" class="scrollbar"></div>
+    <!-- Quick buttons -->
+    <div style="display:flex;gap:6px;padding:8px 16px;border-top:1px solid var(--border);background:var(--bg-sidebar);">
+        <button onclick="aiChatQuick(this)" data-q="Explain this in simple terms for a first-year student" style="font-size:11px;padding:5px 10px;border-radius:999px;background:var(--bg-input);color:var(--text-secondary);border:1px solid var(--border);cursor:pointer;white-space:nowrap;">💡 Explain</button>
+        <button onclick="aiChatQuick(this)" data-q="Give me a concrete example of this concept" style="font-size:11px;padding:5px 10px;border-radius:999px;background:var(--bg-input);color:var(--text-secondary);border:1px solid var(--border);cursor:pointer;white-space:nowrap;">📝 Example</button>
+        <button onclick="aiChatQuick(this)" data-q="How does this relate to high school mathematics?" style="font-size:11px;padding:5px 10px;border-radius:999px;background:var(--bg-input);color:var(--text-secondary);border:1px solid var(--border);cursor:pointer;white-space:nowrap;">🎓 HS Link</button>
+    </div>
+    <!-- Input -->
+    <div style="display:flex;align-items:center;gap:8px;padding:12px 16px;border-top:1px solid var(--border);background:var(--bg-card);">
+        <input id="ai-chat-input" type="text" placeholder="Ask a follow-up question..." class="input" style="flex:1;" onkeypress="if(event.key==='Enter')aiChatSend()">
+        <button onclick="aiChatSend()" style="width:36px;height:36px;border-radius:8px;border:none;background:var(--accent);color:#fff;cursor:pointer;font-size:16px;display:flex;align-items:center;justify-content:center;">➤</button>
+    </div>
+</div>
+
+<script>
+// ===== AUTH & API =====
+const AI_BACKEND_URL='http://localhost:8000';
+
+// Global API fetch with JWT token
+async function apiFetch(url,options={}){
+    const token=localStorage.getItem('cb_token');
+    const headers={...(options.headers||{})};
+    if(!(options.body instanceof FormData))headers['Content-Type']='application/json';
+    if(token)headers['Authorization']='Bearer '+token;
+    const res=await fetch(AI_BACKEND_URL+url,{...options,headers});
+    if(res.status===401){
+        localStorage.removeItem('cb_token');
+        localStorage.removeItem('cb_user');
+        showNotification('⚠️ Session expired. Please log in again.');
+        showPage('login');
+        throw new Error('Unauthorized');
+    }
+    return res;
+}
+
+// Auth functions
+function authToggleMode(){
+    const loginForm=document.getElementById('login-form');
+    const regForm=document.getElementById('register-form');
+    const forgotForm=document.getElementById('forgot-form');
+    if(loginForm.style.display==='none'){
+        loginForm.style.display='block';regForm.style.display='none';forgotForm.style.display='none';
+    }else{
+        loginForm.style.display='none';regForm.style.display='block';forgotForm.style.display='none';
+    }
+}
+function authShowForgot(){
+    document.getElementById('login-form').style.display='none';
+    document.getElementById('register-form').style.display='none';
+    document.getElementById('forgot-form').style.display='block';
+}
+function authShowLogin(){
+    document.getElementById('login-form').style.display='block';
+    document.getElementById('register-form').style.display='none';
+    document.getElementById('forgot-form').style.display='none';
+}
+
+async function authLogin(){
+    const email=document.getElementById('login-email').value.trim();
+    const password=document.getElementById('login-password').value;
+    if(!email||!password){showNotification('⚠️ Please enter email and password');return;}
+    try{
+        const res=await fetch(AI_BACKEND_URL+'/api/auth/login',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({email,password})});
+        if(!res.ok){const err=await res.json();throw new Error(err.detail||'Login failed');}
+        const data=await res.json();
+        localStorage.setItem('cb_token',data.access_token);
+        localStorage.setItem('cb_user',JSON.stringify(data.user));
+        await migrateGuestData();
+        renderSidebarUser();
+        showNotification('✅ Welcome back, '+data.user.name);
+        showPage('dashboard');
+    }catch(e){showNotification('❌ '+e.message);}
+}
+
+async function authRegister(){
+    const name=document.getElementById('reg-name').value.trim();
+    const email=document.getElementById('reg-email').value.trim();
+    const password=document.getElementById('reg-password').value;
+    if(!email||!password){showNotification('⚠️ Please fill in all fields');return;}
+    if(password.length<6){showNotification('⚠️ Password must be at least 6 characters');return;}
+    if(!/[a-zA-Z]/.test(password)||!/\d/.test(password)){showNotification('⚠️ Password must contain at least one letter and one number');return;}
+    try{
+        const res=await fetch(AI_BACKEND_URL+'/api/auth/register',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({email,password,name})});
+        if(!res.ok){const err=await res.json();throw new Error(err.detail||'Registration failed');}
+        const data=await res.json();
+        localStorage.setItem('cb_token',data.access_token);
+        localStorage.setItem('cb_user',JSON.stringify(data.user));
+        await migrateGuestData();
+        renderSidebarUser();
+        showNotification('✅ Account created! Welcome, '+data.user.name);
+        showPage('dashboard');
+    }catch(e){showNotification('❌ '+e.message);}
+}
+
+async function authForgotPassword(){
+    const email=document.getElementById('forgot-email').value.trim();
+    if(!email){showNotification('⚠️ Please enter your email');return;}
+    try{
+        const res=await fetch(AI_BACKEND_URL+'/api/auth/forgot-password',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({email})});
+        if(!res.ok)throw new Error('Failed');
+        showNotification('📨 Reset link generated. Check server console.');
+        authShowLogin();
+    }catch(e){showNotification('❌ Failed to generate reset link');}
+}
+
+function authLogout(){
+    localStorage.removeItem('cb_token');
+    localStorage.removeItem('cb_user');
+    renderSidebarUser();
+    showNotification('🚪 Logged out');
+    showPage('login');
+}
+
+function authContinueAsGuest(){
+    showNotification('🌐 Continuing as guest. Your progress is saved locally.');
+    showPage('dashboard');
+}
+
+async function migrateGuestData(){
+    const guestNotes=JSON.parse(localStorage.getItem('cb_notes_guest')||'[]');
+    const pretest=localStorage.getItem('cb_pretest');
+    if(guestNotes.length===0&&!pretest)return;
+    showNotification('🔄 Migrating your local data...');
+    for(const note of guestNotes){
+        try{await apiFetch('/api/notes',{method:'POST',body:JSON.stringify({title:note.title,tag:note.tag,content:note.content,source:note.source||'manual'})});}catch(e){}
+    }
+    if(pretest){
+        try{await apiFetch('/api/assessments',{method:'POST',body:pretest});}catch(e){}
+    }
+    localStorage.removeItem('cb_notes_guest');
+    showNotification('✅ Your progress has been saved to your account!');
+}
+
+// ===== PROFILE =====
+function renderProfile(){
+    const userStr=localStorage.getItem('cb_user');
+    const user=userStr?JSON.parse(userStr):null;
+    if(!user){showNotification('⚠️ Please log in first');showPage('login');return;}
+    
+    // Avatar & header
+    const initial=(user.name||'U')[0].toUpperCase();
+    const avatarEl=document.getElementById('profile-avatar');
+    const nameEl=document.getElementById('profile-name');
+    const emailEl=document.getElementById('profile-email');
+    if(avatarEl){avatarEl.textContent=initial;}
+    if(nameEl){nameEl.textContent=user.name||'User';}
+    if(emailEl){emailEl.textContent=user.email||'';}
+    
+    // Form fields
+    document.getElementById('profile-input-name').value=user.name||'';
+    document.getElementById('profile-input-uni').value=user.university||'Queen Mary University of London';
+    document.getElementById('profile-input-major').value=user.major||'Computer Science';
+    document.getElementById('profile-input-year').value=user.year||'freshman';
+    document.getElementById('profile-input-alevel').value=user.a_level_grade||'';
+    document.getElementById('profile-input-fm').checked=user.further_math===1||user.further_math===true;
+}
+
+async function saveProfile(){
+    const name=document.getElementById('profile-input-name').value.trim();
+    const university=document.getElementById('profile-input-uni').value.trim();
+    const major=document.getElementById('profile-input-major').value.trim();
+    const year=document.getElementById('profile-input-year').value;
+    const a_level_grade=document.getElementById('profile-input-alevel').value;
+    const further_math=document.getElementById('profile-input-fm').checked?1:0;
+    
+    try{
+        const res=await apiFetch('/api/auth/me',{
+            method:'PUT',
+            body:JSON.stringify({name,university,major,year,a_level_grade,further_math})
+        });
+        if(!res.ok)throw new Error('Failed to update');
+        
+        // Update localStorage user
+        const userStr=localStorage.getItem('cb_user');
+        const user=userStr?JSON.parse(userStr):{};
+        user.name=name;user.university=university;user.major=major;
+        user.year=year;user.a_level_grade=a_level_grade;user.further_math=further_math;
+        localStorage.setItem('cb_user',JSON.stringify(user));
+        
+        renderProfile();
+        renderSidebarUser();
+        showNotification('✅ Profile updated');
+    }catch(e){showNotification('❌ Failed to update profile');}
+}
+
+// Password strength meter
+document.addEventListener('DOMContentLoaded',()=>{
+    const regPwd=document.getElementById('reg-password');
+    if(regPwd){
+        regPwd.addEventListener('input',function(){
+            const pwd=this.value;
+            const hasLetter=/[a-zA-Z]/.test(pwd);
+            const hasNumber=/\d/.test(pwd);
+            const isLongEnough=pwd.length>=6;
+            let strength='Weak';let color='#f5222d';
+            if(pwd.length===0){strength='Enter password';color='var(--text-muted)';}
+            else if(isLongEnough&&hasLetter&&hasNumber&&pwd.length>=10){strength='Strong';color='#52c41a';}
+            else if(isLongEnough&&hasLetter&&hasNumber){strength='Medium';color='#faad14';}
+            const el=document.getElementById('pwd-strength');
+            if(el){el.textContent=strength;el.style.color=color;}
+        });
+    }
+});
+
+// Sidebar user area rendering
+function renderSidebarUser(){
+    const container=document.getElementById('sidebar-user-area');
+    if(!container)return;
+    const token=localStorage.getItem('cb_token');
+    const user=token?JSON.parse(localStorage.getItem('cb_user')||'{}'):null;
+    if(!token){
+        container.innerHTML=`<div style="padding:12px;text-align:center;"><button class="btn-primary" style="width:100%;margin-bottom:8px;font-size:13px;" onclick="showPage('login')">🔑 Log In</button><p style="font-size:11px;color:var(--text-muted);">🌐 Guest Mode</p></div>`;
+    }else{
+        const initial=(user.name||'U')[0].toUpperCase();
+        container.innerHTML=`<div style="position:relative;"><div style="display:flex;align-items:center;gap:8px;cursor:pointer;padding:4px;" onclick="document.getElementById('user-dropdown').style.display=document.getElementById('user-dropdown').style.display==='none'?'block':'none';"><div style="width:32px;height:32px;border-radius:50%;background:linear-gradient(135deg,#ff8c00,#e91e63);display:flex;align-items:center;justify-content:center;color:#fff;font-size:13px;font-weight:600;">${initial}</div><div style="flex:1;min-width:0;"><div style="font-size:13px;font-weight:500;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${escapeHtml(user.name||'User')}</div><div style="font-size:11px;color:var(--text-muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${escapeHtml(user.university||'Student')}</div></div><span style="font-size:10px;color:var(--text-muted);">▼</span></div><div id="user-dropdown" style="display:none;padding:4px 0;border-top:1px solid var(--border);margin-top:4px;"><div class="nav-item" style="font-size:13px;padding:4px 8px;" onclick="showPage('profile')">👤 Profile</div><div class="nav-item" style="font-size:13px;padding:4px 8px;" onclick="authLogout()">🚪 Log Out</div></div></div>`;
+    }
+}
+
+// ===== Navigation =====
+const pageLabels={dashboard:'Dashboard',pretest:'Pre-Assessment',tutor:'Math Tutor',plotter:'Function Plotter',reader:'Reader',notes:'Notes',graph:'Knowledge Graph',forum:'Student Forum',bookshelf:'Bookshelf',login:'Log In',profile:'Profile'};
+
+// Pages that require login for data persistence
+const LOGIN_REQUIRED_PAGES=['bookshelf'];
+const LOGIN_RECOMMENDED_PAGES=['dashboard'];
+
+function showPage(id){
+    const token=localStorage.getItem('cb_token');
+    // Route guard: redirect to login for protected pages
+    if(!token&&LOGIN_REQUIRED_PAGES.includes(id)){
+        showNotification('🔑 Please log in to access this feature');
+        id='login';
+    }
+    document.querySelectorAll('.page-view').forEach(p=>p.classList.remove('active'));
+    document.getElementById('page-'+id).classList.add('active');
+    document.querySelectorAll('.nav-item').forEach(n=>n.classList.remove('active'));
+    const bc=document.getElementById('breadcrumb');
+    if(bc)bc.textContent=pageLabels[id]||id;
+    if(id==='dashboard'){
+        // Update welcome message with user name
+        const user=token?JSON.parse(localStorage.getItem('cb_user')||'{}'):null;
+        const welcomeEl=document.querySelector('#page-dashboard h1');
+        if(welcomeEl)welcomeEl.textContent='Good afternoon, '+(user?user.name:'Guest')+' 👋';
+        bsRenderDashboard(bsPageCat);
+    }
+    if(id==='profile'){
+        renderProfile();
+    }
+}
+function toggleSidebar(){
+    const sb=document.getElementById('app-sidebar');
+    if(sb.style.width==='0px'){
+        sb.style.width='240px';sb.style.minWidth='240px';sb.style.borderRight='1px solid var(--border)';
+    }else{
+        sb.style.width='0';sb.style.minWidth='0';sb.style.borderRight='none';
+    }
+}
+function toggleTheme(){document.body.classList.toggle('dark');document.getElementById('theme-btn').textContent=document.body.classList.contains('dark')?'☀️':'🌙';}
+
+// ===== MATH TUTOR =====
+let tutorMode='general';
+let tutorChatHistory=[];
+let tutorMaterials=[];
+
+function tutorSwitchMode(m){
+    tutorMode=m;
+    const bg=document.getElementById('tutor-mode-general');
+    const bd=document.getElementById('tutor-mode-deep');
+    const desc=document.getElementById('tutor-mode-desc');
+    if(m==='general'){
+        bg.style.background='var(--accent)';bg.style.color='#fff';
+        bd.style.background='transparent';bd.style.color='var(--text-secondary)';
+        desc.textContent='⚡ Direct answers with knowledge sources, method breakdowns & easy explanations';
+    }else{
+        bd.style.background='var(--accent)';bd.style.color='#fff';
+        bg.style.background='transparent';bg.style.color='var(--text-secondary)';
+        desc.textContent='🧠 Guided discovery — step-by-step Socratic questioning. Takes longer but helps you truly understand';
+    }
+}
+
+function tutorUploadMaterial(){
+    const inp=document.createElement('input');
+    inp.type='file';inp.accept='.pdf,.pptx';inp.style.display='none';
+    inp.onchange=()=>{
+        if(!inp.files[0])return;
+        const file=inp.files[0];
+        tutorMaterials.push({name:file.name,size:(file.size/1024/1024).toFixed(1)+'MB',file:file});
+        tutorRenderMaterials();
+    };
+    document.body.appendChild(inp);inp.click();inp.remove();
+}
+
+function tutorRenderMaterials(){
+    const c=document.getElementById('tutor-materials');if(!c)return;
+    c.innerHTML=tutorMaterials.map((m,i)=>
+        `<div style="display:flex;align-items:center;gap:8px;padding:6px 12px;border-radius:6px;background:var(--bg-input);margin-bottom:4px;font-size:12px;">
+        <span>📎</span><span style="color:var(--text-primary);">${m.name}</span><span style="color:var(--text-muted);">${m.size}</span>
+        <button onclick="tutorMaterials.splice(${i},1);tutorRenderMaterials()" style="margin-left:auto;color:#ff6b6b;background:none;border:none;cursor:pointer;font-size:14px;">×</button></div>`
+    ).join('');
+}
+
+function tutorSendQuick(q){
+    document.getElementById('tutor-input').value=q;
+    tutorSend();
+}
+
+function tutorSend(){
+    const inp=document.getElementById('tutor-input');
+    const q=inp.value.trim();if(!q)return;
+    inp.value='';
+    const chat=document.getElementById('tutor-chat');
+    // Clear placeholder
+    if(tutorChatHistory.length===0)chat.innerHTML='';
+    // User message
+    const sysMsg=tutorMode==='general'?
+        'You are CogniBridge, an expert UK university mathematics tutor. Solve the problem step by step with clear working. Use British mathematical notation. Put the final answer in **bold**. If asked in Chinese, respond in Chinese; if English, respond in English.':
+        'You are CogniBridge, a Socratic maths tutor. Help students discover answers through guided questioning.';
+    // Build messages with history
+    let msgs=[{role:'system',content:sysMsg}];
+    if(tutorMaterials.length>0){
+        msgs.push({role:'system',content:'The student has uploaded these reference materials: '+tutorMaterials.map(m=>m.name).join(', ')});
+    }
+    msgs=msgs.concat(tutorChatHistory);
+    msgs.push({role:'user',content:q});
+    tutorChatHistory.push({role:'user',content:q});
+
+    // Render user bubble
+    const userDiv=document.createElement('div');
+    userDiv.style.cssText='display:flex;flex-direction:row-reverse;gap:8px;';
+    userDiv.innerHTML='<div style="width:28px;height:28px;border-radius:50%;background:linear-gradient(135deg,#ff8c00,#e91e63);display:flex;align-items:center;justify-content:center;color:#fff;font-size:12px;font-weight:600;flex-shrink:0;">Y</div>'+
+        '<div style="background:var(--accent);color:#fff;padding:8px 14px;border-radius:12px 12px 4px 12px;font-size:13px;max-width:75%;">'+escapeHtmlTutor(q)+'</div>';
+    chat.appendChild(userDiv);
+
+    // AI bubble (streaming)
+    const aiDiv=document.createElement('div');
+    aiDiv.style.cssText='display:flex;gap:8px;';
+    const bubbleId='tutor-bubble-'+Date.now();
+    aiDiv.innerHTML='<div style="width:28px;height:28px;border-radius:50%;background:linear-gradient(135deg,'+(tutorMode==='general'?'#2383e2,#4090e8':'#722ed1,#9b59f7')+');display:flex;align-items:center;justify-content:center;color:#fff;font-size:12px;font-weight:600;flex-shrink:0;">'+(tutorMode==='general'?'AI':'🧠')+'</div>'+
+        '<div id="'+bubbleId+'" style="background:var(--bg-hover);color:var(--text-primary);padding:8px 14px;border-radius:12px 12px 12px 4px;font-size:13px;max-width:75%;"><span style="color:var(--text-muted);">⏳ Thinking...</span></div>';
+    chat.appendChild(aiDiv);
+    chat.scrollTop=chat.scrollHeight;
+
+    kimiCall(msgs,
+        full=>{const el=document.getElementById(bubbleId);if(el)el.innerHTML=mdToHtmlTutor(full)+'<span style="opacity:.5;">▌</span>';chat.scrollTop=chat.scrollHeight;},
+        full=>{const el=document.getElementById(bubbleId);if(el)el.innerHTML=mdToHtmlTutor(full);tutorChatHistory.push({role:'assistant',content:full});chat.scrollTop=chat.scrollHeight;
+            // Suggest practice + A-Level connections in General mode
+            if(tutorMode==='general'){
+                const sug=document.createElement('div');sug.style.cssText='display:flex;gap:8px;margin-top:4px;flex-wrap:wrap;';
+                sug.innerHTML='<div style="width:28px;flex-shrink:0;"></div>'+
+                    '<button onclick="tutorSendQuick(\'Generate 3 similar practice problems with solutions\')" style="font-size:11px;padding:4px 10px;border-radius:6px;background:rgba(82,196,26,.1);border:1px solid rgba(82,196,26,.3);color:#52c41a;cursor:pointer;white-space:nowrap;">🎯 Practice problems</button>'+
+                    '<button onclick="tutorSendQuick(\'Explain how this concept connects to A-Level Mathematics. What specific A-Level topics are the prerequisites? How does the university-level treatment differ from A-Level? Give concrete examples of the bridge between A-Level and university understanding.\')" style="font-size:11px;padding:4px 10px;border-radius:6px;background:rgba(35,131,226,.1);border:1px solid rgba(35,131,226,.3);color:#2383e2;cursor:pointer;white-space:nowrap;">🔗 Show A-Level connections</button>';
+                chat.appendChild(sug);chat.scrollTop=chat.scrollHeight;
+            }else if(tutorMode==='deep'){
+                const sug=document.createElement('div');sug.style.cssText='display:flex;gap:8px;margin-top:4px;flex-wrap:wrap;';
+                sug.innerHTML='<div style="width:28px;flex-shrink:0;"></div>'+
+                    '<button onclick="tutorSendQuick(\'I need a hint\')" style="font-size:11px;padding:4px 10px;border-radius:6px;background:rgba(250,172,22,.1);border:1px solid rgba(250,172,22,.3);color:#faad14;cursor:pointer;white-space:nowrap;">💡 Need a hint</button>'+
+                    '<button onclick="tutorSendQuick(\'I am stuck, can you walk me through this?\')" style="font-size:11px;padding:4px 10px;border-radius:6px;background:rgba(255,107,107,.1);border:1px solid rgba(255,107,107,.3);color:#ff6b6b;cursor:pointer;white-space:nowrap;">🆘 I am stuck</button>';
+                chat.appendChild(sug);chat.scrollTop=chat.scrollHeight;
+            }
+        },
+        err=>{const el=document.getElementById(bubbleId);if(el)el.innerHTML='<span style="color:#ff6b6b;">❌ '+escapeHtml(err)+'</span>';}
+    );
+}
+
+function escapeHtmlTutor(t){return t.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;');}
+
+function mdToHtmlTutor(md){
+    // 1. Protect LaTeX math before escaping
+    const mathBlocks=[];
+    // Block math: $$...$$
+    let text=md.replace(/\$\$([\s\S]+?)\$\$/g,(m,p1)=>{mathBlocks.push({d:true,l:p1.trim()});return '\x00B'+(mathBlocks.length-1)+'\x00';});
+    // Inline math: $...$
+    text=text.replace(/\$([^\$\n]+?)\$/g,(m,p1)=>{mathBlocks.push({d:false,l:p1.trim()});return '\x00I'+(mathBlocks.length-1)+'\x00';});
+    // Also protect \(...\) and \[...\]
+    text=text.replace(/\\\((.+?)\\\)/g,(m,p1)=>{mathBlocks.push({d:false,l:p1.trim()});return '\x00I'+(mathBlocks.length-1)+'\x00';});
+    text=text.replace(/\\\[([\s\S]+?)\\\]/g,(m,p1)=>{mathBlocks.push({d:true,l:p1.trim()});return '\x00B'+(mathBlocks.length-1)+'\x00';});
+
+    // 2. Markdown processing
+    text=escapeHtmlTutor(text);
+    text=text.replace(/\*\*(.+?)\*\*/g,'<strong>$1</strong>');
+    text=text.replace(/\*(.+?)\*/g,'<em>$1</em>');
+    text=text.replace(/`(.+?)`/g,'<code style="background:rgba(0,0,0,.1);padding:1px 4px;border-radius:3px;font-size:12px;">$1</code>');
+    text=text.replace(/^\- (.+)$/gm,'<li style="margin-left:16px;">$1</li>');
+    text=text.replace(/^\d+\. (.+)$/gm,'<li style="margin-left:16px;">$1</li>');
+    text=text.replace(/\n/g,'<br>');
+
+    // 3. Render math with KaTeX
+    if(typeof katex!=='undefined'){
+        mathBlocks.forEach((b,i)=>{
+            const ph='\x00'+(b.d?'B':'I')+i+'\x00';
+            try{
+                const html=katex.renderToString(b.l,{displayMode:b.d,throwOnError:false});
+                text=text.split(ph).join(b.d?'<div style="text-align:center;margin:8px 0;overflow-x:auto;">'+html+'</div>':html);
+            }catch(e){
+                text=text.split(ph).join('<code>'+b.l+'</code>');
+            }
+        });
+    }else{
+        // KaTeX not loaded yet, show raw
+        mathBlocks.forEach((b,i)=>{
+            const ph='\x00'+(b.d?'B':'I')+i+'\x00';
+            text=text.split(ph).join((b.d?'<div>':'')+'<code>'+(b.d?'$$':'$')+b.l+(b.d?'$$':'$')+'</code>'+(b.d?'</div>':''));
+        });
+    }
+    return text;
+}
+
+// ===== NOTES =====
+let notesData=[];
+let notesFilterTag='all';
+let notesEditingId=null;
+
+async function notesInit(){await notesLoad();notesRender();}
+async function notesLoad(){
+    // Load active notes from backend
+    try{
+        const res=await apiFetch('/api/notes');
+        if(!res.ok)throw new Error('HTTP '+res.status);
+        const backendNotes=await res.json();
+        notesData=backendNotes.map(n=>({
+            id:n.id,
+            title:n.title||'',
+            tag:n.tag||'',
+            content:n.content||'',
+            source:n.source||'manual',
+            createdAt:n.created_at||n.createdAt,
+            updatedAt:n.updated_at||n.updatedAt,
+            isDeleted:false,
+            deletedAt:null
+        }));
+    }catch(e){
+        console.error('Failed to load notes from server:',e);
+        showNotification('⚠️ Could not load notes from server');
+        notesData=[];
+    }
+    // Merge recycle-bin state from localStorage (soft-delete not yet in backend)
+    try{
+        const s=localStorage.getItem('cb_notes_recycle');
+        if(s){
+            const recycled=JSON.parse(s);
+            recycled.forEach(r=>{
+                const existing=notesData.find(n=>n.id===r.id);
+                if(existing){
+                    existing.isDeleted=true;
+                    existing.deletedAt=r.deletedAt;
+                }else{
+                    notesData.push(r);
+                }
+            });
+        }
+    }catch(e){}
+}
+function notesSaveRecycleBin(){
+    const recycled=notesData.filter(n=>n.isDeleted);
+    try{localStorage.setItem('cb_notes_recycle',JSON.stringify(recycled));}catch(e){}
+}
+
+function notesSave(){
+    // Active notes are persisted on backend; only recycle-bin state is local
+    notesSaveRecycleBin();
+}
+
+function notesRender(){
+    const list=document.getElementById('notes-list');
+    const cnt=document.getElementById('notes-count');
+    const tagsEl=document.getElementById('notes-tags');
+    if(!list)return;
+    const activeNotes=notesData.filter(n=>!n.isDeleted);
+    const deletedCount=notesData.filter(n=>n.isDeleted).length;
+    // Update count
+    if(cnt)cnt.textContent=activeNotes.length+(activeNotes.length===1?' note':' notes');
+    // Build tag filter
+    const allTags=[...new Set(activeNotes.map(n=>n.tag).filter(t=>t))];
+    let tagButtons=['<button onclick="notesFilterTag=\'all\';notesRender()" style="font-size:11px;padding:4px 10px;border-radius:999px;cursor:pointer;border:1px solid '+(notesFilterTag==='all'?'var(--accent)':'var(--border)')+';background:'+(notesFilterTag==='all'?'var(--accent)':'var(--bg-input)')+';color:'+(notesFilterTag==='all'?'#fff':'var(--text-secondary)')+';">All</button>'];
+    tagButtons=tagButtons.concat(allTags.map(t=>'<button onclick="notesFilterTag=\''+escapeHtml(t)+'\';notesRender()" style="font-size:11px;padding:4px 10px;border-radius:999px;cursor:pointer;border:1px solid '+(notesFilterTag===t?'var(--accent)':'var(--border)')+';background:'+(notesFilterTag===t?'var(--accent)':'var(--bg-input)')+';color:'+(notesFilterTag===t?'#fff':'var(--text-secondary)')+';">'+escapeHtml(t)+'</button>'));
+    // Add Recycle Bin tag
+    const rbStyle=notesFilterTag==='__recycle__'?'border:1px solid #ff6b6b;background:#ff6b6b;color:#fff;':'border:1px solid var(--border);background:var(--bg-input);color:var(--text-secondary);';
+    tagButtons.push('<button onclick="notesFilterTag=\'__recycle__\';notesRender()" style="font-size:11px;padding:4px 10px;border-radius:999px;cursor:pointer;'+rbStyle+'">🗑️ Recycle Bin'+(deletedCount>0?' <span style="font-size:10px;padding:1px 5px;border-radius:999px;background:#fff;color:#ff6b6b;font-weight:600;">'+deletedCount+'</span>':'')+'</button>');
+    if(tagsEl)tagsEl.innerHTML=tagButtons.join('');
+    // Filter
+    let filtered;
+    if(notesFilterTag==='__recycle__'){filtered=notesData.filter(n=>n.isDeleted);}
+    else if(notesFilterTag==='all'){filtered=activeNotes;}
+    else{filtered=activeNotes.filter(n=>n.tag===notesFilterTag);}
+    if(filtered.length===0){
+        const emptyMsg=notesFilterTag==='__recycle__'?'Recycle Bin is empty':'No notes yet<br><span style="font-size:12px;">Click "+ New Note" to create your first note</span>';
+        list.innerHTML='<div class="placeholder-box" style="min-height:200px;">'+emptyMsg+'</div>';return;
+    }
+    // Sort by updated desc
+    filtered.sort((a,b)=>new Date(b.updatedAt||b.createdAt)-new Date(a.updatedAt||a.createdAt));
+    // Render cards
+    list.innerHTML=filtered.map(n=>{
+        const date=n.updatedAt||n.createdAt;
+        const dateStr=date?new Date(date).toLocaleDateString():'';
+        const preview=n.content.substring(0,200)+(n.content.length>200?'...':'');
+        if(n.isDeleted){
+            return `<div class="card" style="opacity:.6;transition:opacity .15s;" onmouseenter="this.style.opacity='1'" onmouseleave="this.style.opacity='.6'">
+                <div style="display:flex;align-items:center;gap:8px;margin-bottom:6px;">
+                    <span style="font-size:14px;font-weight:600;color:var(--text-primary);text-decoration:line-through;">${escapeHtml(n.title||'Untitled')}</span>
+                    ${n.tag?'<span style="font-size:10px;padding:1px 6px;border-radius:4px;background:var(--bg-input);color:var(--text-muted);">'+escapeHtml(n.tag)+'</span>':''}
+                    <span style="margin-left:auto;font-size:11px;color:var(--text-muted);">Deleted ${n.deletedAt?new Date(n.deletedAt).toLocaleDateString():''}</span>
+                </div>
+                <p style="font-size:13px;color:var(--text-secondary);white-space:pre-wrap;">${escapeHtml(preview)}</p>
+                <div style="display:flex;gap:8px;margin-top:10px;">
+                    <button onclick="notesRestoreNote('${n.id}')" style="font-size:11px;padding:4px 10px;border-radius:6px;background:rgba(82,196,26,.1);border:1px solid rgba(82,196,26,.3);color:#52c41a;cursor:pointer;">♻️ Restore</button>
+                    <button onclick="notesPermanentlyDeleteNote('${n.id}')" style="font-size:11px;padding:4px 10px;border-radius:6px;background:rgba(255,107,107,.1);border:1px solid rgba(255,107,107,.3);color:#ff6b6b;cursor:pointer;">💥 Delete Forever</button>
+                </div>
+            </div>`;
+        }
+        return `<div class="card" style="cursor:pointer;position:relative;" onmouseenter="this.querySelector('.note-del-btn').style.opacity='1'" onmouseleave="this.querySelector('.note-del-btn').style.opacity='0'">
+            <button class="note-del-btn" onclick="event.stopPropagation();notesDeleteNote('${n.id}')" style="position:absolute;top:8px;right:8px;width:22px;height:22px;border-radius:6px;border:none;background:rgba(255,107,107,.9);color:#fff;font-size:11px;cursor:pointer;opacity:0;transition:opacity .15s;display:flex;align-items:center;justify-content:center;z-index:2;">🗑️</button>
+            <div onclick="notesEdit('${n.id}')" style="width:100%;">
+            <div style="display:flex;align-items:center;gap:8px;margin-bottom:6px;">
+                <span style="font-size:14px;font-weight:600;color:var(--text-primary);">${escapeHtml(n.title||'Untitled')}</span>
+                ${n.tag?'<span style="font-size:10px;padding:1px 6px;border-radius:4px;background:var(--bg-input);color:var(--text-muted);">'+escapeHtml(n.tag)+'</span>':''}
+                <span style="margin-left:auto;font-size:11px;color:var(--text-muted);">${dateStr}</span>
+            </div>
+            <p style="font-size:13px;color:var(--text-secondary);white-space:pre-wrap;">${escapeHtml(preview)}</p></div>
+        </div>`;
+    }).join('');
+}
+
+function notesNewNote(){
+    notesEditingId=null;
+    document.getElementById('notes-editor-title').value='';
+    document.getElementById('notes-editor-tag').value='';
+    document.getElementById('notes-editor-content').value='';
+    document.getElementById('notes-editor-meta').textContent='New note';
+    document.getElementById('notes-list-view').style.display='none';
+    document.getElementById('notes-editor-view').style.display='';
+    document.getElementById('notes-editor-title').focus();
+}
+
+function notesEdit(id){
+    const n=notesData.find(x=>x.id===id);if(!n)return;
+    notesEditingId=id;
+    document.getElementById('notes-editor-title').value=n.title||'';
+    document.getElementById('notes-editor-tag').value=n.tag||'';
+    document.getElementById('notes-editor-content').value=n.content||'';
+    document.getElementById('notes-editor-meta').textContent='Editing · Created '+new Date(n.createdAt).toLocaleDateString();
+    document.getElementById('notes-list-view').style.display='none';
+    document.getElementById('notes-editor-view').style.display='';
+    document.getElementById('notes-editor-content').focus();
+}
+
+function notesCloseEditor(){
+    document.getElementById('notes-editor-view').style.display='none';
+    document.getElementById('notes-list-view').style.display='';
+}
+
+async function notesSaveFromEditor(){
+    const title=document.getElementById('notes-editor-title').value.trim();
+    const tag=document.getElementById('notes-editor-tag').value.trim();
+    const content=document.getElementById('notes-editor-content').value.trim();
+    if(!content){showNotification('⚠️ Note content is empty');return;}
+    try{
+        if(notesEditingId){
+            const res=await apiFetch('/api/notes/'+notesEditingId,{
+                method:'PUT',
+                body:JSON.stringify({title,tag,content})
+            });
+            if(!res.ok)throw new Error('HTTP '+res.status);
+            const n=notesData.find(x=>x.id===notesEditingId);
+            if(n){n.title=title;n.tag=tag;n.content=content;n.updatedAt=new Date().toISOString();}
+        }else{
+            const res=await apiFetch('/api/notes',{
+                method:'POST',
+                body:JSON.stringify({title,tag,content,source:'manual'})
+            });
+            if(!res.ok)throw new Error('HTTP '+res.status);
+            const created=await res.json();
+            notesData.push({
+                id:created.id,
+                title:title,
+                tag:tag,
+                content:content,
+                source:'manual',
+                createdAt:new Date().toISOString(),
+                updatedAt:new Date().toISOString(),
+                isDeleted:false,
+                deletedAt:null
+            });
+        }
+        notesSave();notesRender();notesCloseEditor();
+        showNotification('✅ Note saved');
+    }catch(e){
+        console.error('Save note failed:',e);
+        showNotification('❌ Save failed: '+e.message);
+    }
+}
+
+// ===== PRE-ASSESSMENT =====
+const hsKnowledge=[{n:'Functions & Graphs'},{n:'Quadratics & Inequalities'},{n:'Trigonometry'},{n:'Exponentials & Logarithms'},{n:'Sequences & Series'},{n:'Differentiation'},{n:'Integration'},{n:'Vectors (Basic)'},{n:'Probability & Statistics'},{n:'Proof Basics'}];
+const transitionTopics=[{n:'Discrete Mathematics',d:'Core module, not taught at A-Level'},{n:'Set Theory',d:'Briefly touched at GCSE'},{n:'Propositional Logic',d:'Completely new thinking'},{n:'Graph Theory',d:'CS compulsory, zero baseline'},{n:'Proof Techniques',d:'ε-δ, contradiction, constructive'}];
+const quizQs=[
+    {q:'Evaluate: lim(x→0) sin(x)/x = ?',opts:['0','1','Does not exist','∞'],ans:1,k:'Limits',diff:'Basic'},
+    {q:'Evaluate: ∫ 2x dx = ?',opts:['x² + C','2x² + C','x²/2 + C','2 + C'],ans:0,k:'Basic Integration',diff:'Basic'},
+    {q:'Which is a valid proof method?',opts:['Verification by examples','Proof by contradiction','Intuition','Computer verification'],ans:1,k:'Proof Methods',diff:'Basic'},
+    {q:'Arithmetic sequence a₁=3, d=2, find a₁₀',opts:['21','23','20','25'],ans:0,k:'Sequences',diff:'Basic'},
+    {q:'3 red 2 blue balls, P(both red) without replacement',opts:['3/10','6/25','9/25','1/2'],ans:0,k:'Probability',diff:'Basic'},
+    {q:'Geometric series a₁=2, r=1/2, S(∞) = ?',opts:['2','4','∞','1'],ans:1,k:'Series Convergence',diff:'Intermediate'},
+    {q:'X~N(μ,σ²), P(|X-μ|<σ) ≈ ?',opts:['≈68%','≈95%','≈50%','≈99.7%'],ans:0,k:'Normal Distribution',diff:'Intermediate'},
+    {q:'Does Σ1/n² converge? Sum = ?',opts:['Diverges','Converges, π²/6≈1.645','Converges ≈1','Cannot determine'],ans:1,k:'Convergence Tests',diff:'Hard'},
+    {q:'Evaluate: lim(x→∞)(1+1/x)^x = ?',opts:['1','0','e≈2.718','∞'],ans:2,k:'Important Limit (e)',diff:'Hard'},
+    {q:'Evaluate: ∫₀¹ x·e^x dx = ?',opts:['1','e-1','e','0'],ans:0,k:'Integration by Parts',diff:'Hard'},
+];
+let ptState={knowledge:{},transition:{},quiz:[]};
+function ptGo(s){['pt-welcome','pt-step1','pt-step2','pt-step3','pt-step4','pt-report'].forEach(id=>document.getElementById(id).style.display='none');
+    if(s===0)document.getElementById('pt-welcome').style.display='';
+    else if(s===1)document.getElementById('pt-step1').style.display='';
+    else if(s===2){document.getElementById('pt-step2').style.display='';ptRenderKnowledge();}
+    else if(s===3){document.getElementById('pt-step3').style.display='';ptRenderTransition();}
+    else if(s===4){document.getElementById('pt-step4').style.display='';ptRenderQuiz();}
+}
+function ptRenderKnowledge(){const c=document.getElementById('pt-knowledge-list');if(c.children.length>0)return;const lv=[{v:'master',e:'😊',l:'Mastered',c:'#52c41a'},{v:'ok',e:'😐',l:'Decent',c:'#2383e2'},{v:'fuzzy',e:'😕',l:'Fuzzy',c:'#faad14'},{v:'none',e:'😰',l:'No idea',c:'#f5222d'}];
+    hsKnowledge.forEach((kp,i)=>{const d=document.createElement('div');d.className='card';d.style.padding='12px';d.innerHTML=`<div style="margin-bottom:8px;font-size:14px;font-weight:500;">${kp.n}</div><div style="display:flex;gap:6px;">${lv.map(l=>`<button onclick="ptSetK(${i},'${l.v}',this)" style="flex:1;padding:6px;border-radius:6px;border:1px solid var(--border);font-size:12px;color:var(--text-secondary);background:transparent;cursor:pointer;">${l.e} ${l.l}</button>`).join('')}</div>`;c.appendChild(d);});}
+function ptSetK(i,v,btn){ptState.knowledge[i]=v;btn.parentElement.querySelectorAll('button').forEach(b=>{b.style.background='transparent';b.style.borderColor='var(--border)';b.style.color='var(--text-secondary)';});const cs={master:'#52c41a',ok:'#2383e2',fuzzy:'#faad14',none:'#f5222d'};btn.style.background=cs[v]+'20';btn.style.borderColor=cs[v];btn.style.color=cs[v];}
+function ptRenderTransition(){const c=document.getElementById('pt-transition-list');if(c.children.length>0)return;const lv=[{v:'know',e:'😊',l:'Familiar',c:'#52c41a'},{v:'heard',e:'😐',l:'Heard of it',c:'#faad14'},{v:'unknown',e:'😰',l:'No idea',c:'#f5222d'}];
+    transitionTopics.forEach((t,i)=>{const d=document.createElement('div');d.className='card';d.style.padding='12px';d.innerHTML=`<div style="margin-bottom:4px;font-size:14px;font-weight:500;">${t.n}</div><div style="font-size:12px;color:var(--text-muted);margin-bottom:8px;">${t.d}</div><div style="display:flex;gap:6px;">${lv.map(l=>`<button onclick="ptSetT(${i},'${l.v}',this)" style="flex:1;padding:6px;border-radius:6px;border:1px solid var(--border);font-size:12px;color:var(--text-secondary);background:transparent;cursor:pointer;">${l.e} ${l.l}</button>`).join('')}</div>`;c.appendChild(d);});}
+function ptSetT(i,v,btn){ptState.transition[i]=v;btn.parentElement.querySelectorAll('button').forEach(b=>{b.style.background='transparent';b.style.borderColor='var(--border)';b.style.color='var(--text-secondary)';});const cs={know:'#52c41a',heard:'#faad14',unknown:'#f5222d'};btn.style.background=cs[v]+'20';btn.style.borderColor=cs[v];btn.style.color=cs[v];}
+function ptRenderQuiz(){const c=document.getElementById('pt-quiz-list');if(c.children.length>0)return;
+    quizQs.forEach((q,qi)=>{const d=document.createElement('div');d.className='card';const dc=q.diff==='Hard'?'#f5222d':q.diff==='Intermediate'?'#faad14':'#52c41a';const db=q.diff==='Hard'?'rgba(245,34,45,.08)':q.diff==='Intermediate'?'rgba(250,173,20,.08)':'rgba(82,196,26,.08)';
+        d.innerHTML=`<div style="display:flex;justify-content:space-between;margin-bottom:8px;"><span style="font-size:12px;color:var(--accent);">Q${qi+1} · ${q.k}</span><span style="font-size:11px;padding:2px 8px;border-radius:999px;background:${db};color:${dc};">${q.diff}</span></div><p style="font-size:14px;font-weight:500;margin-bottom:12px;">${q.q}</p><div id="pt-q-${qi}">${q.opts.map((o,oi)=>`<label onclick="ptSelectAns(${qi},${oi})" style="display:flex;align-items:center;gap:8px;padding:8px;border-radius:6px;cursor:pointer;color:var(--text-secondary);"><input type="radio" name="ptq${qi}" value="${oi}" style="accent-color:var(--accent);"><span style="font-size:13px;">${o}</span></label>`).join('')}</div><div id="pt-exp-${qi}" style="display:none;margin-top:12px;padding:12px;border-radius:6px;font-size:12px;background:var(--bg-tag);"></div>`;c.appendChild(d);});}
+function ptSelectAns(qi,oi){ptState.quiz[qi]=oi;const q=quizQs[qi];document.querySelectorAll('#pt-q-'+qi+' label').forEach((el,i)=>{el.style.background='transparent';if(i===q.ans)el.style.background='rgba(82,196,26,.1)';if(i===oi&&oi!==q.ans)el.style.background='rgba(245,34,45,.1)';});const e=document.getElementById('pt-exp-'+qi);e.style.display='';e.innerHTML=`${oi===q.ans?'✅ Correct!':'❌ Not quite.'} Correct answer: ${q.opts[q.ans]}`;e.style.color=oi===q.ans?'#52c41a':'#f5222d';}
+function ptGenerateReport(){const al=document.getElementById('pt-alevel').value||'B';const ks={master:100,ok:75,fuzzy:40,none:0};let ts=0,cnt=0,weak=[],ok2=[],strong=[];
+    hsKnowledge.forEach((kp,i)=>{const v=ptState.knowledge[i];if(v){ts+=ks[v];cnt++;}if(v==='none'||v==='fuzzy')weak.push(kp.n);else if(v==='ok')ok2.push(kp.n);else if(v==='master')strong.push(kp.n);});
+    const avg=cnt>0?Math.round(ts/cnt):0;let danger=[],warn=[];
+    transitionTopics.forEach((t,i)=>{const v=ptState.transition[i];if(v==='unknown')danger.push(t);else if(v==='heard')warn.push(t);});
+    let qc=0;ptState.quiz.forEach((a,i)=>{if(a===quizQs[i].ans)qc++;});
+    document.getElementById('pt-report-content').innerHTML=`
+        <div class="card" style="display:flex;align-items:center;gap:16px;"><div style="width:48px;height:48px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:24px;background:linear-gradient(135deg,#2383e2,#722ed1);">🎓</div><div><div style="font-size:14px;font-weight:500;">Queen Mary · Computer Science</div><div style="font-size:12px;color:var(--text-muted);">A-Level: ${al} · First Year</div></div></div>
+        <div class="card"><div style="display:flex;justify-content:space-between;margin-bottom:12px;"><span style="font-size:14px;font-weight:500;">📈 High School Mastery</span><span style="font-size:24px;font-weight:700;color:${avg>=70?'#52c41a':avg>=40?'#faad14':'#f5222d'};">${avg}%</span></div><div class="progress-bar"><div style="background:${avg>=70?'#52c41a':avg>=40?'#faad14':'#f5222d'};height:4px;border-radius:2px;width:${avg}%;"></div></div>${strong.length?`<div style="font-size:12px;margin-top:8px;"><span style="color:#52c41a">🟢 Mastered:</span> ${strong.join(', ')}</div>`:''}${weak.length?`<div style="font-size:12px;"><span style="color:#f5222d">🔴 Needs work:</span> ${weak.join(', ')}</div>`:''}</div>
+        <div class="card"><div style="font-size:14px;font-weight:500;margin-bottom:12px;">⚠️ Transition Warnings (CS)</div>${danger.map(t=>`<div style="display:flex;gap:8px;margin-bottom:8px;padding:8px;border-radius:6px;background:rgba(245,34,45,.06);"><span style="color:#f5222d">🔴</span><div><div style="font-size:13px;font-weight:500;">${t.n}</div><div style="font-size:11px;color:var(--text-muted)">${t.d}</div></div></div>`).join('')}${warn.map(t=>`<div style="display:flex;gap:8px;margin-bottom:8px;padding:8px;border-radius:6px;background:rgba(250,173,20,.06);"><span style="color:#faad14">🟡</span><div><div style="font-size:13px;font-weight:500;">${t.n}</div><div style="font-size:11px;color:var(--text-muted)">${t.d}</div></div></div>`).join('')}</div>
+        <div class="card"><div style="display:flex;justify-content:space-between;margin-bottom:8px;"><span style="font-size:14px;font-weight:500;">🧮 Quiz Results</span><span style="font-size:14px;font-weight:700;color:${qc>=7?'#52c41a':qc>=4?'#faad14':'#f5222d'};">${qc}/10 Correct</span></div></div>
+        <div class="card" style="background:rgba(35,131,226,.06);border-color:rgba(35,131,226,.2);"><div style="font-size:14px;font-weight:500;color:var(--accent);margin-bottom:12px;">📋 Recommended Path</div>${danger.length?`<div style="font-size:13px;margin-bottom:8px;"><span style="color:#f5222d;font-weight:700;">1️⃣</span> Start: <strong>${danger[0].n}</strong></div>`:''}${weak.length?`<div style="font-size:13px;margin-bottom:8px;"><span style="color:#faad14;font-weight:700;">2️⃣</span> Fix: <strong>${weak[0]}</strong></div>`:''}</div>`;
+    ptGo(5);document.getElementById('pt-report').style.display='';
+
+    // Store pre-assessment results globally
+    const majorSelect=document.getElementById('pt-major');
+    const majorLabel=majorSelect?majorSelect.options[majorSelect.selectedIndex].text:'Computer Science';
+    window.pretestResult={
+        alevel:al,major:majorLabel,knowledge:ptState.knowledge,transition:ptState.transition,
+        quizCorrect:qc,quizTotal:10,avgScore:avg,
+        weakTopics:weak,strongTopics:strong,
+        dangerTopics:danger,warningTopics:warn,
+        completedAt:new Date().toISOString(),
+    };
+    // Persist to localStorage
+    try{localStorage.setItem('cb_pretest',JSON.stringify(window.pretestResult));}catch(e){}
+    // Auto-navigate to dashboard after 3 seconds and render
+    setTimeout(()=>{
+        showPage('dashboard');
+        renderMathSkill(window.pretestResult);
+        renderStudyPlan(window.pretestResult);
+    },3000);
+}
+
+// ===== MATH SKILL BREAKDOWN =====
+function renderMathSkill(result){
+    const ph=document.getElementById('math-skill-placeholder');
+    const ct=document.getElementById('math-skill-content');
+    if(!ph||!ct)return;
+    ph.style.display='none';ct.style.display='block';
+    const ks={master:100,ok:75,fuzzy:40,none:0};
+    const cl={master:'#52c41a',ok:'#2383e2',fuzzy:'#fa8c16',none:'#f5222d'};
+    const emoji={master:'🟢',ok:'🔵',fuzzy:'🟠',none:'🔴'};
+    let html='<div style="font-size:13px;font-weight:600;color:var(--text-muted);margin-bottom:12px;text-transform:uppercase;letter-spacing:.05em;">High School Knowledge</div>';
+    hsKnowledge.forEach((kp,i)=>{
+        const lv=result.knowledge[i]||'none';const sc=ks[lv];const c=cl[lv];
+        html+=`<div style="margin-bottom:10px;"><div style="display:flex;justify-content:space-between;font-size:13px;margin-bottom:3px;"><span>${kp.n}</span><span style="color:${c};font-weight:500;">${sc}%</span></div><div class="progress-bar"><div style="background:${c};height:4px;border-radius:2px;width:${sc}%;transition:width .3s;"></div></div></div>`;
+    });
+    // Transition warnings
+    if(result.dangerTopics&&result.dangerTopics.length){
+        html+='<div style="font-size:13px;font-weight:600;color:var(--text-muted);margin:16px 0 8px;text-transform:uppercase;letter-spacing:.05em;">⚠️ University Transition</div>';
+        result.dangerTopics.forEach(t=>{html+=`<div style="display:flex;align-items:center;gap:6px;margin-bottom:4px;font-size:13px;"><span>🔴</span><span style="color:var(--text-primary);">${t.n}</span><span style="font-size:11px;color:var(--text-muted);margin-left:auto;">Completely new</span></div>`;});
+        if(result.warningTopics)result.warningTopics.forEach(t=>{html+=`<div style="display:flex;align-items:center;gap:6px;margin-bottom:4px;font-size:13px;"><span>🟡</span><span style="color:var(--text-primary);">${t.n}</span><span style="font-size:11px;color:var(--text-muted);margin-left:auto;">Heard of it</span></div>`;});
+    }
+    // Overall
+    html+=`<div style="margin-top:16px;padding-top:12px;border-top:1px solid var(--border);display:flex;justify-content:space-between;font-size:13px;"><span style="color:var(--text-muted);">Overall: ${result.avgScore}% · Quiz: ${result.quizCorrect}/10</span></div>`;
+    ct.innerHTML=html;
+}
+
+// ===== STUDY PLAN =====
+function renderStudyPlan(result){
+    const ph=document.getElementById('study-plan-placeholder');
+    const ct=document.getElementById('study-plan-content');
+    if(!ph||!ct)return;
+    ph.style.display='none';ct.style.display='block';
+    const ks={master:100,ok:75,fuzzy:40,none:0};
+    // Build plan items from pretest
+    let p1Items=[];//Red: this week
+    let p2Items=[];//Yellow: next week
+    let p3Items=[];//Green: maintenance
+    hsKnowledge.forEach((kp,i)=>{
+        const lv=result.knowledge[i]||'none';
+        if(lv==='none'||lv==='fuzzy')p1Items.push({name:kp.n,score:ks[lv],target:75,type:'hs'});
+        else if(lv==='ok')p2Items.push({name:kp.n,score:75,target:90,type:'hs'});
+        else p3Items.push({name:kp.n,score:100,type:'hs'});
+    });
+    if(result.dangerTopics)result.dangerTopics.forEach(t=>p1Items.unshift({name:t.n,score:0,target:60,type:'transition',desc:t.d}));
+    if(result.warningTopics)result.warningTopics.forEach(t=>p2Items.push({name:t.n,score:25,target:60,type:'transition',desc:t.d}));
+    // Load progress from localStorage
+    let planState=loadPlanState();
+    // Render
+    let html='';
+    // P1: This week
+    if(p1Items.length){
+        html+='<div style="font-size:11px;font-weight:600;color:#f5222d;text-transform:uppercase;margin-bottom:8px;letter-spacing:.05em;">🔴 This Week — Fix Critical Gaps</div>';
+        p1Items.forEach((item,i)=>{
+            const key='p1_'+i;const prog=planState.progress[key]||0;
+            html+=renderPlanCard(key,item,prog,'#f5222d');
+        });
+    }
+    // P2: Next week
+    if(p2Items.length){
+        html+='<div style="font-size:11px;font-weight:600;color:#faad14;text-transform:uppercase;margin:16px 0 8px;letter-spacing:.05em;">🟡 Next Week — Strengthen</div>';
+        p2Items.forEach((item,i)=>{
+            const key='p2_'+i;const prog=planState.progress[key]||0;
+            html+=renderPlanCard(key,item,prog,'#faad14',true);
+        });
+    }
+    // P3: Maintenance
+    if(p3Items.length){
+        html+='<div style="font-size:11px;font-weight:600;color:#52c41a;text-transform:uppercase;margin:16px 0 8px;letter-spacing:.05em;">🟢 Maintenance — Spaced Repetition</div>';
+        p3Items.slice(0,3).forEach((item,i)=>{
+            html+=`<div style="display:flex;align-items:center;gap:8px;padding:8px;border-radius:6px;background:rgba(82,196,26,.04);border-left:3px solid #52c41a;"><span style="font-size:13px;color:var(--text-primary);">${item.name}</span><span style="font-size:11px;color:var(--text-muted);margin-left:auto;">Last: 3 days ago · Next: Day 7</span><button style="font-size:11px;color:var(--accent);background:none;border:none;cursor:pointer;">Review early</button></div>`;
+        });
+    }
+    // Weekly summary
+    const totalTopics=p1Items.length;
+    const completed=p1Items.filter((_,i)=>planState.progress['p1_'+i]>=100).length;
+    html+=`<div style="margin-top:16px;padding-top:12px;border-top:1px solid var(--border);"><div style="display:flex;justify-content:space-between;font-size:12px;margin-bottom:6px;"><span style="color:var(--text-muted);">Weekly Goal: ${totalTopics} topics</span><span style="color:var(--text-secondary);">Completed: ${completed}/${totalTopics}</span></div><div class="progress-bar"><div style="background:linear-gradient(90deg,#f5222d,#faad14,#52c41a);height:5px;border-radius:3px;width:${totalTopics>0?Math.round(completed/totalTopics*100):0}%;transition:width .3s;"></div></div></div>`;
+    ct.innerHTML=html;
+}
+
+function renderPlanCard(key,item,prog,color,compact){
+    const completed=prog>=100;
+    if(completed){
+        return `<div style="padding:10px;margin-bottom:8px;border-radius:6px;background:rgba(82,196,26,.06);border-left:3px solid #52c41a;opacity:.6;"><div style="font-size:13px;color:var(--text-primary);text-decoration:line-through;">${item.name} ✓ Completed</div></div>`;
+    }
+    let html=`<div style="padding:10px;margin-bottom:8px;border-radius:6px;background:rgba(${color==='#f5222d'?'245,34,45':'250,173,20'},.04);border-left:3px solid ${color};">`;
+    html+=`<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px;"><span style="font-size:13px;font-weight:500;color:var(--text-primary);">${item.name}</span><span style="font-size:11px;color:var(--text-muted);">${item.desc||''}</span></div>`;
+    if(!compact){
+        html+=`<div style="display:flex;gap:12px;font-size:11px;color:var(--text-muted);margin-bottom:6px;"><span>📊 ${item.score}% → ${item.target}%</span><span>📝 ${Math.ceil((100-prog)/20)} problems</span></div>`;
+        html+=`<div class="progress-bar" style="margin-bottom:6px;"><div style="background:${color};height:4px;border-radius:2px;width:${prog}%;transition:width .3s;"></div></div>`;
+        html+=`<div style="display:flex;justify-content:space-between;align-items:center;"><span style="font-size:11px;color:var(--text-muted);">Progress: ${prog}%</span><button onclick="updatePlanProgress('${key}')" style="font-size:11px;padding:3px 10px;border-radius:4px;background:${color};color:#fff;border:none;cursor:pointer;">${prog>0?'Continue':'Start'} →</button></div>`;
+    }
+    html+='</div>';
+    return html;
+}
+
+function updatePlanProgress(key){
+    let planState=loadPlanState();
+    const cur=planState.progress[key]||0;
+    planState.progress[key]=Math.min(100,cur+20);
+    savePlanState(planState);
+    if(window.pretestResult)renderStudyPlan(window.pretestResult);
+    showNotification('📈 Progress updated: '+planState.progress[key]+'%');
+    // Check if plan item completed → schedule weekly refresh
+    if(planState.progress[key]>=100)showNotification('✅ Topic completed! New plan will be generated.');
+}
+
+function togglePlanEdit(){
+    const ct=document.getElementById('study-plan-content');
+    if(!ct||ct.style.display==='none'){showNotification('Complete pre-assessment first');return;}
+    showNotification('✏️ Edit mode — add custom goals in future update');
+}
+
+function loadPlanState(){
+    try{const s=localStorage.getItem('cb_plan');return s?JSON.parse(s):{progress:{},lastUpdate:new Date().toISOString()};}catch(e){return{progress:{},lastUpdate:new Date().toISOString()};}
+}
+function savePlanState(s){try{localStorage.setItem('cb_plan',JSON.stringify(s));}catch(e){}}
+
+function checkWeeklyUpdate(){
+    let planState=loadPlanState();
+    const last=new Date(planState.lastUpdate);
+    const now=new Date();
+    const days=Math.floor((now-last)/(1000*60*60*24));
+    if(days>=7){
+        // Remove completed items, update plan
+        let changed=false;
+        Object.keys(planState.progress).forEach(k=>{
+            if(planState.progress[k]>=100){delete planState.progress[k];changed=true;}
+        });
+        planState.lastUpdate=now.toISOString();
+        savePlanState(planState);
+        if(changed){
+            // Re-render if pretest data exists
+            if(window.pretestResult){
+                setTimeout(()=>{renderStudyPlan(window.pretestResult);showNotification('📋 Weekly plan updated — new topics added');},500);
+            }
+        }
+    }
+}
+
+// Restore pretest data on page load
+function restorePretestData(){
+    try{
+        const saved=localStorage.getItem('cb_pretest');
+        if(saved){
+            window.pretestResult=JSON.parse(saved);
+            renderMathSkill(window.pretestResult);
+            renderStudyPlan(window.pretestResult);
+        }
+    }catch(e){}
+}
+
+// ===== FUNCTION PLOTTER =====
+const PC=['#ff6b6b','#2383e2','#4ee06b','#fa8c16','#9b59f7'];
+const PE2D=[{l:'sin(x)/x',e:'sin(x)/x'},{l:'e^(-x²)',e:'e^(-x^2)'},{l:'x³-3x',e:'x^3-3*x'},{l:'1/x',e:'1/x'},{l:'log(x)',e:'log(x)'},{l:'|x|',e:'abs(x)'},{l:'tan(x)',e:'tan(x)'}];
+const PE3D=[{l:'x²+y²',e:'x^2+y^2'},{l:'x²-y²',e:'x^2-y^2'},{l:'sin(x)cos(y)',e:'sin(x)*cos(y)'},{l:'√(x²+y²)',e:'sqrt(x^2+y^2)'},{l:'sin(√(x²+y²))',e:'sin(sqrt(x^2+y^2))'}];
+let pm='2d',pf=[{e:'sin(x)/x',c:'#2383e2'}],p3e='sin(x)*cos(y)',pci=1;
+function plotInit(){plotRenderFuncList();plotRenderExamples();plotRenderConics();}
+function plotRenderFuncList(){const c=document.getElementById('plot-func-list');if(!c)return;c.innerHTML='';pf.forEach((f,i)=>{const r=document.createElement('div');r.style.cssText='display:flex;align-items:center;gap:8px;margin-bottom:8px;';r.innerHTML=`<div style="width:12px;height:12px;border-radius:50%;background:${f.c};flex-shrink:0;"></div><input type="text" value="${f.e}" placeholder="e.g. sin(x)/x" class="input" style="flex:1;font-family:'Cambria Math',serif;" oninput="pf[${i}].e=this.value">${pf.length>1?`<button onclick="pf.splice(${i},1);plotRenderFuncList();plotRender();" style="font-size:16px;color:#ff6b6b;background:none;border:none;cursor:pointer;">×</button>`:''}`;c.appendChild(r);});}
+function plotAddFunc(){if(pf.length>=5)return;pf.push({e:'',c:PC[pci%PC.length]});pci++;plotRenderFuncList();}
+function plotRenderExamples(){const c=document.getElementById('plot-examples');if(!c)return;c.innerHTML='';(pm==='2d'?PE2D:PE3D).forEach(ex=>{const ch=document.createElement('div');ch.style.cssText='padding:6px 12px;background:var(--bg-input);border:1px solid var(--border);border-radius:999px;font-size:12px;color:var(--text-secondary);cursor:pointer;font-family:Cambria Math,serif;';ch.textContent=ex.l;ch.onmouseenter=()=>{ch.style.borderColor='var(--accent)';ch.style.color='var(--accent)';};ch.onmouseleave=()=>{ch.style.borderColor='var(--border)';ch.style.color='var(--text-secondary)';};ch.onclick=()=>{if(pm==='2d'){pf[0].e=ex.e;plotRenderFuncList();plotRender();}else{p3e=ex.e;plotRender();}};c.appendChild(ch);});}
+function plotSwitchMode(m){pm=m;const b2=document.getElementById('plot-mode-2d'),b3=document.getElementById('plot-mode-3d');if(m==='2d'){b2.style.background='var(--accent)';b2.style.color='#fff';b3.style.background='transparent';b3.style.color='var(--text-secondary)';}else{b3.style.background='var(--accent)';b3.style.color='#fff';b2.style.background='transparent';b2.style.color='var(--text-secondary)';}plotRenderExamples();plotRender();}
+function plotRender(){if(pm==='2d')plot2D();else plot3D();}
+function plot2D(){const xm=parseFloat(document.getElementById('plot-xmin').value)||-5,xx=parseFloat(document.getElementById('plot-xmax').value)||5;const ye=document.getElementById('plot-ymin'),ye2=document.getElementById('plot-ymax');const ym=ye&&ye.value?parseFloat(ye.value):null,yx=ye2&&ye2.value?parseFloat(ye2.value):null;const tr=[],v=[];pf.forEach((f,i)=>{if(!f.e.trim())return;try{const c=math.compile(f.e),xs=[],ys=[];for(let j=0;j<=500;j++){const x=xm+(xx-xm)*j/500;try{const y=c.evaluate({x});if(typeof y==='number'&&isFinite(y)){xs.push(x);ys.push(y);}else{xs.push(x);ys.push(null);}}catch(e){xs.push(x);ys.push(null);}}tr.push({x:xs,y:ys,type:'scatter',mode:'lines',name:`f${i+1}=${f.e}`,line:{color:f.c,width:2.5}});v.push(f.e);}catch(e){}});if(!tr.length){document.getElementById('plot-status').textContent='No valid functions';return;}Plotly.newPlot('plot-canvas',tr,{paper_bgcolor:'transparent',plot_bgcolor:'transparent',font:{color:'#9aa3af',size:12},xaxis:{gridcolor:'#2d3142',zerolinecolor:'#4a5060',range:[xm,xx],title:{text:'x'}},yaxis:{gridcolor:'#2d3142',zerolinecolor:'#4a5060',range:ym!==null&&yx!==null?[ym,yx]:undefined,title:{text:'y'}},margin:{l:50,r:20,t:20,b:40},legend:{x:.02,y:.98,bgcolor:'rgba(26,29,41,.8)',font:{size:11}}},{responsive:true,scrollZoom:true});document.getElementById('plot-status').textContent=`${v.length} function(s): ${v.join(', ')}`;}
+function plot3D(){if(!p3e.trim()){document.getElementById('plot-status').textContent='Enter surface';return;}let c;try{c=math.compile(p3e);}catch(e){document.getElementById('plot-status').textContent='Invalid:'+e.message;return;}const N=50,xm=-5,xx=5,ym=-5,yx=5,xV=[],yV=[],zM=[];for(let j=0;j<=N;j++)xV.push(xm+(xx-xm)*j/N);for(let j=0;j<=N;j++)yV.push(ym+(yx-ym)*j/N);for(let i=0;i<=N;i++){const x=xm+(xx-xm)*i/N,zR=[];for(let j=0;j<=N;j++){const y=ym+(yx-ym)*j/N;try{const z=c.evaluate({x,y});zR.push(typeof z==='number'&&isFinite(z)?z:0);}catch(e){zR.push(0);}}zM.push(zR);}Plotly.newPlot('plot-canvas',[{type:'surface',x:xV,y:yV,z:zM,colorscale:'Viridis',contours:{z:{show:true,usecolormap:true,highlightcolor:'#00d4ff',project:{z:true}}}}],{paper_bgcolor:'transparent',plot_bgcolor:'transparent',font:{color:'#9aa3af',size:12},scene:{xaxis:{title:'x',gridcolor:'#2d3142',showbackground:false},yaxis:{title:'y',gridcolor:'#2d3142',showbackground:false},zaxis:{title:'z',gridcolor:'#2d3142',showbackground:false},camera:{eye:{x:1.5,y:1.5,z:1}},aspectmode:'data'},margin:{l:0,r:0,t:0,b:0}},{responsive:true,scrollZoom:true});document.getElementById('plot-status').textContent=`Surface: z=${p3e} (${N}×${N})`;}
+function plotReset(){document.getElementById('plot-xmin').value='-5';document.getElementById('plot-xmax').value='5';document.getElementById('plot-ymin').value='';document.getElementById('plot-ymax').value='';plotRender();}
+function plotClear(){pf=[{e:'',c:'#2383e2'}];pci=1;plotRenderFuncList();Plotly.purge('plot-canvas');document.getElementById('plot-status').textContent='Cleared';}
+// Conics
+const PC_TYPES=[{t:'circle',l:'⭕ Circle'},{t:'ellipse',l:'🔵 Ellipse'},{t:'parabola',l:'📊 Parabola'},{t:'hyperbola',l:'8️⃣ Hyperbola'}];
+const PC_PARAMS={circle:[{id:'r',l:'Radius r',def:3},{id:'cx',l:'Center x',def:0},{id:'cy',l:'Center y',def:0}],ellipse:[{id:'a',l:'Semi-axis a',def:4},{id:'b',l:'Semi-axis b',def:2},{id:'cx',l:'Center x',def:0},{id:'cy',l:'Center y',def:0}],parabola:[{id:'pa',l:'Coefficient a',def:.5}],hyperbola:[{id:'ha',l:'Semi-axis a',def:2},{id:'hb',l:'Semi-axis b',def:2}]};
+let currentPlotConicType='';
+function plotRenderConics(){const c=document.getElementById('plot-conics');if(!c)return;c.innerHTML='';PC_TYPES.forEach(it=>{const ch=document.createElement('div');ch.style.cssText='padding:6px 12px;background:var(--bg-input);border:1px solid var(--border);border-radius:999px;font-size:12px;color:var(--text-secondary);cursor:pointer;font-family:Cambria Math,serif;';ch.textContent=it.l;ch.onclick=()=>plotSetupConic(it.t);c.appendChild(ch);});}
+function plotGetCV(id){const e=document.getElementById('pc-'+id);return e?parseFloat(e.value):0;}
+function plotSetupConic(t){currentPlotConicType=t;document.getElementById('plot-conic-params').style.display='';const ps=PC_PARAMS[t]||[];document.getElementById('plot-conic-fields').innerHTML=ps.map(p=>`<div style="display:flex;align-items:center;gap:8px;margin-bottom:6px;"><span style="font-size:11px;width:80px;color:var(--text-secondary);">${p.l}:</span><input type="number" id="pc-${p.id}" value="${p.def}" step="0.5" class="input" style="width:70px;text-align:center;font-size:13px;"></div>`).join('');plotDrawConic(t);}
+function plotDrawConic(t){const tr=[],N=200,tA=[];for(let i=0;i<=N;i++)tA.push(-Math.PI+2*Math.PI*i/N);
+    if(t==='circle'){const r=plotGetCV('r')||3,cx=plotGetCV('cx'),cy=plotGetCV('cy');tr.push({x:tA.map(t=>cx+r*Math.cos(t)),y:tA.map(t=>cy+r*Math.sin(t)),type:'scatter',mode:'lines',name:`Circle r=${r}`,line:{color:'#2383e2',width:3}});}
+    else if(t==='ellipse'){const a=plotGetCV('a')||4,b=plotGetCV('b')||2,cx=plotGetCV('cx'),cy=plotGetCV('cy');tr.push({x:tA.map(t=>cx+a*Math.cos(t)),y:tA.map(t=>cy+b*Math.sin(t)),type:'scatter',mode:'lines',name:`Ellipse a=${a} b=${b}`,line:{color:'#fa8c16',width:3}});const c=Math.sqrt(Math.abs(a*a-b*b));tr.push({x:[cx-c,cx+c],y:[cy,cy],type:'scatter',mode:'markers',name:'Foci',marker:{color:'#ff6b6b',size:8}});}
+    else if(t==='parabola'){const a=plotGetCV('pa')||.5,xs=[],ys=[];for(let x=-10;x<=10;x+=.1){xs.push(x);ys.push(a*x*x);}tr.push({x:xs,y:ys,type:'scatter',mode:'lines',name:`y=${a}x²`,line:{color:'#4ee06b',width:3}});tr.push({x:[0],y:[1/(4*a)],type:'scatter',mode:'markers+text',text:['Focus'],name:'Focus',marker:{color:'#ff6b6b',size:10}});}
+    else if(t==='hyperbola'){const a=plotGetCV('ha')||2,b=plotGetCV('hb')||2,tH=[];for(let i=0;i<=N;i++)tH.push(-3+6*i/N);tr.push({x:tH.map(t=>a*Math.cosh(t)),y:tH.map(t=>b*Math.sinh(t)),type:'scatter',mode:'lines',name:'Hyperbola R',line:{color:'#9b59f7',width:3}});tr.push({x:tH.map(t=>-a*Math.cosh(t)),y:tH.map(t=>b*Math.sinh(t)),type:'scatter',mode:'lines',name:'Hyperbola L',line:{color:'#9b59f7',width:3}});const xa=[-15,15];tr.push({x:xa,y:xa.map(x=>(b/a)*x),type:'scatter',mode:'lines',name:'Asymptote',line:{color:'#6b7280',width:1,dash:'dash'}});tr.push({x:xa,y:xa.map(x=>-(b/a)*x),type:'scatter',mode:'lines',name:'Asymptote',line:{color:'#6b7280',width:1,dash:'dash'}});}
+    const xm=parseFloat(document.getElementById('plot-xmin').value)||-5,xx=parseFloat(document.getElementById('plot-xmax').value)||5;
+    Plotly.newPlot('plot-canvas',tr,{paper_bgcolor:'transparent',plot_bgcolor:'transparent',font:{color:'#9aa3af',size:12},xaxis:{gridcolor:'#2d3142',zerolinecolor:'#4a5060',range:[xm,xx],title:{text:'x'},scaleanchor:'y',scaleratio:1},yaxis:{gridcolor:'#2d3142',zerolinecolor:'#4a5060',title:{text:'y'}},margin:{l:50,r:20,t:20,b:40},legend:{x:.02,y:.98,bgcolor:'rgba(26,29,41,.8)',font:{size:11}}},{responsive:true,scrollZoom:true});document.getElementById('plot-status').textContent=`Conic: ${t} rendered`;}
+
+// ===== SHARED BOOKSHELF DATA =====
+const BS_CATS=[
+    {key:'slides',icon:'📊',label:'Slides'},{key:'textbooks',icon:'📖',label:'Textbooks'},
+    {key:'exercises',icon:'📝',label:'Exercises'},{key:'exam-papers',icon:'📄',label:'Exam Papers'},
+    {key:'research-papers',icon:'📜',label:'Research Papers'}
+];
+let bsData={slides:[],textbooks:[],exercises:[],'exam-papers':[],'research-papers':[]};
+let bsPageCat='slides', bsModalCat='all';
+let bsPendingFile=null, bsPendingCat=null;
+
+// ===== AI API — Harness Backend =====
+// AI_BACKEND_URL already defined at top of script
+const USE_BACKEND=true;
+// API key is now in backend .env file (not exposed in frontend)
+
+async function kimiCall(messages,onChunk,onDone,onErr){
+    try{
+        // === Harness Backend route (routing + verifier) ===
+        const taskType=messages[0]?.content?.includes('translate')||messages[0]?.content?.includes('翻译')?'translate':messages[0]?.content?.includes('Socratic')||messages[0]?.content?.includes('引导')?'math_guide':'general';
+        const r=await fetch(AI_BACKEND_URL+'/api/chat',{method:'POST',headers:{'Content-Type':'application/json'},
+            body:JSON.stringify({task_type:taskType,messages:messages.slice(1),temperature:0.3,max_tokens:2000,stream:true})});
+        if(!r.ok){const e=await r.json().catch(()=>({}));throw new Error(e.error?.message||e.detail?.[0]?.msg||`HTTP ${r.status}`);}
+        const reader=r.body.getReader();const dec=new TextDecoder();let full='';
+        while(true){const{done,value}=await reader.read();if(done)break;
+            const chunk=dec.decode(value);
+            const lines=chunk.split('\n');
+            for(const line of lines){
+                const trimmed=line.trim();
+                if(!trimmed.startsWith('data'))continue;
+                const jsonStr=trimmed.replace(/^data:\s*/,'').trim();
+                if(jsonStr==='[DONE]')break;
+                try{
+                    const p=JSON.parse(jsonStr);
+                    if(p.content){full+=p.content;if(onChunk)onChunk(full);}
+                    if(p.error)throw new Error(p.error);
+                }catch(e){if(e.message&&!e.message.includes('JSON')){throw e;}}
+            }
+        }
+        if(onDone)onDone(full);
+    }catch(err){
+        // Fallback: if backend is down, try direct API
+        if(onErr){
+            try{
+                await kimiCallFallback(messages,onChunk,onDone);
+            }catch(e2){
+                onErr('Backend: '+err.message+' | Fallback: '+e2.message);
+            }
+        }
+    }
+}
+
+// Fallback: backend unavailable — no direct API key in frontend
+async function kimiCallFallback(messages,onChunk,onDone){
+    throw new Error('Backend unavailable. Please ensure the server is running.');
+}
+
+// ===== BOOKSHELF PAGE =====
+async function bsPageInit(){
+    await loadDocumentsFromBackend();
+    bsPageRenderTabs();
+    bsPageRenderGrid('slides');
+    bsRenderDashboard(bsPageCat);
+}
+async function loadDocumentsFromBackend(){
+    try{
+        const res=await apiFetch('/api/documents');
+        if(!res.ok)throw new Error('HTTP '+res.status);
+        const docs=await res.json();
+        // Clear and refill bsData
+        BS_CATS.forEach(c=>bsData[c.key]=[]);
+        docs.forEach(d=>{
+            const cat=d.category;
+            if(bsData[cat]!==undefined){
+                bsData[cat].push({
+                    id:d.id,
+                    icon:d.icon||'📄',
+                    title:d.title,
+                    desc:d.desc||'',
+                    category:cat,
+                    source:d.source,
+                    fileType:d.fileType,
+                    isDeleted:false,
+                    deletedAt:null
+                });
+            }
+        });
+    }catch(e){
+        console.error('Failed to load documents:',e);
+        showNotification('⚠️ Could not load bookshelf from server');
+    }
+}
+// Dashboard bookshelf rendering
+function bsRenderDashboard(cat){
+    const tabs=document.getElementById('dash-bs-tabs');const grid=document.getElementById('dash-bs-grid');
+    if(!tabs||!grid)return;
+    // Render tabs
+    tabs.innerHTML='';
+    BS_CATS.forEach((c,i)=>{const t=document.createElement('span');t.style.cssText=`font-size:12px;padding:3px 10px;cursor:pointer;border-bottom:2px solid ${c.key===cat?'var(--accent)':'transparent'};color:${c.key===cat?'var(--accent)':'var(--text-muted)'};font-weight:${c.key===cat?'600':'400'};white-space:nowrap;`;
+        t.textContent=c.icon+' '+c.label;t.onclick=()=>{bsRenderDashboard(c.key);};tabs.appendChild(t);});
+    // Render grid
+    const docs=(bsData[cat]||[]).filter(d=>!d.isDeleted);
+    if(docs.length===0){grid.innerHTML='<div style="grid-column:1/-1;text-align:center;padding:20px;color:var(--text-muted);font-size:12px;">No documents in this category</div>';return;}
+    grid.innerHTML=docs.map((d,i)=>{const origIdx=(bsData[cat]||[]).indexOf(d);return `<div style="border:1px solid var(--border);border-radius:8px;padding:8px;text-align:center;transition:all .15s;background:var(--bg-card);position:relative;" onmouseenter="this.style.borderColor='var(--accent)';this.querySelector('.dash-del-btn').style.opacity='1'" onmouseleave="this.style.borderColor='var(--border)';this.querySelector('.dash-del-btn').style.opacity='0'">
+        <button class="dash-del-btn" onclick="event.stopPropagation();bsDeleteDocument('${d.id}')" style="position:absolute;top:2px;right:2px;width:18px;height:18px;border-radius:4px;border:none;background:rgba(255,107,107,.9);color:#fff;font-size:11px;cursor:pointer;opacity:0;transition:opacity .15s;display:flex;align-items:center;justify-content:center;z-index:2;">×</button>
+        <div onclick="bsOpenFromDash('${cat}',${origIdx})" style="cursor:pointer;">
+        <div style="font-size:20px;margin-bottom:4px;">${d.icon}</div>
+        <div style="font-size:11px;font-weight:500;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;color:var(--text-primary);">${d.title}</div></div></div>`;}).join('');
+}
+function bsOpenFromDash(cat,idx){showPage('reader');setTimeout(()=>readerOpenDoc(cat,idx),100);}
+function bsPageRenderTabs(){const c=document.getElementById('bs-page-tabs');if(!c)return;c.innerHTML='';
+    const allCats=[...BS_CATS,{key:'recycle-bin',icon:'🗑️',label:'Recycle Bin'}];
+    allCats.forEach((cat,i)=>{const t=document.createElement('span');t.style.cssText=`font-size:14px;padding:4px 16px;cursor:pointer;border-bottom:2px solid ${cat.key===bsPageCat?'var(--accent)':'transparent'};color:${cat.key===bsPageCat?'var(--accent)':'var(--text-muted)'};font-weight:${cat.key===bsPageCat?'600':'400'};white-space:nowrap;`;
+        t.textContent=cat.icon+' '+cat.label;
+        if(cat.key==='recycle-bin'){
+            const deletedCount=Object.values(bsData).flat().filter(d=>d.isDeleted).length;
+            if(deletedCount>0)t.innerHTML+=` <span style="font-size:10px;padding:1px 5px;border-radius:999px;background:#ff6b6b;color:#fff;font-weight:600;">${deletedCount}</span>`;
+            if(bsPageCat==='recycle-bin'){t.style.borderBottomColor='#ff6b6b';t.style.color='#ff6b6b';}
+        }
+        t.onclick=()=>{c.querySelectorAll('span').forEach(s=>{s.style.borderBottomColor='transparent';s.style.color='var(--text-muted)';s.style.fontWeight='400';});t.style.borderBottomColor='var(--accent)';t.style.color='var(--accent)';t.style.fontWeight='600';if(cat.key==='recycle-bin'){t.style.borderBottomColor='#ff6b6b';t.style.color='#ff6b6b';}bsPageCat=cat.key;bsPageRenderGrid(cat.key);};c.appendChild(t);});}
+function bsPageRenderGrid(cat){
+    const g=document.getElementById('bs-page-grid');const c=document.getElementById('bs-page-count');if(!g)return;
+    if(cat==='recycle-bin'){
+        const docs=Object.values(bsData).flat().filter(d=>d.isDeleted);
+        if(c)c.textContent=`${docs.length} document(s) in Recycle Bin`;
+        if(docs.length===0){g.innerHTML=`<div class="placeholder-box" style="grid-column:1/-1;">Recycle Bin is empty<br><span style="font-size:12px;">Deleted documents will appear here</span></div>`;return;}
+        g.innerHTML=docs.map(d=>`<div style="border:1px solid var(--border);border-radius:10px;padding:12px;transition:all .15s;background:var(--bg-card);position:relative;opacity:.6;" onmouseenter="this.style.opacity='1'" onmouseleave="this.style.opacity='.6'">
+            <div style="text-align:center;margin-bottom:8px;"><div style="width:48px;height:56px;border-radius:8px;display:inline-flex;align-items:center;justify-content:center;font-size:22px;background:linear-gradient(135deg,#ffe0e0,#ffcccc);">${d.icon}</div></div>
+            <div style="font-size:13px;font-weight:600;text-align:center;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${d.title}</div>
+            <div style="font-size:11px;color:var(--text-muted);text-align:center;">Deleted ${d.deletedAt?new Date(d.deletedAt).toLocaleDateString():''}</div>
+            <div style="display:flex;gap:6px;margin-top:10px;justify-content:center;">
+                <button onclick="bsRestoreDocument('${d.id}')" style="font-size:11px;padding:4px 10px;border-radius:6px;background:rgba(82,196,26,.1);border:1px solid rgba(82,196,26,.3);color:#52c41a;cursor:pointer;">♻️ Restore</button>
+                <button onclick="bsPermanentlyDeleteDocument('${d.id}')" style="font-size:11px;padding:4px 10px;border-radius:6px;background:rgba(255,107,107,.1);border:1px solid rgba(255,107,107,.3);color:#ff6b6b;cursor:pointer;">💥 Delete Forever</button>
+            </div></div>`).join('');
+        return;
+    }
+    const docs=(bsData[cat]||[]).filter(d=>!d.isDeleted);
+    if(c)c.textContent=`${docs.length} document(s)`;
+    if(docs.length===0){g.innerHTML=`<div class="placeholder-box" style="grid-column:1/-1;">No documents yet<br><button class="btn-secondary" style="margin-top:12px;" onclick="bsUpload()">📎 Upload PDF</button></div>`;return;}
+    g.innerHTML=docs.map((d,i)=>{const origIdx=(bsData[cat]||[]).indexOf(d);return `<div style="border:1px solid var(--border);border-radius:10px;padding:12px;cursor:pointer;transition:all .15s;background:var(--bg-card);position:relative;" onmouseenter="this.style.borderColor='var(--accent)';this.style.transform='translateY(-3px)';this.querySelector('.bs-del-btn').style.opacity='1'" onmouseleave="this.style.borderColor='var(--border)';this.style.transform='translateY(0)';this.querySelector('.bs-del-btn').style.opacity='0'">
+        <button class="bs-del-btn" onclick="event.stopPropagation();bsDeleteDocument('${d.id}')" style="position:absolute;top:6px;right:6px;width:22px;height:22px;border-radius:6px;border:none;background:rgba(255,107,107,.9);color:#fff;font-size:11px;cursor:pointer;opacity:0;transition:opacity .15s;display:flex;align-items:center;justify-content:center;z-index:2;">🗑️</button>
+        <span style="position:absolute;top:6px;left:6px;font-size:9px;padding:1px 6px;border-radius:4px;background:rgba(82,196,26,.15);color:#52c41a;font-weight:500;">Yours</span>
+        <div onclick="bsOpenFromPage('${cat}',${origIdx})" style="width:100%;height:100%;">
+        <div style="text-align:center;margin-bottom:8px;"><div style="width:48px;height:56px;border-radius:8px;display:inline-flex;align-items:center;justify-content:center;font-size:22px;background:linear-gradient(135deg,#d9f7be,#b7eb8f);">${d.icon}</div></div>
+        <div style="font-size:13px;font-weight:600;text-align:center;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${d.title}</div><div style="font-size:11px;color:var(--text-muted);text-align:center;">${d.desc}</div>
+        <div style="text-align:center;margin-top:8px;"><span style="font-size:11px;padding:2px 8px;border-radius:4px;background:var(--accent);color:#fff;">📖 Read</span></div></div></div>`;}).join('');}
+function bsOpenFromPage(cat,idx){showPage('reader');setTimeout(()=>readerOpenDoc(cat,idx),100);}
+function bsOpenFromDash(cat,idx){showPage('reader');setTimeout(()=>readerOpenDoc(cat,idx),100);}
+
+// ===== UPLOAD =====
+function bsUpload(){const old=document.getElementById('bs-file-input');if(old)old.remove();const inp=document.createElement('input');inp.type='file';inp.id='bs-file-input';inp.accept='.pdf,.pptx';inp.style.display='none';inp.onchange=()=>{if(inp.files[0])bsShowUploadModal(inp.files[0]);};document.body.appendChild(inp);inp.click();}
+function bsShowUploadModal(file){bsPendingFile=file;const m=document.getElementById('bs-upload-modal');const fn=document.getElementById('bs-upload-filename');const cl=document.getElementById('bs-upload-cats');
+    fn.textContent=file.name+' ('+(file.size/1024/1024).toFixed(1)+' MB)';bsPendingCat=null;
+    cl.innerHTML=BS_CATS.map(c=>`<div onclick="bsSelCat('${c.key}',this)" style="display:flex;align-items:center;gap:12px;padding:12px;border-radius:8px;cursor:pointer;border:1px solid var(--border);background:var(--bg-input);">
+        <span style="font-size:18px;">${c.icon}</span><span style="font-size:14px;">${c.label}</span>
+        <span style="margin-left:auto;font-size:12px;color:var(--text-muted);">${(bsData[c.key]||[]).length} items</span></div>`).join('');
+    m.style.display='flex';}
+function bsSelCat(key,el){bsPendingCat=key;el.parentElement.querySelectorAll('div').forEach(d=>{d.style.borderColor='var(--border)';d.style.background='var(--bg-input)';});el.style.borderColor='var(--accent)';el.style.background='rgba(35,131,226,.08)';}
+function bsCloseUpload(){document.getElementById('bs-upload-modal').style.display='none';bsPendingFile=null;bsPendingCat=null;}
+async function bsConfirmUpload(){if(!bsPendingFile||!bsPendingCat)return;
+    const cat=BS_CATS.find(c=>c.key===bsPendingCat);
+    const formData=new FormData();
+    formData.append('file',bsPendingFile);
+    formData.append('category',bsPendingCat);
+    try{
+        const res=await apiFetch('/api/documents/upload',{method:'POST',body:formData});
+        if(!res.ok)throw new Error('HTTP '+res.status);
+        const doc=await res.json();
+        bsData[bsPendingCat].push({
+            id:doc.id,
+            icon:doc.icon,
+            title:doc.title,
+            desc:doc.sizeText,
+            category:bsPendingCat,
+            source:'upload',
+            fileType:doc.fileType,
+            isDeleted:false,
+            deletedAt:null
+        });
+        bsCloseUpload();bsPageRenderGrid(bsPageCat);bsRenderDashboard(bsPageCat);
+        const rm=document.getElementById('reader-bs-modal');if(rm&&rm.style.display==='flex')readerRenderModalDocs(bsModalCat);
+        showNotification('✅ Uploaded to '+cat.label);
+    }catch(e){
+        console.error('Upload failed:',e);
+        showNotification('❌ Upload failed: '+e.message);
+    }
+}
+
+// ===== READER BOOKSHELF MODAL =====
+function readerOpenBookshelf(){readerRenderModalTabs();readerRenderModalDocs('all');document.getElementById('reader-bs-modal').style.display='flex';}
+function readerCloseBookshelf(){document.getElementById('reader-bs-modal').style.display='none';}
+function readerRenderModalTabs(){const c=document.getElementById('reader-bs-tabs');if(!c)return;c.innerHTML='';
+    const cats=[{key:'all',icon:'📚',label:'All'},...BS_CATS];
+    cats.forEach((cat,i)=>{const t=document.createElement('button');t.style.cssText=`padding:6px 12px;border-radius:6px;border:none;font-size:13px;font-weight:${i===0?'600':'400'};background:${i===0?'var(--accent)':'transparent'};color:${i===0?'#fff':'var(--text-secondary)'};cursor:pointer;`;
+        t.textContent=cat.icon+' '+cat.label;t.onclick=()=>{c.querySelectorAll('button').forEach(b=>{b.style.background='transparent';b.style.color='var(--text-secondary)';b.style.fontWeight='400';});t.style.background='var(--accent)';t.style.color='#fff';t.style.fontWeight='600';bsModalCat=cat.key;readerRenderModalDocs(cat.key);};c.appendChild(t);});}
+function readerRenderModalDocs(cat){const g=document.getElementById('reader-bs-grid');if(!g)return;
+    const all=[];Object.keys(bsData).forEach(c=>bsData[c].forEach((d,i)=>{if(!d.isDeleted)all.push({...d,cat:c,idx:i});}));
+    const docs=cat==='all'?all:all.filter(d=>d.cat===cat);
+    if(docs.length===0){g.innerHTML=`<div class="placeholder-box" style="grid-column:1/-1;">No documents<br><button class="btn-secondary" style="margin-top:12px;" onclick="bsUpload()">📎 Upload PDF</button></div>`;return;}
+    g.innerHTML=docs.map(d=>{const cl=BS_CATS.find(c=>c.key===d.cat);
+        return `<div onclick="readerOpenDoc('${d.cat}',${d.idx})" style="border:1px solid var(--border);border-radius:10px;padding:12px;cursor:pointer;transition:all .15s;background:var(--bg-sidebar);" onmouseenter="this.style.borderColor='var(--accent)';this.style.transform='translateY(-3px)'" onmouseleave="this.style.borderColor='var(--border)';this.style.transform='translateY(0)'">
+        <div style="text-align:center;margin-bottom:8px;"><div style="width:48px;height:56px;border-radius:8px;display:inline-flex;align-items:center;justify-content:center;font-size:22px;background:linear-gradient(135deg,#d9f7be,#b7eb8f);">${d.icon}</div></div>
+        <div style="font-size:13px;font-weight:600;text-align:center;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${d.title}</div><div style="font-size:11px;color:var(--text-muted);text-align:center;">${cl?cl.label:''}</div></div>`;}).join('');}
+
+// ===== READER: OPEN DOC WITH PDF.JS (ScholarRead — text layer + smooth scroll) =====
+let readerNotes=[],readerHighlights=[],readerSelText='',readerSelRange=null,readerPdfDoc=null,readerPdfTotal=0;
+let readerRenderedPages=new Set();
+let readerScale=1.3;
+let readerScrollObserver=null;
+let readerCurrentDocId=null;
+
+function readerOpenDoc(cat,idx){
+    const doc=bsData[cat][idx];if(!doc)return;
+    if(doc.isDeleted){showNotification('⚠️ Restore this document first to open it');return;}
+    readerCloseBookshelf();
+    readerCurrentDocId=doc.id;
+    document.getElementById('reader-doc-title').textContent=doc.title;
+    document.getElementById('reader-doc-meta').textContent=doc.desc;
+    document.getElementById('reader-toolbar').textContent=doc.title;
+    readerNotes=[];readerHighlights=[];readerRenderNotes();readerRenderHighlights();
+    // Load persisted highlights for this document
+    readerLoadHighlights(doc.id);
+    document.getElementById('reader-action-panel').style.display='none';
+    document.getElementById('reader-float-menu').style.display='none';
+    const area=document.getElementById('reader-content-area');
+    if(readerScrollObserver)readerScrollObserver.disconnect();
+    readerRenderedPages.clear();
+
+    // Fetch file from backend
+    area.innerHTML='<div style="text-align:center;padding:60px;color:var(--text-muted);"><div style="font-size:48px;margin-bottom:16px;">📄</div><p>Loading document...</p></div>';
+    apiFetch('/api/documents/'+doc.id+'/file')
+        .then(res=>{if(!res.ok)throw new Error('HTTP '+res.status);return res.arrayBuffer();})
+        .then(arrayBuffer=>{
+            if(doc.fileType==='pptx'){
+                readerOpenPPTX(arrayBuffer,doc,area);
+            }else{
+                readerOpenPDF(arrayBuffer,doc,area);
+            }
+        })
+        .catch(err=>{
+            area.innerHTML='<div class="placeholder-box" style="max-width:600px;margin:0 auto;min-height:400px;background:var(--bg-card);">❌ Failed to load document<br><span style="font-size:12px;">'+escapeHtml(err.message)+'</span></div>';
+            showNotification('❌ Failed to load: '+err.message);
+        });
+}
+
+// ===== PPTX Rendering (JSZip + XML text extraction) =====
+async function readerOpenPPTX(arrayBuffer,doc,area){
+    area.innerHTML='<div style="text-align:center;padding:60px;color:var(--text-muted);"><div style="font-size:48px;margin-bottom:16px;">📊</div><p>Loading PPTX...</p></div>';
+    try{
+        const zip=await JSZip.loadAsync(arrayBuffer);
+        const slideNames=Object.keys(zip.files).filter(n=>n.match(/^ppt\/slides\/slide\d+\.xml$/)).sort((a,b)=>{
+            return parseInt(a.match(/\d+/)[0])-parseInt(b.match(/\d+/)[0]);
+        });
+        if(slideNames.length===0){area.innerHTML='<div style="text-align:center;padding:60px;color:#ff6b6b;"><p>No slides found in PPTX</p></div>';return;}
+
+        // Pre-load all relationship files (slide → image mappings)
+        const relsCache={};
+        for(let s=0;s<slideNames.length;s++){
+            const slideNum=s+1;
+            const relsPath='ppt/slides/_rels/slide'+slideNum+'.xml.rels';
+            if(zip.files[relsPath]){
+                const relsXml=await zip.files[relsPath].async('text');
+                const relsDoc=new DOMParser().parseFromString(relsXml,'text/xml');
+                const rels={};
+                [...relsDoc.getElementsByTagName('Relationship')].forEach(r=>{
+                    rels[r.getAttribute('Id')]=r.getAttribute('Target');
+                });
+                relsCache[slideNum]=rels;
+            }
+        }
+
+        // Get list of all media files
+        const mediaFiles=Object.keys(zip.files).filter(n=>n.match(/^ppt\/media\//));
+
+        area.innerHTML='';
+        area.style.cssText='flex:1;overflow-y:auto;padding:16px;background:var(--bg-tag);';
+        const container=document.createElement('div');
+        container.style.cssText='max-width:100%;margin:0 auto;';
+        area.appendChild(container);
+
+        for(let s=0;s<slideNames.length;s++){
+            const slideNum=s+1;
+            const xml=await zip.files[slideNames[s]].async('text');
+            const xmlDoc=new DOMParser().parseFromString(xml,'text/xml');
+
+            // Extract text
+            const textNodes=[...xmlDoc.getElementsByTagName('a:t')];
+            const texts=textNodes.map(n=>n.textContent).filter(t=>t.trim());
+
+            // Extract images: find <a:blip> tags with r:embed
+            const blipNodes=[...xmlDoc.getElementsByTagName('a:blip')];
+            const imageRIds=blipNodes.map(b=>b.getAttribute('r:embed')||b.getAttributeNS('*','embed')).filter(r=>r);
+
+            const slideDiv=document.createElement('div');
+            slideDiv.style.cssText='background:#fff;border-radius:6px;box-shadow:0 1px 6px rgba(0,0,0,.1);margin:0 auto 16px;padding:40px 48px;position:relative;overflow:visible;width:auto;min-height:calc(100vh - 200px);';
+
+            const slideNumLabel=document.createElement('div');
+            slideNumLabel.style.cssText='position:absolute;top:8px;right:12px;font-size:10px;color:#ccc;';
+            slideNumLabel.textContent='Slide '+slideNum;
+            slideDiv.appendChild(slideNumLabel);
+
+            // Render text content
+            if(texts.length>0){
+                texts.forEach((text,i)=>{
+                    const p=document.createElement('div');
+                    if(i===0){
+                        p.style.cssText='font-size:20px;font-weight:700;color:#1a1a1a;margin-bottom:16px;line-height:1.4;';
+                    }else{
+                        p.style.cssText='font-size:15px;color:#333;margin-bottom:10px;line-height:1.8;';
+                    }
+                    p.textContent=text;
+                    slideDiv.appendChild(p);
+                });
+            }
+
+            // Render images
+            if(imageRIds.length>0){
+                for(const rId of imageRIds){
+                    const rels=relsCache[slideNum]||{};
+                    let imgPath=rels[rId];
+                    if(!imgPath)continue;
+                    // Normalize path
+                    imgPath=imgPath.replace(/^\.\.\//,'');
+                    const fullPath='ppt/'+imgPath.replace(/^\/+/,'');
+                    const actualPath=zip.files[fullPath]?fullPath:'ppt/slides/'+imgPath;
+
+                    if(zip.files[actualPath]){
+                        try{
+                            const imgBlob=await zip.files[actualPath].async('blob');
+                            const imgUrl=URL.createObjectURL(imgBlob);
+                            const img=document.createElement('img');
+                            img.src=imgUrl;
+                            img.style.cssText='max-width:100%;height:auto;border-radius:4px;margin:12px 0;box-shadow:0 1px 4px rgba(0,0,0,.1);';
+                            img.alt='Slide '+slideNum+' image';
+                            slideDiv.appendChild(img);
+                        }catch(e){}
+                    }
+                }
+            }
+
+            // If no text and no images
+            if(texts.length===0&&imageRIds.length===0){
+                const empty=document.createElement('div');
+                empty.style.cssText='text-align:center;color:#ccc;padding:60px;font-size:13px;';
+                empty.textContent='📭 (No text or images found on this slide)';
+                slideDiv.appendChild(empty);
+            }
+
+            container.appendChild(slideDiv);
+
+            if(s<slideNames.length-1){
+                const gap=document.createElement('div');
+                gap.className='pdf-page-gap';
+                container.appendChild(gap);
+            }
+        }
+
+        const slides=container.children;
+        area.onscroll=()=>{
+            let currentSlide=1;
+            for(let i=0;i<slides.length;i++){
+                if(slides[i].classList&&slides[i].classList.contains('pdf-page-gap'))continue;
+                const rect=slides[i].getBoundingClientRect();
+                if(rect.top<area.clientHeight/2)currentSlide=Math.round((i+1)/2);
+            }
+            document.getElementById('reader-toolbar').textContent='Slide '+currentSlide+' of '+slideNames.length+' · '+doc.title;
+        };
+
+        showNotification('✅ '+doc.title+' ('+slideNames.length+' slides) · Scroll to read');
+    }catch(err){
+        area.innerHTML='<div style="text-align:center;padding:60px;color:#ff6b6b;"><div style="font-size:48px;margin-bottom:16px;">❌</div><p>Failed to load PPTX: '+escapeHtml(err.message)+'</p></div>';
+    }
+}
+
+// ===== PDF Rendering (existing logic, extracted) =====
+function readerOpenPDF(arrayBuffer,doc,area){
+    area.innerHTML='<div style="text-align:center;padding:60px;color:var(--text-muted);"><div style="font-size:48px;margin-bottom:16px;">📄</div><p>Loading PDF...</p></div>';
+    pdfjsLib.getDocument({data:arrayBuffer}).promise.then(async pdf=>{
+        readerPdfDoc=pdf;readerPdfTotal=pdf.numPages;
+
+        // Dynamic scale: fit PDF page width to reading area
+        const firstPage=await pdf.getPage(1);
+        const nativeWidth=firstPage.getViewport({scale:1}).width;
+        const areaWidth=area.clientWidth-48;
+        readerScale=Math.min(2.0,Math.max(0.5,areaWidth/nativeWidth));
+
+        area.innerHTML='';
+        area.style.cssText='flex:1;overflow-y:auto;padding:24px 8px;background:var(--bg-tag);';
+        const container=document.createElement('div');
+        container.id='pdf-pages-container';
+        container.style.cssText='max-width:100%;margin:0 auto;';
+        area.appendChild(container);
+        for(let i=1;i<=readerPdfTotal;i++){
+            const pageDiv=document.createElement('div');
+            pageDiv.id='pdf-page-'+i;
+            pageDiv.dataset.pageNum=i;
+            pageDiv.style.cssText='margin:0 auto 16px;width:auto;min-height:400px;background:#fff;border-radius:4px;box-shadow:0 2px 8px rgba(0,0,0,.12);overflow:hidden;position:relative;';
+            pageDiv.innerHTML='<div style="display:flex;align-items:center;justify-content:center;padding:40px;color:var(--text-muted);font-size:13px;">⏳ Page '+i+'</div>';
+            container.appendChild(pageDiv);
+            if(i<readerPdfTotal){const gap=document.createElement('div');gap.className='pdf-page-gap';container.appendChild(gap);}
+        }
+        readerScrollObserver=new IntersectionObserver((entries)=>{
+            entries.forEach(entry=>{
+                if(entry.isIntersecting){
+                    const pageNum=parseInt(entry.target.dataset.pageNum);
+                    if(!readerRenderedPages.has(pageNum)){readerRenderPdfPageFull(pageNum);}
+                }
+            });
+        },{root:area,rootMargin:'200px 0px',threshold:0.01});
+        container.querySelectorAll('[data-page-num]').forEach(d=>readerScrollObserver.observe(d));
+        area.onscroll=()=>{
+            const pages=container.querySelectorAll('[data-page-num]');
+            for(let p of pages){
+                const rect=p.getBoundingClientRect();
+                if(rect.top>=0&&rect.top<area.clientHeight/2){
+                    document.getElementById('reader-toolbar').textContent='Page '+p.dataset.pageNum+' of '+readerPdfTotal+' · '+doc.title;
+                    break;
+                }
+            }
+        };
+        showNotification('✅ '+doc.title+' ('+pdf.numPages+' pages) · Scroll to read');
+    }).catch(err=>{
+        area.innerHTML='<div style="text-align:center;padding:60px;color:#ff6b6b;"><div style="font-size:48px;margin-bottom:16px;">❌</div><p>Failed: '+escapeHtml(err.message)+'</p></div>';
+    });
+}
+
+async function readerRenderPdfPageFull(pageNum){
+    if(!readerPdfDoc||readerRenderedPages.has(pageNum))return;
+    readerRenderedPages.add(pageNum);
+
+    const pageDiv=document.getElementById('pdf-page-'+pageNum);
+    if(!pageDiv)return;
+
+    try{
+        const page=await readerPdfDoc.getPage(pageNum);
+        const viewport=page.getViewport({scale:readerScale});
+        const w=Math.floor(viewport.width);
+        const h=Math.floor(viewport.height);
+
+        // Set EXACT pixel dimensions on page container — all three layers must match
+        pageDiv.innerHTML='';
+        pageDiv.style.cssText='position:relative;margin:0 auto 16px;'+
+            'width:'+w+'px;height:'+h+'px;'+
+            'background:#fff;border-radius:4px;box-shadow:0 2px 8px rgba(0,0,0,.12);overflow:hidden;';
+
+        // 1. Canvas — EXACT pixel size, no 100% (prevents scaling mismatch with textLayer)
+        const canvas=document.createElement('canvas');
+        const ctx=canvas.getContext('2d');
+        canvas.width=w;
+        canvas.height=h;
+        canvas.style.cssText='position:absolute;top:0;left:0;width:'+w+'px;height:'+h+'px;display:block;';
+        pageDiv.appendChild(canvas);
+        await page.render({canvasContext:ctx,viewport:viewport}).promise;
+
+        // 2. Text layer — EXACT same pixel size as canvas + --scale-factor
+        const textLayerDiv=document.createElement('div');
+        textLayerDiv.className='textLayer';
+        textLayerDiv.style.cssText='position:absolute;top:0;left:0;width:'+w+'px;height:'+h+'px;';
+        textLayerDiv.style.setProperty('--scale-factor',readerScale);
+        pageDiv.appendChild(textLayerDiv);
+
+        const textContent=await page.getTextContent();
+        const textDivs=[];
+
+        await pdfjsLib.renderTextLayer({
+            textContentSource:textContent,
+            container:textLayerDiv,
+            viewport:viewport,
+            textDivs:textDivs,
+        }).promise;
+
+        // 3. endOfContent for clean selection edge (same as PDF.js viewer)
+        const endDiv=document.createElement('div');
+        endDiv.className='endOfContent';
+        textLayerDiv.appendChild(endDiv);
+        endDiv.addEventListener('mousedown',()=>{endDiv.classList.add('active');});
+        endDiv.addEventListener('mouseup',()=>{endDiv.classList.remove('active');});
+
+        // Store extracted text for AI context
+        pageDiv.dataset.text=textContent.items.map(i=>i.str).join(' ');
+
+        // Apply persisted highlights for this page
+        if(readerHighlights.length>0){
+            readerHighlights.filter(h=>h.page===pageNum).forEach(h=>{
+                readerApplyHighlightToPage(pageNum,h.text,h.color);
+            });
+        }
+
+    }catch(err){
+        pageDiv.innerHTML='<div style="padding:40px;text-align:center;color:#ff6b6b;">Failed to render page '+pageNum+': '+escapeHtml(err.message)+'</div>';
+    }
+}
+
+// ===== READER: TEXT SELECTION =====
+document.addEventListener('mouseup',e=>{const area=document.getElementById('reader-content-area');const menu=document.getElementById('reader-float-menu');
+    if(!area||!area.contains(e.target)){if(menu)menu.style.display='none';return;}
+    const sel=window.getSelection();const text=sel.toString().trim();
+    if(text.length>1&&text.length<500){readerSelText=text;try{readerSelRange=sel.getRangeAt(0).cloneRange();}catch(e){return;}
+        const rect=sel.getRangeAt(0).getBoundingClientRect();menu.style.display='flex';menu.style.top=(window.scrollY+rect.bottom+8)+'px';menu.style.left=(window.scrollX+rect.left+rect.width/2-140)+'px';}
+    else{menu.style.display='none';}});
+
+// ===== READER ACTIONS =====
+function readerAction(action){const menu=document.getElementById('reader-float-menu');menu.style.display='none';const panel=document.getElementById('reader-action-panel');const text=readerSelText;
+    if(action==='translate'){panel.innerHTML=`<div class="card" style="border-left:4px solid #2383e2;background:rgba(35,131,226,.06);">
+        <div style="display:flex;gap:12px;"><div style="width:32px;height:32px;border-radius:8px;display:flex;align-items:center;justify-content:center;font-size:14px;font-weight:700;color:#fff;background:linear-gradient(135deg,#2383e2,#4090e8);flex-shrink:0;">🌐</div>
+        <div style="flex:1;"><div style="font-size:12px;font-weight:600;color:#2383e2;margin-bottom:4px;">🌐 Translating...</div><p style="font-size:14px;margin-bottom:8px;">${escapeHtml(text)}</p><div id="reader-translate-result" style="color:var(--text-muted);font-size:13px;">⏳ Calling AI...</div>
+        <div style="display:flex;gap:8px;margin-top:8px;"><button onclick="readerAction('note')" style="font-size:12px;padding:6px 12px;border-radius:6px;background:var(--bg-input);color:var(--text-secondary);border:1px solid var(--border);cursor:pointer;">📝 Save note</button><button onclick="readerAction('highlight')" style="font-size:12px;padding:6px 12px;border-radius:6px;background:var(--bg-input);color:var(--text-secondary);border:1px solid var(--border);cursor:pointer;">🖍 Highlight</button><button onclick="document.getElementById('reader-action-panel').style.display='none'" style="font-size:12px;padding:6px 12px;border-radius:6px;background:transparent;color:var(--text-muted);border:none;cursor:pointer;">✕ Close</button></div></div></div></div>`;
+        panel.style.display='block';
+        fetch(AI_BACKEND_URL+'/api/translate',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({text:text,target_lang:'auto'})})
+        .then(r=>r.json()).then(data=>{
+            const el=document.getElementById('reader-translate-result');
+            if(!el)return;
+            if(data.error){el.innerHTML='<span style="color:#ff6b6b">❌ '+escapeHtml(data.error)+'</span>';}
+            else{el.innerHTML=(data.translation||'').replace(/\n/g,'<br>');}
+        }).catch(err=>{
+            const el=document.getElementById('reader-translate-result');
+            if(el)el.innerHTML='<span style="color:#ff6b6b">❌ '+escapeHtml(err.message)+'</span>';
+        });
+    }else if(action==='highlight'){
+        // Show color picker + note panel
+        const colors=[{c:'#faad14',n:'Yellow'},{c:'#52c41a',n:'Green'},{c:'#2383e2',n:'Blue'},{c:'#ff6b6b',n:'Red'}];
+        panel.innerHTML=`<div class="card" style="border-left:4px solid #faad14;background:rgba(250,173,20,.06);">
+        <div style="font-size:12px;font-weight:600;color:#faad14;margin-bottom:8px;">🖍 Highlight</div>
+        <div style="font-size:12px;padding:8px;border-radius:6px;background:var(--bg-input);color:var(--text-secondary);font-style:italic;margin-bottom:8px;">"${escapeHtml(text.substring(0,120))}${text.length>120?'...':''}"</div>
+        <div style="display:flex;gap:8px;margin-bottom:8px;">
+            ${colors.map(cl=>`<button onclick="readerSetHlColor('${cl.c}')" id="hl-color-btn-${cl.c}" style="width:32px;height:32px;border-radius:50%;border:3px solid ${cl.c===colors[0].c?'#333':'transparent'};background:${cl.c};cursor:pointer;" title="${cl.n}"></button>`).join('')}
+        </div>
+        <input type="hidden" id="hl-selected-color" value="${colors[0].c}">
+        <textarea id="hl-note-input" placeholder="Add a note (optional)..." style="width:100%;padding:8px;border-radius:6px;font-size:13px;resize:none;border:1px solid var(--border);background:var(--bg-input);color:var(--text-primary);outline:none;" rows="2"></textarea>
+        <div style="display:flex;gap:8px;margin-top:8px;">
+            <button class="btn-primary" style="font-size:13px;padding:6px 16px;" onclick="readerSaveHighlightFromPanel()">💾 Save</button>
+            <button onclick="document.getElementById('reader-action-panel').style.display='none'" style="font-size:13px;padding:6px 12px;color:var(--text-muted);background:none;border:none;cursor:pointer;">Cancel</button>
+        </div></div>`;
+        panel.style.display='block';
+    }else if(action==='note'){panel.innerHTML=`<div class="card" style="border-left:4px solid #52c41a;background:rgba(82,196,26,.06);">
+        <div style="font-size:12px;font-weight:600;color:#52c41a;margin-bottom:4px;">📝 New Note</div><div style="font-size:12px;padding:8px;border-radius:6px;background:var(--bg-input);color:var(--text-secondary);font-style:italic;margin-bottom:8px;">"${escapeHtml(text.substring(0,100))}${text.length>100?'...':''}"</div>
+        <textarea id="reader-note-input" placeholder="Write your note..." style="width:100%;padding:8px;border-radius:6px;font-size:14px;resize:none;border:1px solid var(--border);background:var(--bg-input);color:var(--text-primary);outline:none;" rows="3"></textarea>
+        <div style="display:flex;gap:8px;margin-top:8px;"><button class="btn-primary" style="font-size:13px;padding:6px 16px;" onclick="readerSaveNoteFromSel()">💾 Save</button><button onclick="document.getElementById('reader-action-panel').style.display='none'" style="font-size:13px;padding:6px 12px;color:var(--text-muted);background:none;border:none;cursor:pointer;">Cancel</button></div></div>`;
+        panel.style.display='block';document.getElementById('reader-note-input').focus();
+    }else if(action==='ai'){
+        openAIChat(readerSelText);
+    }
+}
+
+// ===== AI CHAT DIALOG =====
+let aiChatMessages=[];
+
+function openAIChat(quotedText){
+    aiChatMessages=[];
+    const modal=document.getElementById('ai-chat-modal');
+    const quoteEl=document.getElementById('ai-chat-quote');
+    const msgArea=document.getElementById('ai-chat-messages');
+
+    // Show quoted text
+    if(quotedText){
+        quoteEl.style.display='block';
+        quoteEl.textContent='"'+quotedText.substring(0,200)+(quotedText.length>200?'...':'')+'"';
+    }else{
+        quoteEl.style.display='none';
+    }
+
+    // Reset messages
+    msgArea.innerHTML='';
+    aiChatMessages=[];
+
+    // Show modal
+    modal.style.display='flex';
+
+    // Clear float menu
+    document.getElementById('reader-float-menu').style.display='none';
+    document.getElementById('reader-action-panel').style.display='none';
+
+    // AUTO-SEND: immediately send the quoted text to AI for analysis (no user input needed)
+    // NOTE: quoted text must be in the USER message, because the backend filters out
+    // any system messages from the frontend to avoid prompt conflicts.
+    setTimeout(()=>{
+        const quoteForAI = quotedText ? '\n\n"' + quotedText.substring(0,800) + '"' : '';
+        aiChatSend('Analyze the following text — explain its core meaning in simple terms:' + quoteForAI);
+    },300);
+}
+
+function closeAIChat(){
+    document.getElementById('ai-chat-modal').style.display='none';
+}
+
+function aiChatSend(text){
+    text=text||document.getElementById('ai-chat-input').value.trim();
+    if(!text)return;
+    document.getElementById('ai-chat-input').value='';
+
+    const msgArea=document.getElementById('ai-chat-messages');
+
+    // If first message, clear placeholder
+    if(aiChatMessages.length===0)msgArea.innerHTML='';
+
+    // Add user message to UI
+    const userDiv=document.createElement('div');
+    userDiv.style.cssText='display:flex;flex-direction:row-reverse;gap:8px;margin-bottom:12px;';
+    userDiv.innerHTML='<div style="width:28px;height:28px;border-radius:50%;background:linear-gradient(135deg,#ff8c00,#e91e63);display:flex;align-items:center;justify-content:center;color:#fff;font-size:12px;font-weight:600;flex-shrink:0;">Y</div>'+
+        '<div style="background:var(--accent);color:#fff;padding:8px 14px;border-radius:12px 12px 4px 12px;font-size:13px;max-width:75%;">'+escapeHtml(text)+'</div>';
+    msgArea.appendChild(userDiv);
+
+    // Add to message history
+    aiChatMessages.push({role:'user',content:text});
+
+    // Create AI response placeholder
+    const aiDiv=document.createElement('div');
+    aiDiv.style.cssText='display:flex;gap:8px;margin-bottom:12px;';
+    aiDiv.innerHTML='<div style="width:28px;height:28px;border-radius:50%;background:linear-gradient(135deg,#722ed1,#9b59f7);display:flex;align-items:center;justify-content:center;color:#fff;font-size:12px;font-weight:600;flex-shrink:0;">🤖</div>'+
+        '<div id="ai-streaming-'+Date.now()+'" style="background:var(--bg-hover);color:var(--text-primary);padding:8px 14px;border-radius:12px 12px 12px 4px;font-size:13px;max-width:75%;"><span style="color:var(--text-muted);">⏳ Thinking...</span></div>';
+    msgArea.appendChild(aiDiv);
+    const streamId=aiDiv.querySelector('div:last-child').id;
+    msgArea.scrollTop=msgArea.scrollHeight;
+
+    // Build system context with quoted text
+    const quoteEl=document.getElementById('ai-chat-quote');
+    const quote=quoteEl.style.display!=='none'?quoteEl.textContent:'';
+    const sysContent='You are CogniBridge, an AI maths tutor for university students. Be clear, concise and helpful. Use markdown formatting (bold, lists). If asked in Chinese, reply in Chinese. If English, reply in English.'+(quote?'\n\nThe student selected this text from their document:\n'+quote:'');
+
+    const apiMessages=[{role:'system',content:sysContent},...aiChatMessages];
+
+    // Call Kimi
+    kimiCall(apiMessages,
+        full=>{
+            const el=document.getElementById(streamId);
+            if(el)el.innerHTML=markdownToHtml(full)+'<span style="opacity:.5;">▌</span>';
+            msgArea.scrollTop=msgArea.scrollHeight;
+        },
+        full=>{
+            const el=document.getElementById(streamId);
+            if(el)el.innerHTML=markdownToHtml(full);
+            aiChatMessages.push({role:'assistant',content:full});
+            msgArea.scrollTop=msgArea.scrollHeight;
+        },
+        err=>{
+            const el=document.getElementById(streamId);
+            if(el)el.innerHTML='<span style="color:#ff6b6b;">❌ '+escapeHtml(err)+'</span>';
+        }
+    );
+}
+
+function aiChatQuick(btn){
+    const q=btn.dataset.q;
+    aiChatSend(q);
+}
+
+function escapeHtml(t){return t.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;');}
+function markdownToHtml(md){
+    // Protect LaTeX
+    const mathBlocks=[];
+    let text=md.replace(/\$\$([\s\S]+?)\$\$/g,(m,p1)=>{mathBlocks.push({d:true,l:p1.trim()});return '\x00B'+(mathBlocks.length-1)+'\x00';});
+    text=text.replace(/\$([^\$\n]+?)\$/g,(m,p1)=>{mathBlocks.push({d:false,l:p1.trim()});return '\x00I'+(mathBlocks.length-1)+'\x00';});
+    text=text.replace(/\\\((.+?)\\\)/g,(m,p1)=>{mathBlocks.push({d:false,l:p1.trim()});return '\x00I'+(mathBlocks.length-1)+'\x00';});
+    text=text.replace(/\\\[([\s\S]+?)\\\]/g,(m,p1)=>{mathBlocks.push({d:true,l:p1.trim()});return '\x00B'+(mathBlocks.length-1)+'\x00';});
+    // Markdown
+    let h=escapeHtml(text);
+    h=h.replace(/\*\*(.+?)\*\*/g,'<strong>$1</strong>');
+    h=h.replace(/\*(.+?)\*/g,'<em>$1</em>');
+    h=h.replace(/`(.+?)`/g,'<code style="background:rgba(0,0,0,.1);padding:1px 4px;border-radius:3px;font-size:12px;">$1</code>');
+    h=h.replace(/^\- (.+)$/gm,'<li style="margin-left:16px;">$1</li>');
+    h=h.replace(/\n/g,'<br>');
+    // Render math
+    if(typeof katex!=='undefined'){
+        mathBlocks.forEach((b,i)=>{
+            const ph='\x00'+(b.d?'B':'I')+i+'\x00';
+            try{
+                const html=katex.renderToString(b.l,{displayMode:b.d,throwOnError:false});
+                h=h.split(ph).join(b.d?'<div style="text-align:center;margin:8px 0;overflow-x:auto;">'+html+'</div>':html);
+            }catch(e){h=h.split(ph).join('<code>'+b.l+'</code>');}
+        });
+    }else{
+        mathBlocks.forEach((b,i)=>{
+            const ph='\x00'+(b.d?'B':'I')+i+'\x00';
+            h=h.split(ph).join('<code>'+(b.d?'$$':'$')+b.l+(b.d?'$$':'$')+'</code>');
+        });
+    }
+    return h;
+}
+
+// ===== READER NOTES (synced with Notes page) =====
+async function readerSaveNoteFromSel(){
+    const inp=document.getElementById('reader-note-input');if(!inp||!inp.value.trim())return;
+    const noteText=inp.value.trim();const quote=readerSelText.substring(0,100);
+    readerNotes.push({text:noteText,quote,time:new Date().toLocaleTimeString(),color:'#52c41a'});
+    readerRenderNotes();
+    // Sync to backend
+    try{
+        const res=await apiFetch('/api/notes',{
+            method:'POST',
+            body:JSON.stringify({
+                title:'📖 '+(quote.substring(0,30)||'Reader Note'),
+                tag:'Reading Note',
+                content:noteText+'\n\n📖 Quoted: "'+quote+(readerSelText.length>100?'...':'')+'"',
+                source:'reader'
+            })
+        });
+        if(!res.ok)throw new Error('HTTP '+res.status);
+        const created=await res.json();
+        notesData.push({
+            id:created.id,
+            title:'📖 '+(quote.substring(0,30)||'Reader Note'),
+            tag:'Reading Note',
+            content:noteText+'\n\n📖 Quoted: "'+quote+(readerSelText.length>100?'...':'')+'"',
+            source:'reader',
+            createdAt:new Date().toISOString(),
+            updatedAt:new Date().toISOString(),
+            isDeleted:false,
+            deletedAt:null
+        });
+        notesSave();
+    }catch(e){console.error('Save reader note failed:',e);}
+    document.getElementById('reader-action-panel').style.display='none';window.getSelection().removeAllRanges();
+    showNotification('✅ Note saved');
+}
+async function readerSaveQuickNote(){
+    const inp=document.getElementById('reader-quick-note');if(!inp||!inp.value.trim())return;
+    const noteText=inp.value.trim();
+    readerNotes.push({text:noteText,quote:'',time:new Date().toLocaleTimeString(),color:'#2383e2'});
+    inp.value='';readerRenderNotes();
+    // Sync to backend
+    try{
+        const res=await apiFetch('/api/notes',{
+            method:'POST',
+            body:JSON.stringify({title:'Quick Note',tag:'Reading Note',content:noteText,source:'reader'})
+        });
+        if(!res.ok)throw new Error('HTTP '+res.status);
+        const created=await res.json();
+        notesData.push({
+            id:created.id,
+            title:'Quick Note',
+            tag:'Reading Note',
+            content:noteText,
+            source:'reader',
+            createdAt:new Date().toISOString(),
+            updatedAt:new Date().toISOString(),
+            isDeleted:false,
+            deletedAt:null
+        });
+        notesSave();
+    }catch(e){console.error('Save quick note failed:',e);}
+    showNotification('✅ Quick note saved');
+}
+function readerDeleteNote(i){readerNotes.splice(i,1);readerRenderNotes();}
+function readerRenderNotes(){const list=document.getElementById('reader-notes-list');const cnt=document.getElementById('reader-note-count');if(!list)return;if(cnt)cnt.textContent=readerNotes.length+(readerNotes.length===1?' note':' notes');
+    if(readerNotes.length===0){list.innerHTML='<p style="font-size:12px;text-align:center;padding:16px;color:var(--text-muted);">No notes yet. Select text and click 📝 Note.</p>';return;}
+    list.innerHTML=readerNotes.map((n,i)=>`<div class="card" style="padding:12px;border-left:3px solid ${n.color};">
+        ${n.quote?`<div style="font-size:11px;margin-bottom:4px;font-style:italic;color:var(--text-muted);">"${n.quote}${n.quote.length>=100?'...':''}"</div>`:''}
+        <p style="font-size:13px;">${n.text}</p><div style="display:flex;justify-content:space-between;margin-top:4px;"><span style="font-size:11px;color:var(--text-muted);">${n.time}</span><button onclick="readerDeleteNote(${i})" style="font-size:12px;color:#ff6b6b;background:none;border:none;cursor:pointer;">✕</button></div></div>`).join('');}
+function readerSetHlColor(c){
+    document.getElementById('hl-selected-color').value=c;
+    ['#faad14','#52c41a','#2383e2','#ff6b6b'].forEach(col=>{
+        const btn=document.getElementById('hl-color-btn-'+col);
+        if(btn)btn.style.borderColor=(col===c?'#333':'transparent');
+    });
+}
+
+function readerSaveHighlightFromPanel(){
+    const color=document.getElementById('hl-selected-color').value;
+    const note=document.getElementById('hl-note-input').value.trim();
+    const panel=document.getElementById('reader-action-panel');
+    const text=readerSelText;
+    // Apply visual highlight immediately
+    try{const span=document.createElement('span');span.className='reader-hl';span.style.cssText='background:'+color+'33;border-radius:2px;';readerSelRange.surroundContents(span);}catch(e){}
+    window.getSelection().removeAllRanges();
+    panel.style.display='none';
+    // Detect page from current view
+    let page=1;const container=document.getElementById('pdf-pages-container');if(container){const pages=container.querySelectorAll('[data-page-num]');for(let p of pages){const rect=p.getBoundingClientRect();const area=document.getElementById('reader-content-area');if(rect.top>=0&&rect.top<area.clientHeight){page=parseInt(p.dataset.pageNum);break;}}}
+    // Save to backend
+    readerSaveHighlight(readerCurrentDocId,page,text,color,note);
+}
+
+async function readerSaveHighlight(docId,page,text,color,note){
+    const hl={id:'local_'+Date.now(),document_id:docId,page:page,text:text,color:color,note:note||'',created_at:new Date().toISOString()};
+    readerHighlights.push(hl);readerRenderHighlights();
+    // Save to localStorage for guests
+    try{localStorage.setItem('cb_highlights_'+docId,JSON.stringify(readerHighlights));}catch(e){}
+    const token=localStorage.getItem('cb_token');
+    if(!token)return; // Guest: localStorage only
+    try{
+        const res=await apiFetch('/api/highlights',{method:'POST',body:JSON.stringify({document_id:docId,page:page,text:text,color:color,note:note||''})});
+        if(!res.ok)throw new Error('HTTP '+res.status);
+        const data=await res.json();
+        if(data.id)hl.id=data.id;
+    }catch(e){console.error('Failed to save highlight:',e);}
+}
+
+async function readerLoadHighlights(docId){
+    if(!docId)return;
+    readerHighlights=[];
+    // Try backend first
+    const token=localStorage.getItem('cb_token');
+    if(token){
+        try{
+            const res=await apiFetch('/api/highlights?document_id='+encodeURIComponent(docId));
+            if(res.ok){const data=await res.json();if(Array.isArray(data))readerHighlights=data;}
+        }catch(e){console.error('Failed to load highlights:',e);}
+    }
+    // Fallback: localStorage for guests
+    if(readerHighlights.length===0){
+        try{const local=JSON.parse(localStorage.getItem('cb_highlights_'+docId)||'[]');if(Array.isArray(local))readerHighlights=local;}catch(e){}
+    }
+    readerRenderHighlights();
+    // Apply to already-rendered pages
+    readerHighlights.forEach(h=>{if(readerRenderedPages.has(h.page))readerApplyHighlightToPage(h.page,h.text,h.color);});
+}
+
+function readerApplyHighlightToPage(pageNum,searchText,color){
+    const pageDiv=document.getElementById('pdf-page-'+pageNum);if(!pageDiv)return;
+    const textLayer=pageDiv.querySelector('.textLayer');if(!textLayer)return;
+    // Walk text nodes and wrap matching text
+    const walker=document.createTreeWalker(textLayer,NodeFilter.SHOW_TEXT,null,false);
+    const nodes=[];let n;while((n=walker.nextNode())!==null)nodes.push(n);
+    for(let node of nodes){
+        const idx=node.textContent.indexOf(searchText);if(idx===-1)continue;
+        const range=document.createRange();
+        range.setStart(node,idx);range.setEnd(node,idx+searchText.length);
+        const span=document.createElement('span');
+        span.className='reader-hl';
+        span.style.cssText='background:'+color+'33;border-radius:2px;';
+        try{range.surroundContents(span);}catch(e){}
+        break; // Highlight first match only
+    }
+}
+
+function readerDeleteHighlight(hlId){
+    const idx=readerHighlights.findIndex(h=>h.id===hlId);if(idx===-1)return;
+    readerHighlights.splice(idx,1);readerRenderHighlights();
+    // Sync localStorage
+    try{if(readerCurrentDocId)localStorage.setItem('cb_highlights_'+readerCurrentDocId,JSON.stringify(readerHighlights));}catch(e){}
+    // Remove from backend
+    const token=localStorage.getItem('cb_token');
+    if(token&&hlId&&!hlId.startsWith('local_')){
+        apiFetch('/api/highlights/'+hlId,{method:'DELETE'}).catch(e=>console.error('Failed to delete highlight:',e));
+    }
+    // Remove visual highlights from DOM
+    document.querySelectorAll('.reader-hl').forEach(el=>{
+        const parent=el.parentNode;if(!parent)return;
+        while(el.firstChild)parent.insertBefore(el.firstChild,el);
+        parent.removeChild(el);
+    });
+    // Re-apply remaining highlights
+    readerHighlights.forEach(h=>{if(readerRenderedPages.has(h.page))readerApplyHighlightToPage(h.page,h.text,h.color);});
+}
+
+function readerRenderHighlights(){
+    const list=document.getElementById('reader-highlights-list');if(!list)return;
+    if(readerHighlights.length===0){list.innerHTML='<p style="font-size:12px;color:var(--text-muted);">No highlights yet</p>';return;}
+    list.innerHTML=readerHighlights.map(h=>{
+        const noteBadge=h.note?`<span style="font-size:10px;padding:1px 5px;border-radius:4px;background:${h.color}22;color:${h.color};margin-left:4px;">📝</span>`:'';
+        return `<div style="font-size:12px;padding:6px 8px;border-radius:4px;background:${h.color}11;border-left:3px solid ${h.color};color:var(--text-secondary);cursor:pointer;margin-bottom:4px;" onclick="readerJumpToPage(${h.page})" title="Page ${h.page}">
+        <div style="display:flex;align-items:center;justify-content:space-between;">
+            <span>🖍 ${escapeHtml(h.text.substring(0,40))}${h.text.length>40?'...':''}${noteBadge}</span>
+            <button onclick="event.stopPropagation();readerDeleteHighlight('${h.id}')" style="font-size:11px;color:#ff6b6b;background:none;border:none;cursor:pointer;padding:0 4px;">✕</button>
+        </div>
+        <div style="font-size:10px;color:var(--text-muted);margin-top:2px;">Page ${h.page}${h.note?' · '+escapeHtml(h.note.substring(0,30))+(h.note.length>30?'...':''):''}</div>
+        </div>`;
+    }).join('');
+}
+
+function readerJumpToPage(pageNum){
+    const pageDiv=document.getElementById('pdf-page-'+pageNum);if(!pageDiv)return;
+    pageDiv.scrollIntoView({behavior:'smooth',block:'start'});
+}
+
+// ===== RECYCLE BIN & CONFIRM DIALOG =====
+function showConfirmDialog(opts){
+    const existing=document.getElementById('confirm-dialog-overlay');
+    if(existing)existing.remove();
+    const overlay=document.createElement('div');
+    overlay.id='confirm-dialog-overlay';
+    overlay.style.cssText='position:fixed;inset:0;z-index:200;display:flex;align-items:center;justify-content:center;padding:16px;background:rgba(0,0,0,.5);';
+    overlay.innerHTML=`<div style="background:var(--bg-card);border:1px solid var(--border);border-radius:16px;max-width:360px;width:100%;padding:24px;text-align:center;">
+        <div style="font-size:36px;margin-bottom:8px;">${escapeHtml(opts.icon||'🗑️')}</div>
+        <div style="font-size:18px;font-weight:700;margin-bottom:8px;color:var(--text-primary);">${escapeHtml(opts.title||'Are you sure?')}</div>
+        <div style="font-size:14px;color:var(--text-secondary);margin-bottom:24px;white-space:pre-wrap;">${escapeHtml(opts.message||'')}</div>
+        <div style="display:flex;gap:8px;">
+            <button id="confirm-cancel" class="btn-secondary" style="flex:1;padding:10px;">${escapeHtml(opts.cancelText||'Cancel')}</button>
+            <button id="confirm-ok" class="btn-primary" style="flex:1;padding:10px;background:${opts.confirmColor||'var(--accent)'};">${escapeHtml(opts.confirmText||'Confirm')}</button>
+        </div>
+    </div>`;
+    document.body.appendChild(overlay);
+    document.getElementById('confirm-cancel').onclick=()=>{overlay.remove();if(opts.onCancel)opts.onCancel();};
+    document.getElementById('confirm-ok').onclick=()=>{overlay.remove();if(opts.onConfirm)opts.onConfirm();};
+}
+
+// Bookshelf recycle bin functions
+function bsDeleteDocument(docId){
+    const doc=Object.values(bsData).flat().find(d=>d.id===docId);
+    if(!doc)return;
+    showConfirmDialog({
+        title:'Delete Document?',
+        message:`"${doc.title}" will be moved to Recycle Bin.`,
+        confirmText:'Delete',
+        confirmColor:'#ff6b6b',
+        onConfirm:()=>{
+            doc.isDeleted=true;
+            doc.deletedAt=new Date().toISOString();
+            bsPageRenderGrid(bsPageCat);
+            bsRenderDashboard(bsPageCat);
+            const rm=document.getElementById('reader-bs-modal');
+            if(rm&&rm.style.display==='flex')readerRenderModalDocs(bsModalCat);
+            showNotification('✅ Moved to Recycle Bin');
+        }
+    });
+}
+function bsRestoreDocument(docId){
+    const doc=Object.values(bsData).flat().find(d=>d.id===docId);
+    if(!doc)return;
+    doc.isDeleted=false;
+    doc.deletedAt=null;
+    bsPageRenderGrid(bsPageCat);
+    bsRenderDashboard(bsPageCat);
+    showNotification('♻️ Document restored');
+}
+async function bsPermanentlyDeleteDocument(docId){
+    const doc=Object.values(bsData).flat().find(d=>d.id===docId);
+    if(!doc)return;
+    showConfirmDialog({
+        icon:'💥',
+        title:'Delete Forever?',
+        message:`"${doc.title}" will be permanently removed from the server.\nThis action cannot be undone.`,
+        confirmText:'Delete Forever',
+        confirmColor:'#ff6b6b',
+        onConfirm:async ()=>{
+            try{
+                const res=await apiFetch('/api/documents/'+docId,{method:'DELETE'});
+                if(!res.ok)throw new Error('HTTP '+res.status);
+            }catch(e){console.error('Backend delete failed:',e);}
+            Object.keys(bsData).forEach(cat=>{
+                bsData[cat]=bsData[cat].filter(d=>d.id!==docId);
+            });
+            bsPageRenderGrid(bsPageCat);
+            bsRenderDashboard(bsPageCat);
+            showNotification('💥 Permanently deleted');
+        }
+    });
+}
+
+// Notes recycle bin functions
+function notesDeleteNote(noteId){
+    const n=notesData.find(x=>x.id===noteId);
+    if(!n)return;
+    showConfirmDialog({
+        title:'Delete Note?',
+        message:`"${n.title||'Untitled'}" will be moved to Recycle Bin.`,
+        confirmText:'Delete',
+        confirmColor:'#ff6b6b',
+        onConfirm:()=>{
+            n.isDeleted=true;
+            n.deletedAt=new Date().toISOString();
+            notesSave();notesRender();
+            showNotification('✅ Note moved to Recycle Bin');
+        }
+    });
+}
+function notesRestoreNote(noteId){
+    const n=notesData.find(x=>x.id===noteId);
+    if(!n)return;
+    n.isDeleted=false;
+    n.deletedAt=null;
+    notesSave();notesRender();
+    showNotification('♻️ Note restored');
+}
+function notesPermanentlyDeleteNote(noteId){
+    const n=notesData.find(x=>x.id===noteId);
+    if(!n)return;
+    showConfirmDialog({
+        icon:'💥',
+        title:'Delete Forever?',
+        message:`"${n.title||'Untitled'}" will be permanently removed from the server.\nThis action cannot be undone.`,
+        confirmText:'Delete Forever',
+        confirmColor:'#ff6b6b',
+        onConfirm:async ()=>{
+            try{
+                const res=await apiFetch('/api/notes/'+noteId,{method:'DELETE'});
+                if(!res.ok)throw new Error('HTTP '+res.status);
+            }catch(e){console.error('Backend delete failed:',e);}
+            notesData=notesData.filter(x=>x.id!==noteId);
+            notesSave();notesRender();
+            showNotification('💥 Note permanently deleted');
+        }
+    });
+}
+
+// ===== UTIL =====
+function showNotification(text){const n=document.createElement('div');n.style.cssText='position:fixed;top:80px;right:24px;z-index:100;padding:12px 20px;border-radius:8px;background:rgba(82,196,26,.9);color:#fff;font-size:14px;box-shadow:0 4px 12px rgba(0,0,0,.2);transition:opacity .3s;';n.textContent=text;document.body.appendChild(n);setTimeout(()=>{n.style.opacity='0';setTimeout(()=>n.remove(),300);},2500);}
+function toggleNotesPanel(){
+    const p=document.getElementById('reader-notes-aside');
+    const b=document.getElementById('notes-toggle-btn');
+    if(p.classList.contains('collapsed')){
+        p.classList.remove('collapsed');
+        b.textContent='▶';b.title='Collapse notes';
+    }else{
+        p.classList.add('collapsed');
+        b.textContent='◀';b.title='Expand notes';
+    }
+    // After CSS transition (250ms), re-render PDF to fill new width
+    if(readerPdfDoc){
+        setTimeout(async()=>{
+            const area=document.getElementById('reader-content-area');
+            if(!area)return;
+            try{
+                const firstPage=await readerPdfDoc.getPage(1);
+                const nativeWidth=firstPage.getViewport({scale:1}).width;
+                const newWidth=area.clientWidth-48;
+                readerScale=Math.min(2.0,Math.max(0.5,newWidth/nativeWidth));
+                readerRenderedPages.clear();
+                for(let i=1;i<=readerPdfTotal;i++){
+                    const pd=document.getElementById('pdf-page-'+i);
+                    if(pd){
+                        pd.innerHTML='<div style="display:flex;align-items:center;justify-content:center;padding:40px;color:var(--text-muted);font-size:13px;">⏳ Page '+i+'</div>';
+                        pd.style.cssText='margin:0 auto 16px;width:auto;min-height:400px;background:#fff;border-radius:4px;box-shadow:0 2px 8px rgba(0,0,0,.12);overflow:hidden;position:relative;';
+                    }
+                }
+            }catch(e){}
+        },280);
+    }
+}
+
+// ===== Init =====
+document.addEventListener('DOMContentLoaded',async()=>{
+    renderSidebarUser();
+    plotInit();
+    // Check if logged in
+    const token=localStorage.getItem('cb_token');
+    if(token){
+        await bsPageInit();
+        await notesInit();
+    }else{
+        // Guest mode: don't load from backend
+        bsPageRenderTabs();
+        bsPageRenderGrid('slides');
+        notesRender();
+    }
+    readerRenderNotes();
+    readerRenderHighlights();
+    bsRenderDashboard(bsPageCat);
+    restorePretestData();
+    checkWeeklyUpdate();
+});
+</script>
+</body>
+</html>

@@ -1,0 +1,4232 @@
+{
+  "meta": {
+    "timestamp": "2026-08-12T17:49:18.326556",
+    "model": "qwen3.6-35b-a3b",
+    "total_questions": 55,
+    "modes_tested": [
+      "direct",
+      "v2",
+      "v3"
+    ]
+  },
+  "questions": [
+    {
+      "id": "lim_001",
+      "topic": "Limits",
+      "qtype": "Short",
+      "difficulty": "easy",
+      "question": "Evaluate the limit: lim(x\u21920) (sin(3x) / x)",
+      "gold_answer": "3",
+      "answer_type": "exact",
+      "modes": {
+        "direct": {
+          "answer": "3",
+          "correct": true,
+          "match_type": "exact",
+          "latency_sec": 10.21,
+          "usage": {
+            "prompt_tokens": 60,
+            "completion_tokens": 2173,
+            "total_tokens": 2233,
+            "completion_tokens_details": {
+              "reasoning_tokens": 1625,
+              "text_tokens": 2173
+            },
+            "prompt_tokens_details": {
+              "text_tokens": 60
+            }
+          }
+        },
+        "v2": {
+          "answer": "3",
+          "correct": true,
+          "match_type": "exact",
+          "latency_sec": 13.95,
+          "usage": {
+            "prompt_tokens": 195,
+            "completion_tokens": 2530,
+            "total_tokens": 2725,
+            "completion_tokens_details": {
+              "reasoning_tokens": 1883,
+              "text_tokens": 2530
+            },
+            "prompt_tokens_details": {
+              "text_tokens": 195
+            }
+          },
+          "topic_detected": "Limits",
+          "lane": "A",
+          "confidence": 1.0
+        },
+        "v3": {
+          "answer": "3",
+          "correct": true,
+          "match_type": "exact",
+          "latency_sec": 13.46,
+          "usage": {
+            "prompt_tokens": 157,
+            "completion_tokens": 2955,
+            "total_tokens": 3112,
+            "completion_tokens_details": {
+              "reasoning_tokens": 2055,
+              "text_tokens": 2955
+            },
+            "prompt_tokens_details": {
+              "text_tokens": 157
+            }
+          },
+          "topic_detected": "Limits",
+          "lane": "A",
+          "confidence": 1.0,
+          "routing_reasons": [
+            "Question type: Long answer",
+            "Short question (7 words)"
+          ],
+          "proof_assessment": null
+        }
+      }
+    },
+    {
+      "id": "lim_002",
+      "topic": "Limits",
+      "qtype": "Short",
+      "difficulty": "medium",
+      "question": "Evaluate the limit: lim(x\u2192\u221e) (1 + 1/x)^x",
+      "gold_answer": "e",
+      "answer_type": "exact",
+      "modes": {
+        "direct": {
+          "answer": "e",
+          "correct": true,
+          "match_type": "exact",
+          "latency_sec": 15.1,
+          "usage": {
+            "prompt_tokens": 60,
+            "completion_tokens": 3309,
+            "total_tokens": 3369,
+            "completion_tokens_details": {
+              "reasoning_tokens": 2145,
+              "text_tokens": 3309
+            },
+            "prompt_tokens_details": {
+              "text_tokens": 60
+            }
+          }
+        },
+        "v2": {
+          "answer": "e",
+          "correct": true,
+          "match_type": "exact",
+          "latency_sec": 15.68,
+          "usage": {
+            "prompt_tokens": 195,
+            "completion_tokens": 2980,
+            "total_tokens": 3175,
+            "completion_tokens_details": {
+              "reasoning_tokens": 2301,
+              "text_tokens": 2980
+            },
+            "prompt_tokens_details": {
+              "text_tokens": 195
+            }
+          },
+          "topic_detected": "Limits",
+          "lane": "A",
+          "confidence": 1.0
+        },
+        "v3": {
+          "answer": "e",
+          "correct": true,
+          "match_type": "exact",
+          "latency_sec": 14.51,
+          "usage": {
+            "prompt_tokens": 157,
+            "completion_tokens": 2756,
+            "total_tokens": 2913,
+            "completion_tokens_details": {
+              "reasoning_tokens": 1773,
+              "text_tokens": 2756
+            },
+            "prompt_tokens_details": {
+              "text_tokens": 157
+            }
+          },
+          "topic_detected": "Limits",
+          "lane": "A",
+          "confidence": 1.0,
+          "routing_reasons": [
+            "Question type: Long answer",
+            "Short question (7 words)"
+          ],
+          "proof_assessment": null
+        }
+      }
+    },
+    {
+      "id": "lim_003",
+      "topic": "Limits",
+      "qtype": "Proof",
+      "difficulty": "hard",
+      "question": "Using the \u03b5-\u03b4 definition, prove that lim(x\u21923) (2x + 1) = 7.",
+      "gold_answer": "Proof: For any \u03b5 > 0, choose \u03b4 = \u03b5/2. Then 0 < |x-3| < \u03b4 implies |(2x+1)-7| = 2|x-3| < 2(\u03b5/2) = \u03b5.",
+      "answer_type": "proof_structure",
+      "modes": {
+        "direct": {
+          "answer": "\\lim_{x \\to 3} (2x + 1) = 7",
+          "correct": false,
+          "match_type": "proof_heuristic",
+          "latency_sec": 12.61,
+          "usage": {
+            "prompt_tokens": 67,
+            "completion_tokens": 2608,
+            "total_tokens": 2675,
+            "completion_tokens_details": {
+              "reasoning_tokens": 1742,
+              "text_tokens": 2608
+            },
+            "prompt_tokens_details": {
+              "text_tokens": 67
+            }
+          }
+        },
+        "v2": {
+          "answer": "\\lim_{x \\to 3} (2x + 1) = 7",
+          "correct": false,
+          "match_type": "proof_heuristic",
+          "latency_sec": 86.78,
+          "usage": {
+            "prompt_tokens": 1020,
+            "completion_tokens": 15714,
+            "total_tokens": 16734
+          },
+          "topic_detected": "Limits",
+          "lane": "B",
+          "confidence": 1.0
+        },
+        "v3": {
+          "answer": "**Proof.** By the $\\varepsilon$-$\\delta$ definition of a limit, we must show that for every $\\varepsilon > 0$, there exists a $\\delta > 0$ such that for all $x \\in \\mathbb{R}$,\n$$0 < |x - 3| < \\delta \\implies |(2x + 1) - 7| < \\varepsilon.$$\n\nLet $\\varepsilon > 0$ be arbitrary. We determine a suitable $\\delta$ by analysing the difference between the function and the proposed limit:\n$$|(2x + 1) - 7| = |2x - 6| = 2|x - 3|.$$\nWe require $2|x - 3| < \\varepsilon$, which simplifies to $|x - 3| < \\frac{\\varepsilon}{2}$. \n\nMotivated by this inequality, we choose $\\delta = \\frac{\\varepsilon}{2}$. Since $\\varepsilon > 0$, it follows immediately that $\\delta > 0$.\n\nNow, suppose $0 < |x - 3| < \\delta$. Then:\n$$|(2x + 1) - 7| = 2|x - 3| < 2\\delta = 2\\left(\\frac{\\varepsilon}{2}\\right) = \\varepsilon.$$\nThus, $|(2x + 1) - 7| < \\varepsilon$ holds whenever $0 < |x - 3| < \\delta$.\n\nBy the $\\varepsilon$-$\\delta$ definition of a limit, we have rigorously established that $\\lim_{x \\to 3} (2x + 1) = 7$. $\\blacksquare$",
+          "correct": true,
+          "match_type": "proof_heuristic",
+          "latency_sec": 83.34,
+          "usage": {
+            "prompt_tokens": 1915,
+            "completion_tokens": 16761,
+            "total_tokens": 18676
+          },
+          "topic_detected": "Proof_Techniques",
+          "lane": "B",
+          "confidence": 0.2,
+          "routing_reasons": [
+            "Weak topic: Proof_Techniques (score: 0.37)",
+            "Question type: Proof",
+            "Short question (12 words)"
+          ],
+          "proof_assessment": {
+            "proof_type": "epsilon_delta",
+            "overall": "fail",
+            "score": 0.375,
+            "feedback": "Missing sections: given_epsilon, find_delta. Sections needing improvement: conclusion.",
+            "sections": [
+              {
+                "name": "given_epsilon",
+                "present": false,
+                "quality": "missing",
+                "comment": "Not found"
+              },
+              {
+                "name": "find_delta",
+                "present": false,
+                "quality": "missing",
+                "comment": "Not found"
+              },
+              {
+                "name": "verification",
+                "present": true,
+                "quality": "strong",
+                "comment": "Matched: ['whenever', 'implies']"
+              },
+              {
+                "name": "conclusion",
+                "present": true,
+                "quality": "partial",
+                "comment": "Matched: ['lim']"
+              }
+            ]
+          }
+        }
+      }
+    },
+    {
+      "id": "lim_004",
+      "topic": "Limits",
+      "qtype": "Short",
+      "difficulty": "medium",
+      "question": "Evaluate the limit: lim(x\u21920+) x * ln(x)",
+      "gold_answer": "0",
+      "answer_type": "exact",
+      "modes": {
+        "direct": {
+          "answer": "0",
+          "correct": true,
+          "match_type": "exact",
+          "latency_sec": 9.94,
+          "usage": {
+            "prompt_tokens": 56,
+            "completion_tokens": 2120,
+            "total_tokens": 2176,
+            "completion_tokens_details": {
+              "reasoning_tokens": 1396,
+              "text_tokens": 2120
+            },
+            "prompt_tokens_details": {
+              "text_tokens": 56
+            }
+          }
+        },
+        "v2": {
+          "answer": "0",
+          "correct": true,
+          "match_type": "exact",
+          "latency_sec": 11.29,
+          "usage": {
+            "prompt_tokens": 191,
+            "completion_tokens": 2644,
+            "total_tokens": 2835,
+            "completion_tokens_details": {
+              "reasoning_tokens": 2021,
+              "text_tokens": 2644
+            },
+            "prompt_tokens_details": {
+              "text_tokens": 191
+            }
+          },
+          "topic_detected": "Limits",
+          "lane": "A",
+          "confidence": 1.0
+        },
+        "v3": {
+          "answer": "0",
+          "correct": true,
+          "match_type": "exact",
+          "latency_sec": 12.45,
+          "usage": {
+            "prompt_tokens": 153,
+            "completion_tokens": 2804,
+            "total_tokens": 2957,
+            "completion_tokens_details": {
+              "reasoning_tokens": 1995,
+              "text_tokens": 2804
+            },
+            "prompt_tokens_details": {
+              "text_tokens": 153
+            }
+          },
+          "topic_detected": "Limits",
+          "lane": "A",
+          "confidence": 1.0,
+          "routing_reasons": [
+            "Question type: Long answer",
+            "Short question (7 words)"
+          ],
+          "proof_assessment": null
+        }
+      }
+    },
+    {
+      "id": "diff_001",
+      "topic": "Differentiation",
+      "qtype": "Short",
+      "difficulty": "easy",
+      "question": "Find the derivative of f(x) = x^3 * e^x.",
+      "gold_answer": "x^2 * e^x * (3 + x)",
+      "answer_type": "symbolic",
+      "modes": {
+        "direct": {
+          "answer": "f'(x) = x^2 e^x (x + 3)",
+          "correct": true,
+          "match_type": "symbolic_numbers",
+          "latency_sec": 9.5,
+          "usage": {
+            "prompt_tokens": 58,
+            "completion_tokens": 1996,
+            "total_tokens": 2054,
+            "completion_tokens_details": {
+              "reasoning_tokens": 1625,
+              "text_tokens": 1996
+            },
+            "prompt_tokens_details": {
+              "text_tokens": 58
+            }
+          }
+        },
+        "v2": {
+          "answer": "f'(x) = x^2 e^x (x + 3)",
+          "correct": true,
+          "match_type": "symbolic_numbers",
+          "latency_sec": 10.13,
+          "usage": {
+            "prompt_tokens": 193,
+            "completion_tokens": 2249,
+            "total_tokens": 2442,
+            "completion_tokens_details": {
+              "reasoning_tokens": 1874,
+              "text_tokens": 2249
+            },
+            "prompt_tokens_details": {
+              "text_tokens": 193
+            }
+          },
+          "topic_detected": "Differentiation",
+          "lane": "A",
+          "confidence": 1.0
+        },
+        "v3": {
+          "answer": "\\frac{df}{dx} = x^2 e^x (x + 3)",
+          "correct": true,
+          "match_type": "symbolic_numbers",
+          "latency_sec": 8.96,
+          "usage": {
+            "prompt_tokens": 156,
+            "completion_tokens": 1884,
+            "total_tokens": 2040,
+            "completion_tokens_details": {
+              "reasoning_tokens": 1558,
+              "text_tokens": 1884
+            },
+            "prompt_tokens_details": {
+              "text_tokens": 156
+            }
+          },
+          "topic_detected": "Differentiation",
+          "lane": "A",
+          "confidence": 1.0,
+          "routing_reasons": [
+            "Short question (9 words)"
+          ],
+          "proof_assessment": null
+        }
+      }
+    },
+    {
+      "id": "diff_002",
+      "topic": "Differentiation",
+      "qtype": "Short",
+      "difficulty": "medium",
+      "question": "Find dy/dx if y = ln(x^2 + 1) / x.",
+      "gold_answer": "(2x^2 - (x^2+1)*ln(x^2+1)) / (x^2*(x^2+1))",
+      "answer_type": "symbolic",
+      "modes": {
+        "direct": {
+          "answer": "\\frac{2x^2 - (x^2 + 1)\\ln(x^2 + 1)}{x^2(x^2 + 1)}",
+          "correct": true,
+          "match_type": "symbolic_numbers",
+          "latency_sec": 19.3,
+          "usage": {
+            "prompt_tokens": 60,
+            "completion_tokens": 3964,
+            "total_tokens": 4024,
+            "completion_tokens_details": {
+              "reasoning_tokens": 3275,
+              "text_tokens": 3964
+            },
+            "prompt_tokens_details": {
+              "text_tokens": 60
+            }
+          }
+        },
+        "v2": {
+          "answer": "\\frac{2x^2 - (x^2 + 1)\\ln(x^2 + 1)}{x^2(x^2 + 1)}",
+          "correct": true,
+          "match_type": "symbolic_numbers",
+          "latency_sec": 17.89,
+          "usage": {
+            "prompt_tokens": 195,
+            "completion_tokens": 4169,
+            "total_tokens": 4364,
+            "completion_tokens_details": {
+              "reasoning_tokens": 3566,
+              "text_tokens": 4169
+            },
+            "prompt_tokens_details": {
+              "text_tokens": 195
+            }
+          },
+          "topic_detected": "Other",
+          "lane": "A",
+          "confidence": 1.0
+        },
+        "v3": {
+          "answer": "\\frac{2x^2 - (x^2 + 1)\\ln(x^2 + 1)}{x^2(x^2 + 1)}",
+          "correct": true,
+          "match_type": "symbolic_numbers",
+          "latency_sec": 15.69,
+          "usage": {
+            "prompt_tokens": 157,
+            "completion_tokens": 3703,
+            "total_tokens": 3860,
+            "completion_tokens_details": {
+              "reasoning_tokens": 3136,
+              "text_tokens": 3703
+            },
+            "prompt_tokens_details": {
+              "text_tokens": 157
+            }
+          },
+          "topic_detected": "Other",
+          "lane": "A",
+          "confidence": 1.0,
+          "routing_reasons": [
+            "Short question (10 words)"
+          ],
+          "proof_assessment": null
+        }
+      }
+    },
+    {
+      "id": "diff_003",
+      "topic": "Differentiation",
+      "qtype": "Short",
+      "difficulty": "medium",
+      "question": "Find the second derivative of f(x) = sin(x^2).",
+      "gold_answer": "2*cos(x^2) - 4*x^2*sin(x^2)",
+      "answer_type": "symbolic",
+      "modes": {
+        "direct": {
+          "answer": "2\\cos(x^2) - 4x^2\\sin(x^2)",
+          "correct": true,
+          "match_type": "symbolic_numbers",
+          "latency_sec": 9.42,
+          "usage": {
+            "prompt_tokens": 56,
+            "completion_tokens": 2094,
+            "total_tokens": 2150,
+            "completion_tokens_details": {
+              "reasoning_tokens": 1625,
+              "text_tokens": 2094
+            },
+            "prompt_tokens_details": {
+              "text_tokens": 56
+            }
+          }
+        },
+        "v2": {
+          "answer": "2\\cos(x^2) - 4x^2\\sin(x^2)",
+          "correct": true,
+          "match_type": "symbolic_numbers",
+          "latency_sec": 14.41,
+          "usage": {
+            "prompt_tokens": 191,
+            "completion_tokens": 3197,
+            "total_tokens": 3388,
+            "completion_tokens_details": {
+              "reasoning_tokens": 2497,
+              "text_tokens": 3197
+            },
+            "prompt_tokens_details": {
+              "text_tokens": 191
+            }
+          },
+          "topic_detected": "Differentiation",
+          "lane": "A",
+          "confidence": 1.0
+        },
+        "v3": {
+          "answer": "2\\cos(x^2) - 4x^2\\sin(x^2)",
+          "correct": true,
+          "match_type": "symbolic_numbers",
+          "latency_sec": 9.89,
+          "usage": {
+            "prompt_tokens": 154,
+            "completion_tokens": 2127,
+            "total_tokens": 2281,
+            "completion_tokens_details": {
+              "reasoning_tokens": 1749,
+              "text_tokens": 2127
+            },
+            "prompt_tokens_details": {
+              "text_tokens": 154
+            }
+          },
+          "topic_detected": "Differentiation",
+          "lane": "A",
+          "confidence": 1.0,
+          "routing_reasons": [
+            "Short question (8 words)"
+          ],
+          "proof_assessment": null
+        }
+      }
+    },
+    {
+      "id": "diff_004",
+      "topic": "Differentiation",
+      "qtype": "Short",
+      "difficulty": "easy",
+      "question": "Find the equation of the tangent line to y = x^2 at x = 2.",
+      "gold_answer": "y = 4x - 4",
+      "answer_type": "exact",
+      "modes": {
+        "direct": {
+          "answer": "y = 4x - 4",
+          "correct": true,
+          "match_type": "exact",
+          "latency_sec": 6.98,
+          "usage": {
+            "prompt_tokens": 61,
+            "completion_tokens": 1535,
+            "total_tokens": 1596,
+            "completion_tokens_details": {
+              "reasoning_tokens": 1170,
+              "text_tokens": 1535
+            },
+            "prompt_tokens_details": {
+              "text_tokens": 61
+            }
+          }
+        },
+        "v2": {
+          "answer": "y = 4x - 4",
+          "correct": true,
+          "match_type": "exact",
+          "latency_sec": 9.08,
+          "usage": {
+            "prompt_tokens": 196,
+            "completion_tokens": 2217,
+            "total_tokens": 2413,
+            "completion_tokens_details": {
+              "reasoning_tokens": 1707,
+              "text_tokens": 2217
+            },
+            "prompt_tokens_details": {
+              "text_tokens": 196
+            }
+          },
+          "topic_detected": "Differentiation",
+          "lane": "A",
+          "confidence": 1.0
+        },
+        "v3": {
+          "answer": "y = 4x - 4",
+          "correct": true,
+          "match_type": "exact",
+          "latency_sec": 7.81,
+          "usage": {
+            "prompt_tokens": 159,
+            "completion_tokens": 1840,
+            "total_tokens": 1999,
+            "completion_tokens_details": {
+              "reasoning_tokens": 1437,
+              "text_tokens": 1840
+            },
+            "prompt_tokens_details": {
+              "text_tokens": 159
+            }
+          },
+          "topic_detected": "Differentiation",
+          "lane": "A",
+          "confidence": 1.0,
+          "routing_reasons": [
+            "Short question (15 words)"
+          ],
+          "proof_assessment": null
+        }
+      }
+    },
+    {
+      "id": "int_001",
+      "topic": "Integration",
+      "qtype": "Short",
+      "difficulty": "easy",
+      "question": "Evaluate the integral: \u222b x * e^x dx",
+      "gold_answer": "(x - 1) * e^x + C",
+      "answer_type": "symbolic",
+      "modes": {
+        "direct": {
+          "answer": "xe^x - e^x + C",
+          "correct": false,
+          "match_type": "symbolic_fallback",
+          "latency_sec": 9.92,
+          "usage": {
+            "prompt_tokens": 54,
+            "completion_tokens": 2104,
+            "total_tokens": 2158,
+            "completion_tokens_details": {
+              "reasoning_tokens": 1622,
+              "text_tokens": 2104
+            },
+            "prompt_tokens_details": {
+              "text_tokens": 54
+            }
+          }
+        },
+        "v2": {
+          "answer": "e^x(x - 1) + C",
+          "correct": true,
+          "match_type": "symbolic_numbers",
+          "latency_sec": 13.18,
+          "usage": {
+            "prompt_tokens": 189,
+            "completion_tokens": 2377,
+            "total_tokens": 2566,
+            "completion_tokens_details": {
+              "reasoning_tokens": 1942,
+              "text_tokens": 2377
+            },
+            "prompt_tokens_details": {
+              "text_tokens": 189
+            }
+          },
+          "topic_detected": "Integration",
+          "lane": "A",
+          "confidence": 1.0
+        },
+        "v3": {
+          "answer": "xe^x - e^x + C",
+          "correct": false,
+          "match_type": "symbolic_fallback",
+          "latency_sec": 12.51,
+          "usage": {
+            "prompt_tokens": 151,
+            "completion_tokens": 2801,
+            "total_tokens": 2952,
+            "completion_tokens_details": {
+              "reasoning_tokens": 1841,
+              "text_tokens": 2801
+            },
+            "prompt_tokens_details": {
+              "text_tokens": 151
+            }
+          },
+          "topic_detected": "Integration",
+          "lane": "A",
+          "confidence": 1.0,
+          "routing_reasons": [
+            "Question type: Long answer",
+            "Short question (8 words)"
+          ],
+          "proof_assessment": null
+        }
+      }
+    },
+    {
+      "id": "int_002",
+      "topic": "Integration",
+      "qtype": "Short",
+      "difficulty": "medium",
+      "question": "Evaluate the definite integral: \u222b[0 to \u03c0] sin(x) dx",
+      "gold_answer": "2",
+      "answer_type": "exact",
+      "modes": {
+        "direct": {
+          "answer": "2",
+          "correct": true,
+          "match_type": "exact",
+          "latency_sec": 9.3,
+          "usage": {
+            "prompt_tokens": 58,
+            "completion_tokens": 1612,
+            "total_tokens": 1670,
+            "completion_tokens_details": {
+              "reasoning_tokens": 1222,
+              "text_tokens": 1612
+            },
+            "prompt_tokens_details": {
+              "text_tokens": 58
+            }
+          }
+        },
+        "v2": {
+          "answer": "2",
+          "correct": true,
+          "match_type": "exact",
+          "latency_sec": 7.87,
+          "usage": {
+            "prompt_tokens": 193,
+            "completion_tokens": 1409,
+            "total_tokens": 1602,
+            "completion_tokens_details": {
+              "reasoning_tokens": 1092,
+              "text_tokens": 1409
+            },
+            "prompt_tokens_details": {
+              "text_tokens": 193
+            }
+          },
+          "topic_detected": "Integration",
+          "lane": "A",
+          "confidence": 1.0
+        },
+        "v3": {
+          "answer": "2",
+          "correct": true,
+          "match_type": "exact",
+          "latency_sec": 10.11,
+          "usage": {
+            "prompt_tokens": 155,
+            "completion_tokens": 1859,
+            "total_tokens": 2014,
+            "completion_tokens_details": {
+              "reasoning_tokens": 1325,
+              "text_tokens": 1859
+            },
+            "prompt_tokens_details": {
+              "text_tokens": 155
+            }
+          },
+          "topic_detected": "Integration",
+          "lane": "A",
+          "confidence": 1.0,
+          "routing_reasons": [
+            "Question type: Long answer",
+            "Short question (9 words)"
+          ],
+          "proof_assessment": null
+        }
+      }
+    },
+    {
+      "id": "int_003",
+      "topic": "Integration",
+      "qtype": "Short",
+      "difficulty": "medium",
+      "question": "Evaluate the integral: \u222b 1 / (x^2 + 4) dx",
+      "gold_answer": "(1/2) * arctan(x/2) + C",
+      "answer_type": "symbolic",
+      "modes": {
+        "direct": {
+          "answer": "\\frac{1}{2} \\arctan\\left(\\frac{x}{2}\\right) + C",
+          "correct": true,
+          "match_type": "symbolic_numbers",
+          "latency_sec": 12.05,
+          "usage": {
+            "prompt_tokens": 60,
+            "completion_tokens": 2576,
+            "total_tokens": 2636,
+            "completion_tokens_details": {
+              "reasoning_tokens": 1870,
+              "text_tokens": 2576
+            },
+            "prompt_tokens_details": {
+              "text_tokens": 60
+            }
+          }
+        },
+        "v2": {
+          "answer": "\\frac{1}{2} \\tan^{-1}\\left(\\frac{x}{2}\\right) + C",
+          "correct": false,
+          "match_type": "symbolic_fallback",
+          "latency_sec": 16.43,
+          "usage": {
+            "prompt_tokens": 195,
+            "completion_tokens": 3201,
+            "total_tokens": 3396,
+            "completion_tokens_details": {
+              "reasoning_tokens": 2608,
+              "text_tokens": 3201
+            },
+            "prompt_tokens_details": {
+              "text_tokens": 195
+            }
+          },
+          "topic_detected": "Integration",
+          "lane": "A",
+          "confidence": 1.0
+        },
+        "v3": {
+          "answer": "\\frac{1}{2} \\arctan\\left(\\frac{x}{2}\\right) + C",
+          "correct": true,
+          "match_type": "symbolic_numbers",
+          "latency_sec": 13.74,
+          "usage": {
+            "prompt_tokens": 157,
+            "completion_tokens": 2618,
+            "total_tokens": 2775,
+            "completion_tokens_details": {
+              "reasoning_tokens": 1807,
+              "text_tokens": 2618
+            },
+            "prompt_tokens_details": {
+              "text_tokens": 157
+            }
+          },
+          "topic_detected": "Integration",
+          "lane": "A",
+          "confidence": 1.0,
+          "routing_reasons": [
+            "Question type: Long answer",
+            "Short question (10 words)"
+          ],
+          "proof_assessment": null
+        }
+      }
+    },
+    {
+      "id": "int_004",
+      "topic": "Integration",
+      "qtype": "Short",
+      "difficulty": "hard",
+      "question": "Evaluate the integral: \u222b e^x * sin(x) dx",
+      "gold_answer": "(e^x * (sin(x) - cos(x))) / 2 + C",
+      "answer_type": "symbolic",
+      "modes": {
+        "direct": {
+          "answer": "\\frac{1}{2}e^x(\\sin x - \\cos x) + C",
+          "correct": false,
+          "match_type": "symbolic_fallback",
+          "latency_sec": 12.57,
+          "usage": {
+            "prompt_tokens": 56,
+            "completion_tokens": 2798,
+            "total_tokens": 2854,
+            "completion_tokens_details": {
+              "reasoning_tokens": 1982,
+              "text_tokens": 2798
+            },
+            "prompt_tokens_details": {
+              "text_tokens": 56
+            }
+          }
+        },
+        "v2": {
+          "answer": "\\frac{e^x}{2}(\\sin x - \\cos x) + C",
+          "correct": true,
+          "match_type": "symbolic_numbers",
+          "latency_sec": 11.01,
+          "usage": {
+            "prompt_tokens": 191,
+            "completion_tokens": 2434,
+            "total_tokens": 2625,
+            "completion_tokens_details": {
+              "reasoning_tokens": 1892,
+              "text_tokens": 2434
+            },
+            "prompt_tokens_details": {
+              "text_tokens": 191
+            }
+          },
+          "topic_detected": "Integration",
+          "lane": "A",
+          "confidence": 1.0
+        },
+        "v3": {
+          "answer": "\\frac{1}{2} e^x (\\sin x - \\cos x) + C",
+          "correct": false,
+          "match_type": "symbolic_fallback",
+          "latency_sec": 11.6,
+          "usage": {
+            "prompt_tokens": 153,
+            "completion_tokens": 2559,
+            "total_tokens": 2712,
+            "completion_tokens_details": {
+              "reasoning_tokens": 1670,
+              "text_tokens": 2559
+            },
+            "prompt_tokens_details": {
+              "text_tokens": 153
+            }
+          },
+          "topic_detected": "Integration",
+          "lane": "A",
+          "confidence": 1.0,
+          "routing_reasons": [
+            "Question type: Long answer",
+            "Short question (8 words)"
+          ],
+          "proof_assessment": null
+        }
+      }
+    },
+    {
+      "id": "ser_001",
+      "topic": "Series_Convergence",
+      "qtype": "Short",
+      "difficulty": "easy",
+      "question": "Determine whether the series \u03a3 (1/n^2) from n=1 to \u221e converges or diverges.",
+      "gold_answer": "converges",
+      "answer_type": "exact",
+      "modes": {
+        "direct": {
+          "answer": "converges",
+          "correct": true,
+          "match_type": "exact",
+          "latency_sec": 12.59,
+          "usage": {
+            "prompt_tokens": 67,
+            "completion_tokens": 2782,
+            "total_tokens": 2849,
+            "completion_tokens_details": {
+              "reasoning_tokens": 2122,
+              "text_tokens": 2782
+            },
+            "prompt_tokens_details": {
+              "text_tokens": 67
+            }
+          }
+        },
+        "v2": {
+          "answer": "Converges",
+          "correct": true,
+          "match_type": "exact",
+          "latency_sec": 75.01,
+          "usage": {
+            "prompt_tokens": 1010,
+            "completion_tokens": 13201,
+            "total_tokens": 14211
+          },
+          "topic_detected": "Series_Convergence",
+          "lane": "B",
+          "confidence": 1.0
+        },
+        "v3": {
+          "answer": "Converges",
+          "correct": true,
+          "match_type": "exact",
+          "latency_sec": 11.22,
+          "usage": {
+            "prompt_tokens": 166,
+            "completion_tokens": 2582,
+            "total_tokens": 2748,
+            "completion_tokens_details": {
+              "reasoning_tokens": 1889,
+              "text_tokens": 2582
+            },
+            "prompt_tokens_details": {
+              "text_tokens": 166
+            }
+          },
+          "topic_detected": "Series_Convergence",
+          "lane": "A",
+          "confidence": 1.0,
+          "routing_reasons": [
+            "Weak topic: Series_Convergence (score: 0.51)",
+            "Short question (13 words)"
+          ],
+          "proof_assessment": null
+        }
+      }
+    },
+    {
+      "id": "ser_002",
+      "topic": "Series_Convergence",
+      "qtype": "Short",
+      "difficulty": "medium",
+      "question": "Find the sum of the geometric series: \u03a3 (1/2)^n from n=0 to \u221e.",
+      "gold_answer": "2",
+      "answer_type": "exact",
+      "modes": {
+        "direct": {
+          "answer": "2",
+          "correct": true,
+          "match_type": "exact",
+          "latency_sec": 8.75,
+          "usage": {
+            "prompt_tokens": 65,
+            "completion_tokens": 1875,
+            "total_tokens": 1940,
+            "completion_tokens_details": {
+              "reasoning_tokens": 1330,
+              "text_tokens": 1875
+            },
+            "prompt_tokens_details": {
+              "text_tokens": 65
+            }
+          }
+        },
+        "v2": {
+          "answer": "2",
+          "correct": true,
+          "match_type": "exact",
+          "latency_sec": 63.4,
+          "usage": {
+            "prompt_tokens": 1000,
+            "completion_tokens": 10333,
+            "total_tokens": 11333
+          },
+          "topic_detected": "Series_Convergence",
+          "lane": "B",
+          "confidence": 1.0
+        },
+        "v3": {
+          "answer": "2",
+          "correct": true,
+          "match_type": "exact",
+          "latency_sec": 9.2,
+          "usage": {
+            "prompt_tokens": 164,
+            "completion_tokens": 2104,
+            "total_tokens": 2268,
+            "completion_tokens_details": {
+              "reasoning_tokens": 1792,
+              "text_tokens": 2104
+            },
+            "prompt_tokens_details": {
+              "text_tokens": 164
+            }
+          },
+          "topic_detected": "Series_Convergence",
+          "lane": "A",
+          "confidence": 1.0,
+          "routing_reasons": [
+            "Weak topic: Series_Convergence (score: 0.46)",
+            "Short question (13 words)"
+          ],
+          "proof_assessment": null
+        }
+      }
+    },
+    {
+      "id": "ser_003",
+      "topic": "Series_Convergence",
+      "qtype": "Short",
+      "difficulty": "medium",
+      "question": "Use the ratio test to determine if \u03a3 (n! / n^n) converges.",
+      "gold_answer": "converges",
+      "answer_type": "exact",
+      "modes": {
+        "direct": {
+          "answer": "The series converges.",
+          "correct": true,
+          "match_type": "exact_recalibrated",
+          "latency_sec": 12.87,
+          "usage": {
+            "prompt_tokens": 60,
+            "completion_tokens": 2889,
+            "total_tokens": 2949,
+            "completion_tokens_details": {
+              "reasoning_tokens": 1999,
+              "text_tokens": 2889
+            },
+            "prompt_tokens_details": {
+              "text_tokens": 60
+            }
+          }
+        },
+        "v2": {
+          "answer": "The series converges.",
+          "correct": true,
+          "match_type": "exact_recalibrated",
+          "latency_sec": 94.49,
+          "usage": {
+            "prompt_tokens": 975,
+            "completion_tokens": 16593,
+            "total_tokens": 17568
+          },
+          "topic_detected": "Series_Convergence",
+          "lane": "B",
+          "confidence": 0.6
+        },
+        "v3": {
+          "answer": "Converges",
+          "correct": true,
+          "match_type": "exact",
+          "latency_sec": 11.92,
+          "usage": {
+            "prompt_tokens": 159,
+            "completion_tokens": 2848,
+            "total_tokens": 3007,
+            "completion_tokens_details": {
+              "reasoning_tokens": 2083,
+              "text_tokens": 2848
+            },
+            "prompt_tokens_details": {
+              "text_tokens": 159
+            }
+          },
+          "topic_detected": "Series_Convergence",
+          "lane": "A",
+          "confidence": 1.0,
+          "routing_reasons": [
+            "Weak topic: Series_Convergence (score: 0.46)",
+            "Short question (12 words)"
+          ],
+          "proof_assessment": null
+        }
+      }
+    },
+    {
+      "id": "ser_004",
+      "topic": "Series_Convergence",
+      "qtype": "Short",
+      "difficulty": "hard",
+      "question": "Find the Taylor series of e^x centred at x = 0, up to the x^3 term.",
+      "gold_answer": "1 + x + x^2/2 + x^3/6",
+      "answer_type": "symbolic",
+      "modes": {
+        "direct": {
+          "answer": "1 + x + \\frac{x^2}{2} + \\frac{x^3}{6}",
+          "correct": true,
+          "match_type": "symbolic",
+          "latency_sec": 11.3,
+          "usage": {
+            "prompt_tokens": 66,
+            "completion_tokens": 2522,
+            "total_tokens": 2588,
+            "completion_tokens_details": {
+              "reasoning_tokens": 1829,
+              "text_tokens": 2522
+            },
+            "prompt_tokens_details": {
+              "text_tokens": 66
+            }
+          }
+        },
+        "v2": {
+          "answer": "1 + x + \\frac{x^2}{2} + \\frac{x^3}{6}",
+          "correct": true,
+          "match_type": "symbolic",
+          "latency_sec": 63.35,
+          "usage": {
+            "prompt_tokens": 1005,
+            "completion_tokens": 11764,
+            "total_tokens": 12769
+          },
+          "topic_detected": "Series_Convergence",
+          "lane": "B",
+          "confidence": 0.8
+        },
+        "v3": {
+          "answer": "1 + x + \\frac{x^2}{2} + \\frac{x^3}{6}",
+          "correct": true,
+          "match_type": "symbolic",
+          "latency_sec": 9.53,
+          "usage": {
+            "prompt_tokens": 165,
+            "completion_tokens": 2140,
+            "total_tokens": 2305,
+            "completion_tokens_details": {
+              "reasoning_tokens": 1651,
+              "text_tokens": 2140
+            },
+            "prompt_tokens_details": {
+              "text_tokens": 165
+            }
+          },
+          "topic_detected": "Series_Convergence",
+          "lane": "A",
+          "confidence": 1.0,
+          "routing_reasons": [
+            "Weak topic: Series_Convergence (score: 0.31)",
+            "Short question (16 words)"
+          ],
+          "proof_assessment": null
+        }
+      }
+    },
+    {
+      "id": "la_001",
+      "topic": "Linear_Algebra",
+      "qtype": "Short",
+      "difficulty": "easy",
+      "question": "Find the determinant of the matrix [[1, 2], [3, 4]].",
+      "gold_answer": "-2",
+      "answer_type": "exact",
+      "modes": {
+        "direct": {
+          "answer": "-2",
+          "correct": true,
+          "match_type": "exact",
+          "latency_sec": 5.88,
+          "usage": {
+            "prompt_tokens": 60,
+            "completion_tokens": 1231,
+            "total_tokens": 1291,
+            "completion_tokens_details": {
+              "reasoning_tokens": 989,
+              "text_tokens": 1231
+            },
+            "prompt_tokens_details": {
+              "text_tokens": 60
+            }
+          }
+        },
+        "v2": {
+          "answer": "-2",
+          "correct": true,
+          "match_type": "exact",
+          "latency_sec": 50.09,
+          "usage": {
+            "prompt_tokens": 975,
+            "completion_tokens": 8929,
+            "total_tokens": 9904
+          },
+          "topic_detected": "Linear_Algebra",
+          "lane": "B",
+          "confidence": 1.0
+        },
+        "v3": {
+          "answer": "-2",
+          "correct": true,
+          "match_type": "exact",
+          "latency_sec": 5.39,
+          "usage": {
+            "prompt_tokens": 159,
+            "completion_tokens": 1196,
+            "total_tokens": 1355,
+            "completion_tokens_details": {
+              "reasoning_tokens": 1001,
+              "text_tokens": 1196
+            },
+            "prompt_tokens_details": {
+              "text_tokens": 159
+            }
+          },
+          "topic_detected": "Linear_Algebra",
+          "lane": "A",
+          "confidence": 1.0,
+          "routing_reasons": [
+            "Weak topic: Linear_Algebra (score: 0.28)",
+            "Short question (10 words)"
+          ],
+          "proof_assessment": null
+        }
+      }
+    },
+    {
+      "id": "la_002",
+      "topic": "Linear_Algebra",
+      "qtype": "Short",
+      "difficulty": "medium",
+      "question": "Find the eigenvalues of the matrix [[2, 1], [1, 2]].",
+      "gold_answer": "3, 1",
+      "answer_type": "exact",
+      "modes": {
+        "direct": {
+          "answer": "1, 3",
+          "correct": true,
+          "match_type": "exact_recalibrated",
+          "latency_sec": 8.56,
+          "usage": {
+            "prompt_tokens": 61,
+            "completion_tokens": 1841,
+            "total_tokens": 1902,
+            "completion_tokens_details": {
+              "reasoning_tokens": 1362,
+              "text_tokens": 1841
+            },
+            "prompt_tokens_details": {
+              "text_tokens": 61
+            }
+          }
+        },
+        "v2": {
+          "answer": "1, 3",
+          "correct": true,
+          "match_type": "exact_recalibrated",
+          "latency_sec": 67.24,
+          "usage": {
+            "prompt_tokens": 980,
+            "completion_tokens": 12672,
+            "total_tokens": 13652
+          },
+          "topic_detected": "Linear_Algebra",
+          "lane": "B",
+          "confidence": 1.0
+        },
+        "v3": {
+          "answer": "1, 3",
+          "correct": true,
+          "match_type": "exact_recalibrated",
+          "latency_sec": 8.07,
+          "usage": {
+            "prompt_tokens": 160,
+            "completion_tokens": 1916,
+            "total_tokens": 2076,
+            "completion_tokens_details": {
+              "reasoning_tokens": 1496,
+              "text_tokens": 1916
+            },
+            "prompt_tokens_details": {
+              "text_tokens": 160
+            }
+          },
+          "topic_detected": "Linear_Algebra",
+          "lane": "A",
+          "confidence": 1.0,
+          "routing_reasons": [
+            "Weak topic: Linear_Algebra (score: 0.28)",
+            "Short question (10 words)"
+          ],
+          "proof_assessment": null
+        }
+      }
+    },
+    {
+      "id": "la_003",
+      "topic": "Linear_Algebra",
+      "qtype": "Short",
+      "difficulty": "medium",
+      "question": "Solve the system: 2x + y = 5, x - y = 1. Find (x, y).",
+      "gold_answer": "(2, 1)",
+      "answer_type": "exact",
+      "modes": {
+        "direct": {
+          "answer": "(2, 1)",
+          "correct": true,
+          "match_type": "exact",
+          "latency_sec": 7.63,
+          "usage": {
+            "prompt_tokens": 69,
+            "completion_tokens": 1585,
+            "total_tokens": 1654,
+            "completion_tokens_details": {
+              "reasoning_tokens": 1240,
+              "text_tokens": 1585
+            },
+            "prompt_tokens_details": {
+              "text_tokens": 69
+            }
+          }
+        },
+        "v2": {
+          "answer": "(2, 1)",
+          "correct": true,
+          "match_type": "exact",
+          "latency_sec": 7.26,
+          "usage": {
+            "prompt_tokens": 204,
+            "completion_tokens": 1684,
+            "total_tokens": 1888,
+            "completion_tokens_details": {
+              "reasoning_tokens": 1289,
+              "text_tokens": 1684
+            },
+            "prompt_tokens_details": {
+              "text_tokens": 204
+            }
+          },
+          "topic_detected": "Other",
+          "lane": "A",
+          "confidence": 1.0
+        },
+        "v3": {
+          "answer": "(2, 1)",
+          "correct": true,
+          "match_type": "exact",
+          "latency_sec": 6.84,
+          "usage": {
+            "prompt_tokens": 168,
+            "completion_tokens": 1589,
+            "total_tokens": 1757,
+            "completion_tokens_details": {
+              "reasoning_tokens": 1236,
+              "text_tokens": 1589
+            },
+            "prompt_tokens_details": {
+              "text_tokens": 168
+            }
+          },
+          "topic_detected": "General_Math",
+          "lane": "A",
+          "confidence": 1.0,
+          "routing_reasons": [
+            "Short question (16 words)"
+          ],
+          "proof_assessment": null
+        }
+      }
+    },
+    {
+      "id": "la_004",
+      "topic": "Linear_Algebra",
+      "qtype": "Short",
+      "difficulty": "hard",
+      "question": "Find the inverse of the matrix [[1, 2, 3], [0, 1, 4], [5, 6, 0]].",
+      "gold_answer": "[[-24, 18, 5], [20, -15, -4], [-5, 4, 1]]",
+      "answer_type": "exact",
+      "modes": {
+        "direct": {
+          "answer": "",
+          "correct": false,
+          "match_type": "error",
+          "error": "'gbk' codec can't encode character '\\u2212' in position 9: illegal multibyte sequence"
+        },
+        "v2": {
+          "answer": "\\begin{pmatrix} -24 & 18 & 5 \\\\ 20 & -15 & -4 \\\\ -5 & 4 & 1 \\end{pmatrix}",
+          "correct": true,
+          "match_type": "exact_recalibrated",
+          "latency_sec": 121.4,
+          "usage": {
+            "prompt_tokens": 1050,
+            "completion_tokens": 24475,
+            "total_tokens": 25525
+          },
+          "topic_detected": "Linear_Algebra",
+          "lane": "B",
+          "confidence": 1.0
+        },
+        "v3": {
+          "answer": "\\begin{pmatrix} -24 & 18 & 5 \\\\ 20 & -15 & -4 \\\\ -5 & 4 & 1 \\end{pmatrix}",
+          "correct": true,
+          "match_type": "exact_recalibrated",
+          "latency_sec": 19.34,
+          "usage": {
+            "prompt_tokens": 174,
+            "completion_tokens": 4805,
+            "total_tokens": 4979,
+            "completion_tokens_details": {
+              "reasoning_tokens": 3493,
+              "text_tokens": 4805
+            },
+            "prompt_tokens_details": {
+              "text_tokens": 174
+            }
+          },
+          "topic_detected": "Linear_Algebra",
+          "lane": "A",
+          "confidence": 1.0,
+          "routing_reasons": [
+            "Weak topic: Linear_Algebra (score: 0.14)",
+            "Short question (15 words)"
+          ],
+          "proof_assessment": null
+        }
+      }
+    },
+    {
+      "id": "la_005",
+      "topic": "Linear_Algebra",
+      "qtype": "Proof",
+      "difficulty": "hard",
+      "question": "Prove that if A is an invertible matrix, then det(A^-1) = 1/det(A).",
+      "gold_answer": "Proof: det(A) * det(A^-1) = det(AA^-1) = det(I) = 1. Thus det(A^-1) = 1/det(A).",
+      "answer_type": "proof_structure",
+      "modes": {
+        "direct": {
+          "answer": "\\det(A^{-1}) = \\frac{1}{\\det(A)}",
+          "correct": true,
+          "match_type": "proof_heuristic_recalibrated",
+          "latency_sec": 8.82,
+          "usage": {
+            "prompt_tokens": 66,
+            "completion_tokens": 1814,
+            "total_tokens": 1880,
+            "completion_tokens_details": {
+              "reasoning_tokens": 1336,
+              "text_tokens": 1814
+            },
+            "prompt_tokens_details": {
+              "text_tokens": 66
+            }
+          }
+        },
+        "v2": {
+          "answer": "\\det(A^{-1}) = \\frac{1}{\\det(A)}",
+          "correct": true,
+          "match_type": "proof_heuristic_recalibrated",
+          "latency_sec": 73.12,
+          "usage": {
+            "prompt_tokens": 1015,
+            "completion_tokens": 13277,
+            "total_tokens": 14292
+          },
+          "topic_detected": "Linear_Algebra",
+          "lane": "B",
+          "confidence": 1.0
+        },
+        "v3": {
+          "answer": "Starting from $AA^{-1}=I$, applying the determinant gives $\\det(A)\\det(A^{-1})=\\det(I)=1$. Since $A$ is invertible, $\\det(A)\\neq 0$, so dividing by $\\det(A)$ yields $\\det(A^{-1}) = 1/\\det(A)$. $\\blacksquare$",
+          "correct": true,
+          "match_type": "proof_heuristic_recalibrated",
+          "latency_sec": 58.26,
+          "usage": {
+            "prompt_tokens": 1910,
+            "completion_tokens": 12364,
+            "total_tokens": 14274
+          },
+          "topic_detected": "Proof_Techniques",
+          "lane": "B",
+          "confidence": 0.2,
+          "routing_reasons": [
+            "Weak topic: Proof_Techniques (score: 0.37)",
+            "Question type: Proof",
+            "Short question (12 words)"
+          ],
+          "proof_assessment": {
+            "proof_type": "direct",
+            "overall": "fail",
+            "score": 0.333,
+            "feedback": "Missing sections: derivation, conclusion.",
+            "sections": [
+              {
+                "name": "setup",
+                "present": true,
+                "quality": "strong",
+                "comment": "Matched: ['let', 'given']"
+              },
+              {
+                "name": "derivation",
+                "present": false,
+                "quality": "missing",
+                "comment": "Not found"
+              },
+              {
+                "name": "conclusion",
+                "present": false,
+                "quality": "missing",
+                "comment": "Not found"
+              }
+            ]
+          }
+        }
+      }
+    },
+    {
+      "id": "la_006",
+      "topic": "Linear_Algebra",
+      "qtype": "Short",
+      "difficulty": "medium",
+      "question": "Compute the rank of the matrix [[1, 2, 3], [2, 4, 6], [1, 0, 1]].",
+      "gold_answer": "2",
+      "answer_type": "exact",
+      "modes": {
+        "direct": {
+          "answer": "2",
+          "correct": true,
+          "match_type": "exact",
+          "latency_sec": 13.34,
+          "usage": {
+            "prompt_tokens": 75,
+            "completion_tokens": 2768,
+            "total_tokens": 2843,
+            "completion_tokens_details": {
+              "reasoning_tokens": 2281,
+              "text_tokens": 2768
+            },
+            "prompt_tokens_details": {
+              "text_tokens": 75
+            }
+          }
+        },
+        "v2": {
+          "answer": "2",
+          "correct": true,
+          "match_type": "exact",
+          "latency_sec": 75.32,
+          "usage": {
+            "prompt_tokens": 1050,
+            "completion_tokens": 13607,
+            "total_tokens": 14657
+          },
+          "topic_detected": "Linear_Algebra",
+          "lane": "B",
+          "confidence": 1.0
+        },
+        "v3": {
+          "answer": "2",
+          "correct": true,
+          "match_type": "exact",
+          "latency_sec": 10.74,
+          "usage": {
+            "prompt_tokens": 174,
+            "completion_tokens": 2494,
+            "total_tokens": 2668,
+            "completion_tokens_details": {
+              "reasoning_tokens": 2008,
+              "text_tokens": 2494
+            },
+            "prompt_tokens_details": {
+              "text_tokens": 174
+            }
+          },
+          "topic_detected": "Linear_Algebra",
+          "lane": "A",
+          "confidence": 1.0,
+          "routing_reasons": [
+            "Weak topic: Linear_Algebra (score: 0.28)",
+            "Short question (15 words)"
+          ],
+          "proof_assessment": null
+        }
+      }
+    },
+    {
+      "id": "la_007",
+      "topic": "Linear_Algebra",
+      "qtype": "Short",
+      "difficulty": "medium",
+      "question": "Find the characteristic polynomial of [[1, 2], [3, 4]].",
+      "gold_answer": "\u03bb^2 - 5\u03bb - 2",
+      "answer_type": "symbolic",
+      "modes": {
+        "direct": {
+          "answer": "\\lambda^2 - 5\\lambda - 2",
+          "correct": true,
+          "match_type": "symbolic_numbers",
+          "latency_sec": 12.49,
+          "usage": {
+            "prompt_tokens": 59,
+            "completion_tokens": 2758,
+            "total_tokens": 2817,
+            "completion_tokens_details": {
+              "reasoning_tokens": 2233,
+              "text_tokens": 2758
+            },
+            "prompt_tokens_details": {
+              "text_tokens": 59
+            }
+          }
+        },
+        "v2": {
+          "answer": "\\lambda^2 - 5\\lambda - 2",
+          "correct": true,
+          "match_type": "symbolic_numbers",
+          "latency_sec": 14.4,
+          "usage": {
+            "prompt_tokens": 194,
+            "completion_tokens": 2633,
+            "total_tokens": 2827,
+            "completion_tokens_details": {
+              "reasoning_tokens": 1967,
+              "text_tokens": 2633
+            },
+            "prompt_tokens_details": {
+              "text_tokens": 194
+            }
+          },
+          "topic_detected": "Other",
+          "lane": "A",
+          "confidence": 1.0
+        },
+        "v3": {
+          "answer": "\\lambda^2 - 5\\lambda - 2",
+          "correct": true,
+          "match_type": "symbolic_numbers",
+          "latency_sec": 10.42,
+          "usage": {
+            "prompt_tokens": 158,
+            "completion_tokens": 2422,
+            "total_tokens": 2580,
+            "completion_tokens_details": {
+              "reasoning_tokens": 2001,
+              "text_tokens": 2422
+            },
+            "prompt_tokens_details": {
+              "text_tokens": 158
+            }
+          },
+          "topic_detected": "Linear_Algebra",
+          "lane": "A",
+          "confidence": 1.0,
+          "routing_reasons": [
+            "Weak topic: Linear_Algebra (score: 0.14)",
+            "Short question (9 words)"
+          ],
+          "proof_assessment": null
+        }
+      }
+    },
+    {
+      "id": "la_008",
+      "topic": "Linear_Algebra",
+      "qtype": "Short",
+      "difficulty": "hard",
+      "question": "Find the null space of the matrix [[1, 2, 3], [2, 4, 6]].",
+      "gold_answer": "span{(-2, 1, 0), (-3, 0, 1)}",
+      "answer_type": "exact",
+      "modes": {
+        "direct": {
+          "answer": "\\text{Null}(A) = \\text{span}\\left\\{ \\begin{pmatrix} -2 \\\\ 1 \\\\ 0 \\end{pmatrix}, \\begin{pmatrix} -3 \\\\ 0 \\\\ 1 \\end{pmatrix} \\right\\}",
+          "correct": true,
+          "match_type": "exact_recalibrated",
+          "latency_sec": 13.82,
+          "usage": {
+            "prompt_tokens": 67,
+            "completion_tokens": 3162,
+            "total_tokens": 3229,
+            "completion_tokens_details": {
+              "reasoning_tokens": 2354,
+              "text_tokens": 3162
+            },
+            "prompt_tokens_details": {
+              "text_tokens": 67
+            }
+          }
+        },
+        "v2": {
+          "answer": "\\text{Null}(A) = \\text{span}\\left\\{ \\begin{pmatrix} -2 \\\\ 1 \\\\ 0 \\end{pmatrix}, \\begin{pmatrix} -3 \\\\ 0 \\\\ 1 \\end{pmatrix} \\right\\}",
+          "correct": true,
+          "match_type": "exact_recalibrated",
+          "latency_sec": 90.48,
+          "usage": {
+            "prompt_tokens": 1010,
+            "completion_tokens": 16459,
+            "total_tokens": 17469
+          },
+          "topic_detected": "Linear_Algebra",
+          "lane": "B",
+          "confidence": 0.8
+        },
+        "v3": {
+          "answer": "\\text{span}\\left\\{\\begin{pmatrix} -2 \\\\ 1 \\\\ 0 \\end{pmatrix}, \\begin{pmatrix} -3 \\\\ 0 \\\\ 1 \\end{pmatrix}\\right\\}",
+          "correct": true,
+          "match_type": "exact_recalibrated",
+          "latency_sec": 12.46,
+          "usage": {
+            "prompt_tokens": 166,
+            "completion_tokens": 3047,
+            "total_tokens": 3213,
+            "completion_tokens_details": {
+              "reasoning_tokens": 2220,
+              "text_tokens": 3047
+            },
+            "prompt_tokens_details": {
+              "text_tokens": 166
+            }
+          },
+          "topic_detected": "Linear_Algebra",
+          "lane": "A",
+          "confidence": 1.0,
+          "routing_reasons": [
+            "Weak topic: Linear_Algebra (score: 0.28)",
+            "Short question (13 words)"
+          ],
+          "proof_assessment": null
+        }
+      }
+    },
+    {
+      "id": "pr_001",
+      "topic": "Proof_Techniques",
+      "qtype": "Proof",
+      "difficulty": "easy",
+      "question": "Prove by induction that 1 + 2 + ... + n = n(n+1)/2 for all positive integers n.",
+      "gold_answer": "Proof by induction: base case n=1 verified; assume true for n=k, then 1+...+k+(k+1) = k(k+1)/2 + (k+1) = (k+1)(k+2)/2.",
+      "answer_type": "proof_structure",
+      "modes": {
+        "direct": {
+          "answer": "1 + 2 + \\dots + n = \\frac{n(n+1)}{2} \\text{ for all } n \\in \\mathbb{Z}^+",
+          "correct": false,
+          "match_type": "proof_heuristic",
+          "latency_sec": 13.26,
+          "usage": {
+            "prompt_tokens": 69,
+            "completion_tokens": 2904,
+            "total_tokens": 2973,
+            "completion_tokens_details": {
+              "reasoning_tokens": 2186,
+              "text_tokens": 2904
+            },
+            "prompt_tokens_details": {
+              "text_tokens": 69
+            }
+          }
+        },
+        "v2": {
+          "answer": "The statement $1 + 2 + \\dots + n = \\frac{n(n+1)}{2}$ is true for all positive integers $n$.",
+          "correct": false,
+          "match_type": "proof_heuristic",
+          "latency_sec": 96.88,
+          "usage": {
+            "prompt_tokens": 1030,
+            "completion_tokens": 18910,
+            "total_tokens": 19940
+          },
+          "topic_detected": "Proof_Techniques",
+          "lane": "B",
+          "confidence": 0.4
+        },
+        "v3": {
+          "answer": "Proof by induction: base case n=1 verified; inductive step demonstrates P(k) \u21d2 P(k+1); hence the formula holds \u2200n\u2208\u2124\u207a.",
+          "correct": true,
+          "match_type": "proof_heuristic",
+          "latency_sec": 64.86,
+          "usage": {
+            "prompt_tokens": 1925,
+            "completion_tokens": 13499,
+            "total_tokens": 15424
+          },
+          "topic_detected": "Proof_Techniques",
+          "lane": "B",
+          "confidence": 0.2,
+          "routing_reasons": [
+            "Weak topic: Proof_Techniques (score: 0.56)",
+            "Question type: Proof",
+            "Short question (18 words)"
+          ],
+          "proof_assessment": {
+            "proof_type": "induction",
+            "overall": "pass",
+            "score": 0.875,
+            "feedback": "Sections needing improvement: base_case.",
+            "sections": [
+              {
+                "name": "base_case",
+                "present": true,
+                "quality": "partial",
+                "comment": "Matched: ['base case']"
+              },
+              {
+                "name": "inductive_hypothesis",
+                "present": true,
+                "quality": "strong",
+                "comment": "Matched: ['assume', 'inductive hypothesis']"
+              },
+              {
+                "name": "inductive_step",
+                "present": true,
+                "quality": "strong",
+                "comment": "Matched: ['therefore', 'hence']"
+              },
+              {
+                "name": "conclusion",
+                "present": true,
+                "quality": "strong",
+                "comment": "Matched: ['by induction', 'principle of mathematical induction']"
+              }
+            ]
+          }
+        }
+      }
+    },
+    {
+      "id": "pr_002",
+      "topic": "Proof_Techniques",
+      "qtype": "Proof",
+      "difficulty": "medium",
+      "question": "Prove by contradiction that \u221a2 is irrational.",
+      "gold_answer": "Proof: Assume \u221a2 = p/q in lowest terms. Then 2q^2 = p^2, so p^2 even, p even. Let p=2k. Then 2q^2 = 4k^2, so q^2 = 2k^2, q even. Contradiction.",
+      "answer_type": "proof_structure",
+      "modes": {
+        "direct": {
+          "answer": "\\sqrt{2} \\text{ is irrational}",
+          "correct": false,
+          "match_type": "proof_heuristic",
+          "latency_sec": 10.8,
+          "usage": {
+            "prompt_tokens": 53,
+            "completion_tokens": 2211,
+            "total_tokens": 2264,
+            "completion_tokens_details": {
+              "reasoning_tokens": 1389,
+              "text_tokens": 2211
+            },
+            "prompt_tokens_details": {
+              "text_tokens": 53
+            }
+          }
+        },
+        "v2": {
+          "answer": "\\sqrt{2} \\text{ is irrational}",
+          "correct": false,
+          "match_type": "proof_heuristic",
+          "latency_sec": 100.97,
+          "usage": {
+            "prompt_tokens": 950,
+            "completion_tokens": 18795,
+            "total_tokens": 19745
+          },
+          "topic_detected": "Discrete_Math",
+          "lane": "B",
+          "confidence": 0.8
+        },
+        "v3": {
+          "answer": "Proof by contradiction: Assume $\\sqrt{2}=a/b$ in lowest terms $\\Rightarrow a^2=2b^2 \\Rightarrow a,b$ both even $\\Rightarrow \\gcd(a,b)\\geq2$, contradicting lowest-terms assumption. Hence $\\sqrt{2}$ is irrational.",
+          "correct": true,
+          "match_type": "proof_heuristic",
+          "latency_sec": 79.65,
+          "usage": {
+            "prompt_tokens": 1845,
+            "completion_tokens": 16156,
+            "total_tokens": 18001
+          },
+          "topic_detected": "Proof_Techniques",
+          "lane": "B",
+          "confidence": 0.2,
+          "routing_reasons": [
+            "Weak topic: Proof_Techniques (score: 0.37)",
+            "Question type: Proof",
+            "Short question (7 words)"
+          ],
+          "proof_assessment": {
+            "proof_type": "contradiction",
+            "overall": "needs_revision",
+            "score": 0.75,
+            "feedback": "Sections needing improvement: contradiction, conclusion.",
+            "sections": [
+              {
+                "name": "assumption",
+                "present": true,
+                "quality": "strong",
+                "comment": "Matched: ['assume', 'contrary']"
+              },
+              {
+                "name": "derivation",
+                "present": true,
+                "quality": "strong",
+                "comment": "Matched: ['then', 'therefore']"
+              },
+              {
+                "name": "contradiction",
+                "present": true,
+                "quality": "partial",
+                "comment": "Matched: ['contradiction']"
+              },
+              {
+                "name": "conclusion",
+                "present": true,
+                "quality": "partial",
+                "comment": "Matched: ['therefore']"
+              }
+            ]
+          }
+        }
+      }
+    },
+    {
+      "id": "pr_003",
+      "topic": "Proof_Techniques",
+      "qtype": "Proof",
+      "difficulty": "medium",
+      "question": "Prove that if n^2 is even, then n is even (use contrapositive).",
+      "gold_answer": "Proof: Contrapositive: if n is odd, then n^2 is odd. If n=2k+1, n^2=4k^2+4k+1=2(2k^2+2k)+1, which is odd.",
+      "answer_type": "proof_structure",
+      "modes": {
+        "direct": {
+          "answer": "The statement is proven true.",
+          "correct": false,
+          "match_type": "proof_heuristic",
+          "latency_sec": 14.74,
+          "usage": {
+            "prompt_tokens": 62,
+            "completion_tokens": 3105,
+            "total_tokens": 3167,
+            "completion_tokens_details": {
+              "reasoning_tokens": 2479,
+              "text_tokens": 3105
+            },
+            "prompt_tokens_details": {
+              "text_tokens": 62
+            }
+          }
+        },
+        "v2": {
+          "answer": "Hence proved: If $n^2$ is even, then $n$ is even.",
+          "correct": false,
+          "match_type": "proof_heuristic",
+          "latency_sec": 105.73,
+          "usage": {
+            "prompt_tokens": 995,
+            "completion_tokens": 19247,
+            "total_tokens": 20242
+          },
+          "topic_detected": "Proof_Techniques",
+          "lane": "B",
+          "confidence": 0.2
+        },
+        "v3": {
+          "answer": "Proposition: $\\forall n \\in \\mathbb{Z},\\ n^2 \\text{ is even} \\implies n \\text{ is even}$.\nProof (by contrapositive): We prove the logically equivalent statement: if $n$ is odd, then $n^2$ is odd. Let $n$ be an arbitrary integer and assume $n$ is odd. By definition, $\\exists k \\in \\mathbb{Z}$ such that $n = 2k + 1$. Squaring gives $n^2 = (2k+1)^2 = 4k^2 + 4k + 1 = 2(2k^2 + 2k) + 1$. Since $k \\in \\mathbb{Z} \\implies 2k^2 + 2k \\in \\mathbb{Z}$, let $m = 2k^2 + 2k$. Then $n^2 = 2m + 1$, which by definition means $n^2$ is odd. Thus, $n$ odd $\\implies n^2$ odd. By contraposition, the original statement holds for all $n \\in \\mathbb{Z}$. $\\blacksquare$",
+          "correct": true,
+          "match_type": "proof_heuristic",
+          "latency_sec": 71.54,
+          "usage": {
+            "prompt_tokens": 1890,
+            "completion_tokens": 14804,
+            "total_tokens": 16694
+          },
+          "topic_detected": "Proof_Techniques",
+          "lane": "B",
+          "confidence": 0.2,
+          "routing_reasons": [
+            "Weak topic: Proof_Techniques (score: 0.56)",
+            "Question type: Proof",
+            "Short question (12 words)"
+          ],
+          "proof_assessment": {
+            "proof_type": "contrapositive",
+            "overall": "pass",
+            "score": 1.0,
+            "feedback": "Well-structured proof with all required elements.",
+            "sections": [
+              {
+                "name": "statement",
+                "present": true,
+                "quality": "strong",
+                "comment": "Matched: ['contrapositive', 'equivalent to']"
+              },
+              {
+                "name": "proof_body",
+                "present": true,
+                "quality": "strong",
+                "comment": "Matched: ['assume', 'then']"
+              },
+              {
+                "name": "conclusion",
+                "present": true,
+                "quality": "strong",
+                "comment": "Matched: ['contrapositive', 'therefore']"
+              }
+            ]
+          }
+        }
+      }
+    },
+    {
+      "id": "pr_004",
+      "topic": "Proof_Techniques",
+      "qtype": "Proof",
+      "difficulty": "hard",
+      "question": "Prove that for all real numbers a, b: a^2 + b^2 \u2265 2ab.",
+      "gold_answer": "Proof: (a-b)^2 \u2265 0 implies a^2 - 2ab + b^2 \u2265 0, thus a^2 + b^2 \u2265 2ab.",
+      "answer_type": "proof_structure",
+      "modes": {
+        "direct": {
+          "answer": "a^2 + b^2 \\geq 2ab",
+          "correct": false,
+          "match_type": "proof_heuristic",
+          "latency_sec": 10.17,
+          "usage": {
+            "prompt_tokens": 65,
+            "completion_tokens": 2104,
+            "total_tokens": 2169,
+            "completion_tokens_details": {
+              "reasoning_tokens": 1706,
+              "text_tokens": 2104
+            },
+            "prompt_tokens_details": {
+              "text_tokens": 65
+            }
+          }
+        },
+        "v2": {
+          "answer": "a^2 + b^2 \\geq 2ab",
+          "correct": false,
+          "match_type": "proof_heuristic",
+          "latency_sec": 90.05,
+          "usage": {
+            "prompt_tokens": 1010,
+            "completion_tokens": 16340,
+            "total_tokens": 17350
+          },
+          "topic_detected": "Proof_Techniques",
+          "lane": "B",
+          "confidence": 0.6
+        },
+        "v3": {
+          "answer": "",
+          "correct": false,
+          "match_type": "error",
+          "error": "'gbk' codec can't encode character '\\u2200' in position 15: illegal multibyte sequence"
+        }
+      }
+    },
+    {
+      "id": "pr_005",
+      "topic": "Proof_Techniques",
+      "qtype": "Proof",
+      "difficulty": "hard",
+      "question": "Prove by induction that 2^n > n^2 for all integers n \u2265 5.",
+      "gold_answer": "Proof by induction: base n=5: 32>25. Assume 2^k>k^2 for k\u22655. Then 2^(k+1)=2*2^k>2k^2>(k+1)^2 for k\u22655.",
+      "answer_type": "proof_structure",
+      "modes": {
+        "direct": {
+          "answer": "2^n > n^2 for all integers n \u2265 5",
+          "correct": false,
+          "match_type": "proof_heuristic",
+          "latency_sec": 15.68,
+          "usage": {
+            "prompt_tokens": 62,
+            "completion_tokens": 3447,
+            "total_tokens": 3509,
+            "completion_tokens_details": {
+              "reasoning_tokens": 2602,
+              "text_tokens": 3447
+            },
+            "prompt_tokens_details": {
+              "text_tokens": 62
+            }
+          }
+        },
+        "v2": {
+          "answer": "By the Principle of Mathematical Induction, $2^n > n^2$ holds for all integers $n \\geq 5$.",
+          "correct": false,
+          "match_type": "proof_heuristic",
+          "latency_sec": 117.9,
+          "usage": {
+            "prompt_tokens": 995,
+            "completion_tokens": 21585,
+            "total_tokens": 22580
+          },
+          "topic_detected": "Proof_Techniques",
+          "lane": "B",
+          "confidence": 0.2
+        },
+        "v3": {
+          "answer": "By the principle of mathematical induction, the base case $n=5$ is verified ($32>25$), and the inductive step demonstrates that $2^k > k^2 \\implies 2^{k+1} > (k+1)^2$ for all $k \\geq 5$. Hence, $2^n > n^2$ for all integers $n \\geq 5$.",
+          "correct": true,
+          "match_type": "proof_heuristic_recalibrated",
+          "latency_sec": 88.95,
+          "usage": {
+            "prompt_tokens": 1890,
+            "completion_tokens": 18631,
+            "total_tokens": 20521
+          },
+          "topic_detected": "Proof_Techniques",
+          "lane": "B",
+          "confidence": 0.2,
+          "routing_reasons": [
+            "Weak topic: Proof_Techniques (score: 0.56)",
+            "Question type: Proof",
+            "Short question (13 words)"
+          ],
+          "proof_assessment": {
+            "proof_type": "induction",
+            "overall": "needs_revision",
+            "score": 0.75,
+            "feedback": "Sections needing improvement: base_case, conclusion.",
+            "sections": [
+              {
+                "name": "base_case",
+                "present": true,
+                "quality": "partial",
+                "comment": "Matched: ['base case']"
+              },
+              {
+                "name": "inductive_hypothesis",
+                "present": true,
+                "quality": "strong",
+                "comment": "Matched: ['assume', 'inductive hypothesis']"
+              },
+              {
+                "name": "inductive_step",
+                "present": true,
+                "quality": "strong",
+                "comment": "Matched: ['thus', 'hence']"
+              },
+              {
+                "name": "conclusion",
+                "present": true,
+                "quality": "partial",
+                "comment": "Matched: ['principle of mathematical induction']"
+              }
+            ]
+          }
+        }
+      }
+    },
+    {
+      "id": "pr_006",
+      "topic": "Proof_Techniques",
+      "qtype": "Proof",
+      "difficulty": "medium",
+      "question": "Prove that the sum of two rational numbers is rational.",
+      "gold_answer": "Proof: Let a=p/q, b=r/s. Then a+b=(ps+qr)/(qs), which is ratio of integers, hence rational.",
+      "answer_type": "proof_structure",
+      "modes": {
+        "direct": {
+          "answer": "The sum of two rational numbers is rational.",
+          "correct": false,
+          "match_type": "proof_heuristic",
+          "latency_sec": 11.69,
+          "usage": {
+            "prompt_tokens": 54,
+            "completion_tokens": 2311,
+            "total_tokens": 2365,
+            "completion_tokens_details": {
+              "reasoning_tokens": 1715,
+              "text_tokens": 2311
+            },
+            "prompt_tokens_details": {
+              "text_tokens": 54
+            }
+          }
+        },
+        "v2": {
+          "answer": "The sum of any two rational numbers is rational.",
+          "correct": false,
+          "match_type": "proof_heuristic",
+          "latency_sec": 84.46,
+          "usage": {
+            "prompt_tokens": 955,
+            "completion_tokens": 15972,
+            "total_tokens": 16927
+          },
+          "topic_detected": "Proof_Techniques",
+          "lane": "B",
+          "confidence": 0.8
+        },
+        "v3": {
+          "answer": "By the definition of rational numbers and the closure properties of integers under addition and multiplication, the sum of any two rational numbers can be expressed as a single fraction whose numerator and denominator are integers with a non-zero denominator; hence, the sum is rational.",
+          "correct": true,
+          "match_type": "proof_heuristic_recalibrated",
+          "latency_sec": 71.49,
+          "usage": {
+            "prompt_tokens": 1850,
+            "completion_tokens": 14142,
+            "total_tokens": 15992
+          },
+          "topic_detected": "Proof_Techniques",
+          "lane": "B",
+          "confidence": 0.2,
+          "routing_reasons": [
+            "Weak topic: Proof_Techniques (score: 0.37)",
+            "Question type: Proof",
+            "Short question (10 words)"
+          ],
+          "proof_assessment": {
+            "proof_type": "direct",
+            "overall": "pass",
+            "score": 1.0,
+            "feedback": "Well-structured proof with all required elements.",
+            "sections": [
+              {
+                "name": "setup",
+                "present": true,
+                "quality": "strong",
+                "comment": "Matched: ['let', 'since']"
+              },
+              {
+                "name": "derivation",
+                "present": true,
+                "quality": "strong",
+                "comment": "Matched: ['therefore', 'thus']"
+              },
+              {
+                "name": "conclusion",
+                "present": true,
+                "quality": "strong",
+                "comment": "Matched: ['therefore', 'thus']"
+              }
+            ]
+          }
+        }
+      }
+    },
+    {
+      "id": "pr_007",
+      "topic": "Proof_Techniques",
+      "qtype": "Proof",
+      "difficulty": "medium",
+      "question": "Prove that there are infinitely many prime numbers.",
+      "gold_answer": "Proof: Assume finitely many primes p1,...,pn. Consider N=p1*p2*...*pn+1. N is not divisible by any pi, so has a prime factor not in the list. Contradiction.",
+      "answer_type": "proof_structure",
+      "modes": {
+        "direct": {
+          "answer": "There are infinitely many prime numbers.",
+          "correct": false,
+          "match_type": "proof_heuristic",
+          "latency_sec": 9.04,
+          "usage": {
+            "prompt_tokens": 52,
+            "completion_tokens": 1838,
+            "total_tokens": 1890,
+            "completion_tokens_details": {
+              "reasoning_tokens": 1076,
+              "text_tokens": 1838
+            },
+            "prompt_tokens_details": {
+              "text_tokens": 52
+            }
+          }
+        },
+        "v2": {
+          "answer": "There are infinitely many prime numbers.",
+          "correct": false,
+          "match_type": "proof_heuristic",
+          "latency_sec": 97.42,
+          "usage": {
+            "prompt_tokens": 945,
+            "completion_tokens": 16534,
+            "total_tokens": 17479
+          },
+          "topic_detected": "Proof_Techniques",
+          "lane": "B",
+          "confidence": 1.0
+        },
+        "v3": {
+          "answer": "Proof by contradiction: assuming a finite list of all primes allows construction of an integer N \u2261 1 (mod p_i) for every listed prime, implying N has a prime divisor outside the list. This contradicts the assumption of finiteness, hence the set of primes is infinite.",
+          "correct": true,
+          "match_type": "proof_heuristic",
+          "latency_sec": 70.57,
+          "usage": {
+            "prompt_tokens": 1840,
+            "completion_tokens": 14508,
+            "total_tokens": 16348
+          },
+          "topic_detected": "Proof_Techniques",
+          "lane": "B",
+          "confidence": 0.2,
+          "routing_reasons": [
+            "Weak topic: Proof_Techniques (score: 0.37)",
+            "Question type: Proof",
+            "Short question (8 words)"
+          ],
+          "proof_assessment": {
+            "proof_type": "contradiction",
+            "overall": "needs_revision",
+            "score": 0.5,
+            "feedback": "Missing sections: assumption. Sections needing improvement: contradiction, conclusion.",
+            "sections": [
+              {
+                "name": "assumption",
+                "present": false,
+                "quality": "missing",
+                "comment": "Not found"
+              },
+              {
+                "name": "derivation",
+                "present": true,
+                "quality": "strong",
+                "comment": "Matched: ['then', 'therefore']"
+              },
+              {
+                "name": "contradiction",
+                "present": true,
+                "quality": "partial",
+                "comment": "Matched: ['contradiction']"
+              },
+              {
+                "name": "conclusion",
+                "present": true,
+                "quality": "partial",
+                "comment": "Matched: ['therefore']"
+              }
+            ]
+          }
+        }
+      }
+    },
+    {
+      "id": "pr_008",
+      "topic": "Proof_Techniques",
+      "qtype": "Proof",
+      "difficulty": "hard",
+      "question": "Prove that the function f(x) = x^3 - 3x + 1 has exactly one root in the interval (0, 1).",
+      "gold_answer": "Proof: f(0)=1>0, f(1)=-1<0, so by IVT there is at least one root. f'(x)=3x^2-3<0 on (0,1), so f is strictly decreasing, thus exactly one root.",
+      "answer_type": "proof_structure",
+      "modes": {
+        "direct": {
+          "answer": "Exactly one root in (0, 1)",
+          "correct": false,
+          "match_type": "proof_heuristic",
+          "latency_sec": 15.15,
+          "usage": {
+            "prompt_tokens": 74,
+            "completion_tokens": 3201,
+            "total_tokens": 3275,
+            "completion_tokens_details": {
+              "reasoning_tokens": 2444,
+              "text_tokens": 3201
+            },
+            "prompt_tokens_details": {
+              "text_tokens": 74
+            }
+          }
+        },
+        "v2": {
+          "answer": "The function $f(x) = x^3 - 3x + 1$ has exactly one root in the interval $(0, 1)$.",
+          "correct": false,
+          "match_type": "proof_heuristic",
+          "latency_sec": 93.96,
+          "usage": {
+            "prompt_tokens": 1055,
+            "completion_tokens": 16065,
+            "total_tokens": 17120
+          },
+          "topic_detected": "Proof_Techniques",
+          "lane": "B",
+          "confidence": 0.4
+        },
+        "v3": {
+          "answer": "By the Intermediate Value Theorem, continuity on $[0,1]$ with $f(0)=1>0$ and $f(1)=-1<0$ guarantees at least one root in $(0,1)$. Since $f'(x)=3x^2-3<0$ for all $x\\in(0,1)$, $f$ is strictly decreasing on this interval, ensuring at most one root. Hence, exactly one root exists.",
+          "correct": true,
+          "match_type": "proof_heuristic_recalibrated",
+          "latency_sec": 91.74,
+          "usage": {
+            "prompt_tokens": 1950,
+            "completion_tokens": 18621,
+            "total_tokens": 20571
+          },
+          "topic_detected": "Proof_Techniques",
+          "lane": "B",
+          "confidence": 0.2,
+          "routing_reasons": [
+            "Weak topic: Proof_Techniques (score: 0.37)",
+            "Question type: Proof",
+            "Short question (20 words)"
+          ],
+          "proof_assessment": {
+            "proof_type": "contradiction",
+            "overall": "needs_revision",
+            "score": 0.5,
+            "feedback": "Missing sections: assumption. Sections needing improvement: contradiction, conclusion.",
+            "sections": [
+              {
+                "name": "assumption",
+                "present": false,
+                "quality": "missing",
+                "comment": "Not found"
+              },
+              {
+                "name": "derivation",
+                "present": true,
+                "quality": "strong",
+                "comment": "Matched: ['therefore', 'implies']"
+              },
+              {
+                "name": "contradiction",
+                "present": true,
+                "quality": "partial",
+                "comment": "Matched: ['contradiction']"
+              },
+              {
+                "name": "conclusion",
+                "present": true,
+                "quality": "partial",
+                "comment": "Matched: ['therefore']"
+              }
+            ]
+          }
+        }
+      }
+    },
+    {
+      "id": "dm_001",
+      "topic": "Discrete_Math",
+      "qtype": "Short",
+      "difficulty": "easy",
+      "question": "How many subsets does a set with 5 elements have?",
+      "gold_answer": "32",
+      "answer_type": "exact",
+      "modes": {
+        "direct": {
+          "answer": "32",
+          "correct": true,
+          "match_type": "exact",
+          "latency_sec": 6.82,
+          "usage": {
+            "prompt_tokens": 54,
+            "completion_tokens": 1339,
+            "total_tokens": 1393,
+            "completion_tokens_details": {
+              "reasoning_tokens": 1037,
+              "text_tokens": 1339
+            },
+            "prompt_tokens_details": {
+              "text_tokens": 54
+            }
+          }
+        },
+        "v2": {
+          "answer": "32",
+          "correct": true,
+          "match_type": "exact",
+          "latency_sec": 8.43,
+          "usage": {
+            "prompt_tokens": 189,
+            "completion_tokens": 1881,
+            "total_tokens": 2070,
+            "completion_tokens_details": {
+              "reasoning_tokens": 1426,
+              "text_tokens": 1881
+            },
+            "prompt_tokens_details": {
+              "text_tokens": 189
+            }
+          },
+          "topic_detected": "Other",
+          "lane": "A",
+          "confidence": 1.0
+        },
+        "v3": {
+          "answer": "32",
+          "correct": true,
+          "match_type": "exact",
+          "latency_sec": 5.64,
+          "usage": {
+            "prompt_tokens": 151,
+            "completion_tokens": 1265,
+            "total_tokens": 1416,
+            "completion_tokens_details": {
+              "reasoning_tokens": 921,
+              "text_tokens": 1265
+            },
+            "prompt_tokens_details": {
+              "text_tokens": 151
+            }
+          },
+          "topic_detected": "Other",
+          "lane": "A",
+          "confidence": 1.0,
+          "routing_reasons": [
+            "Short question (10 words)"
+          ],
+          "proof_assessment": null
+        }
+      }
+    },
+    {
+      "id": "dm_002",
+      "topic": "Discrete_Math",
+      "qtype": "Short",
+      "difficulty": "medium",
+      "question": "Prove that C(n, k) = C(n, n-k) using the formula for binomial coefficients.",
+      "gold_answer": "Proof: C(n,k) = n!/(k!(n-k)!) = n!/((n-k)!k!) = C(n,n-k).",
+      "answer_type": "proof_structure",
+      "modes": {
+        "direct": {
+          "answer": "\\binom{n}{k} = \\binom{n}{n-k}",
+          "correct": false,
+          "match_type": "proof_heuristic",
+          "latency_sec": 8.89,
+          "usage": {
+            "prompt_tokens": 65,
+            "completion_tokens": 1745,
+            "total_tokens": 1810,
+            "completion_tokens_details": {
+              "reasoning_tokens": 1205,
+              "text_tokens": 1745
+            },
+            "prompt_tokens_details": {
+              "text_tokens": 65
+            }
+          }
+        },
+        "v2": {
+          "answer": "C(n, k) = C(n, n-k)",
+          "correct": false,
+          "match_type": "proof_heuristic",
+          "latency_sec": 81.06,
+          "usage": {
+            "prompt_tokens": 1010,
+            "completion_tokens": 14670,
+            "total_tokens": 15680
+          },
+          "topic_detected": "Discrete_Math",
+          "lane": "B",
+          "confidence": 1.0
+        },
+        "v3": {
+          "answer": "By direct substitution into the factorial definition $\\binom{n}{m}=\\frac{n!}{m!(n-m)!}$, the denominator of $\\binom{n}{n-k}$ simplifies to $(n-k)!k!$, which is identical to the denominator of $\\binom{n}{k}$. Thus $\\binom{n}{k} = \\binom{n}{n-k}$ for all $0 \\leq k \\leq n$.",
+          "correct": false,
+          "match_type": "proof_heuristic",
+          "latency_sec": 73.56,
+          "usage": {
+            "prompt_tokens": 1905,
+            "completion_tokens": 14962,
+            "total_tokens": 16867
+          },
+          "topic_detected": "Proof_Techniques",
+          "lane": "B",
+          "confidence": 0.2,
+          "routing_reasons": [
+            "Weak topic: Proof_Techniques (score: 0.37)",
+            "Question type: Proof",
+            "Short question (13 words)"
+          ],
+          "proof_assessment": {
+            "proof_type": "direct",
+            "overall": "pass",
+            "score": 1.0,
+            "feedback": "Well-structured proof with all required elements.",
+            "sections": [
+              {
+                "name": "setup",
+                "present": true,
+                "quality": "strong",
+                "comment": "Matched: ['let', 'given']"
+              },
+              {
+                "name": "derivation",
+                "present": true,
+                "quality": "strong",
+                "comment": "Matched: ['therefore', 'thus']"
+              },
+              {
+                "name": "conclusion",
+                "present": true,
+                "quality": "strong",
+                "comment": "Matched: ['therefore', 'thus']"
+              }
+            ]
+          }
+        }
+      }
+    },
+    {
+      "id": "dm_003",
+      "topic": "Discrete_Math",
+      "qtype": "Short",
+      "difficulty": "medium",
+      "question": "How many ways can 8 people be seated around a circular table?",
+      "gold_answer": "5040",
+      "answer_type": "exact",
+      "modes": {
+        "direct": {
+          "answer": "5040",
+          "correct": true,
+          "match_type": "exact",
+          "latency_sec": 10.61,
+          "usage": {
+            "prompt_tokens": 56,
+            "completion_tokens": 2089,
+            "total_tokens": 2145,
+            "completion_tokens_details": {
+              "reasoning_tokens": 1639,
+              "text_tokens": 2089
+            },
+            "prompt_tokens_details": {
+              "text_tokens": 56
+            }
+          }
+        },
+        "v2": {
+          "answer": "5040",
+          "correct": true,
+          "match_type": "exact",
+          "latency_sec": 7.61,
+          "usage": {
+            "prompt_tokens": 191,
+            "completion_tokens": 1692,
+            "total_tokens": 1883,
+            "completion_tokens_details": {
+              "reasoning_tokens": 1309,
+              "text_tokens": 1692
+            },
+            "prompt_tokens_details": {
+              "text_tokens": 191
+            }
+          },
+          "topic_detected": "Other",
+          "lane": "A",
+          "confidence": 1.0
+        },
+        "v3": {
+          "answer": "5040",
+          "correct": true,
+          "match_type": "exact",
+          "latency_sec": 6.72,
+          "usage": {
+            "prompt_tokens": 153,
+            "completion_tokens": 1136,
+            "total_tokens": 1289,
+            "completion_tokens_details": {
+              "reasoning_tokens": 853,
+              "text_tokens": 1136
+            },
+            "prompt_tokens_details": {
+              "text_tokens": 153
+            }
+          },
+          "topic_detected": "Other",
+          "lane": "A",
+          "confidence": 1.0,
+          "routing_reasons": [
+            "Short question (12 words)"
+          ],
+          "proof_assessment": null
+        }
+      }
+    },
+    {
+      "id": "dm_004",
+      "topic": "Discrete_Math",
+      "qtype": "Short",
+      "difficulty": "medium",
+      "question": "Use the pigeonhole principle to show that among any 13 people, at least two share a birth month.",
+      "gold_answer": "Proof: 13 people, 12 months. By pigeonhole principle, at least ceil(13/12)=2 people share a birth month.",
+      "answer_type": "proof_structure",
+      "modes": {
+        "direct": {
+          "answer": "At least two people share a birth month.",
+          "correct": false,
+          "match_type": "proof_heuristic",
+          "latency_sec": 10.39,
+          "usage": {
+            "prompt_tokens": 65,
+            "completion_tokens": 2158,
+            "total_tokens": 2223,
+            "completion_tokens_details": {
+              "reasoning_tokens": 1695,
+              "text_tokens": 2158
+            },
+            "prompt_tokens_details": {
+              "text_tokens": 65
+            }
+          }
+        },
+        "v2": {
+          "answer": "At least two people share a birth month.",
+          "correct": false,
+          "match_type": "proof_heuristic",
+          "latency_sec": 84.63,
+          "usage": {
+            "prompt_tokens": 1010,
+            "completion_tokens": 15120,
+            "total_tokens": 16130
+          },
+          "topic_detected": "Discrete_Math",
+          "lane": "B",
+          "confidence": 0.4
+        },
+        "v3": {
+          "answer": "With 13 people (pigeons) mapped to 12 birth months (pigeonholes), the condition 13 > 12 satisfies the Pigeonhole Principle, guaranteeing that at least one month contains \u22652 people. Therefore, at least two people share a birth month.",
+          "correct": false,
+          "match_type": "proof_heuristic",
+          "latency_sec": 70.8,
+          "usage": {
+            "prompt_tokens": 1905,
+            "completion_tokens": 13400,
+            "total_tokens": 15305
+          },
+          "topic_detected": "Proof_Techniques",
+          "lane": "B",
+          "confidence": 0.2,
+          "routing_reasons": [
+            "Weak topic: Proof_Techniques (score: 0.19)",
+            "Question type: Proof",
+            "Short question (18 words)"
+          ],
+          "proof_assessment": {
+            "proof_type": "unknown",
+            "overall": "pass",
+            "score": 1.0,
+            "feedback": "Generic assessment: Basic proof structure present.",
+            "sections": []
+          }
+        }
+      }
+    },
+    {
+      "id": "dm_005",
+      "topic": "Discrete_Math",
+      "qtype": "Short",
+      "difficulty": "hard",
+      "question": "Find the number of edges in a complete graph K_n.",
+      "gold_answer": "n(n-1)/2",
+      "answer_type": "symbolic",
+      "modes": {
+        "direct": {
+          "answer": "\\frac{n(n-1)}{2}",
+          "correct": true,
+          "match_type": "symbolic",
+          "latency_sec": 9.7,
+          "usage": {
+            "prompt_tokens": 54,
+            "completion_tokens": 1947,
+            "total_tokens": 2001,
+            "completion_tokens_details": {
+              "reasoning_tokens": 1264,
+              "text_tokens": 1947
+            },
+            "prompt_tokens_details": {
+              "text_tokens": 54
+            }
+          }
+        },
+        "v2": {
+          "answer": "\\frac{n(n-1)}{2}",
+          "correct": true,
+          "match_type": "symbolic",
+          "latency_sec": 62.55,
+          "usage": {
+            "prompt_tokens": 945,
+            "completion_tokens": 11506,
+            "total_tokens": 12451
+          },
+          "topic_detected": "Discrete_Math",
+          "lane": "B",
+          "confidence": 1.0
+        },
+        "v3": {
+          "answer": "\\frac{n(n-1)}{2}",
+          "correct": true,
+          "match_type": "symbolic",
+          "latency_sec": 9.02,
+          "usage": {
+            "prompt_tokens": 154,
+            "completion_tokens": 2062,
+            "total_tokens": 2216,
+            "completion_tokens_details": {
+              "reasoning_tokens": 1714,
+              "text_tokens": 2062
+            },
+            "prompt_tokens_details": {
+              "text_tokens": 154
+            }
+          },
+          "topic_detected": "Discrete_Math",
+          "lane": "A",
+          "confidence": 1.0,
+          "routing_reasons": [
+            "Weak topic: Discrete_Math (score: 0.13)",
+            "Short question (10 words)"
+          ],
+          "proof_assessment": null
+        }
+      }
+    },
+    {
+      "id": "dm_006",
+      "topic": "Discrete_Math",
+      "qtype": "Short",
+      "difficulty": "medium",
+      "question": "Prove A \u2229 (B \u222a C) = (A \u2229 B) \u222a (A \u2229 C) using set algebra.",
+      "gold_answer": "Proof: x \u2208 A \u2229 (B \u222a C) iff x \u2208 A and x \u2208 B \u222a C iff x \u2208 A and (x \u2208 B or x \u2208 C) iff (x \u2208 A and x \u2208 B) or (x \u2208 A and x \u2208 C) iff x \u2208 (A \u2229 B) \u222a (A \u2229 C).",
+      "answer_type": "proof_structure",
+      "modes": {
+        "direct": {
+          "answer": "A \u2229 (B \u222a C) = (A \u2229 B) \u222a (A \u2229 C)",
+          "correct": false,
+          "match_type": "proof_heuristic",
+          "latency_sec": 32.84,
+          "usage": {
+            "prompt_tokens": 72,
+            "completion_tokens": 6405,
+            "total_tokens": 6477,
+            "completion_tokens_details": {
+              "reasoning_tokens": 4925,
+              "text_tokens": 6405
+            },
+            "prompt_tokens_details": {
+              "text_tokens": 72
+            }
+          }
+        },
+        "v2": {
+          "answer": "A \u2229 (B \u222a C) = (A \u2229 B) \u222a (A \u2229 C)",
+          "correct": false,
+          "match_type": "proof_heuristic",
+          "latency_sec": 94.47,
+          "usage": {
+            "prompt_tokens": 1045,
+            "completion_tokens": 16948,
+            "total_tokens": 17993
+          },
+          "topic_detected": "Proof_Techniques",
+          "lane": "B",
+          "confidence": 0.6
+        },
+        "v3": {
+          "answer": "Proof complete: The equality is established by translating set operations into logical connectives, applying the distributive law of propositional logic to the membership conditions, and concluding via the axiom of extensionality.",
+          "correct": true,
+          "match_type": "proof_heuristic",
+          "latency_sec": 70.3,
+          "usage": {
+            "prompt_tokens": 1940,
+            "completion_tokens": 14153,
+            "total_tokens": 16093
+          },
+          "topic_detected": "Proof_Techniques",
+          "lane": "B",
+          "confidence": 0.2,
+          "routing_reasons": [
+            "Weak topic: Proof_Techniques (score: 0.19)",
+            "Question type: Proof",
+            "Short question (17 words)"
+          ],
+          "proof_assessment": {
+            "proof_type": "direct",
+            "overall": "fail",
+            "score": 0.333,
+            "feedback": "Missing sections: derivation, conclusion.",
+            "sections": [
+              {
+                "name": "setup",
+                "present": true,
+                "quality": "strong",
+                "comment": "Matched: ['let', 'since']"
+              },
+              {
+                "name": "derivation",
+                "present": false,
+                "quality": "missing",
+                "comment": "Not found"
+              },
+              {
+                "name": "conclusion",
+                "present": false,
+                "quality": "missing",
+                "comment": "Not found"
+              }
+            ]
+          }
+        }
+      }
+    },
+    {
+      "id": "prob_001",
+      "topic": "Probability",
+      "qtype": "Short",
+      "difficulty": "easy",
+      "question": "A fair die is rolled. What is the probability of getting an even number?",
+      "gold_answer": "1/2",
+      "answer_type": "exact",
+      "modes": {
+        "direct": {
+          "answer": "1/2",
+          "correct": true,
+          "match_type": "exact",
+          "latency_sec": 5.91,
+          "usage": {
+            "prompt_tokens": 58,
+            "completion_tokens": 1243,
+            "total_tokens": 1301,
+            "completion_tokens_details": {
+              "reasoning_tokens": 898,
+              "text_tokens": 1243
+            },
+            "prompt_tokens_details": {
+              "text_tokens": 58
+            }
+          }
+        },
+        "v2": {
+          "answer": "1/2",
+          "correct": true,
+          "match_type": "exact",
+          "latency_sec": 11.89,
+          "usage": {
+            "prompt_tokens": 193,
+            "completion_tokens": 2178,
+            "total_tokens": 2371,
+            "completion_tokens_details": {
+              "reasoning_tokens": 1856,
+              "text_tokens": 2178
+            },
+            "prompt_tokens_details": {
+              "text_tokens": 193
+            }
+          },
+          "topic_detected": "Probability",
+          "lane": "A",
+          "confidence": 1.0
+        },
+        "v3": {
+          "answer": "1/2",
+          "correct": true,
+          "match_type": "exact",
+          "latency_sec": 8.8,
+          "usage": {
+            "prompt_tokens": 155,
+            "completion_tokens": 1504,
+            "total_tokens": 1659,
+            "completion_tokens_details": {
+              "reasoning_tokens": 1265,
+              "text_tokens": 1504
+            },
+            "prompt_tokens_details": {
+              "text_tokens": 155
+            }
+          },
+          "topic_detected": "Probability",
+          "lane": "A",
+          "confidence": 1.0,
+          "routing_reasons": [
+            "Short question (14 words)"
+          ],
+          "proof_assessment": null
+        }
+      }
+    },
+    {
+      "id": "prob_002",
+      "topic": "Probability",
+      "qtype": "Short",
+      "difficulty": "medium",
+      "question": "If P(A) = 0.4, P(B) = 0.5, and P(A \u2229 B) = 0.2, find P(A \u222a B).",
+      "gold_answer": "0.7",
+      "answer_type": "exact",
+      "modes": {
+        "direct": {
+          "answer": "0.7",
+          "correct": true,
+          "match_type": "exact",
+          "latency_sec": 5.35,
+          "usage": {
+            "prompt_tokens": 81,
+            "completion_tokens": 1107,
+            "total_tokens": 1188,
+            "completion_tokens_details": {
+              "reasoning_tokens": 790,
+              "text_tokens": 1107
+            },
+            "prompt_tokens_details": {
+              "text_tokens": 81
+            }
+          }
+        },
+        "v2": {
+          "answer": "0.7",
+          "correct": true,
+          "match_type": "exact",
+          "latency_sec": 9.99,
+          "usage": {
+            "prompt_tokens": 216,
+            "completion_tokens": 2086,
+            "total_tokens": 2302,
+            "completion_tokens_details": {
+              "reasoning_tokens": 1697,
+              "text_tokens": 2086
+            },
+            "prompt_tokens_details": {
+              "text_tokens": 216
+            }
+          },
+          "topic_detected": "Other",
+          "lane": "A",
+          "confidence": 1.0
+        },
+        "v3": {
+          "answer": "0.7",
+          "correct": true,
+          "match_type": "exact",
+          "latency_sec": 9.52,
+          "usage": {
+            "prompt_tokens": 182,
+            "completion_tokens": 1967,
+            "total_tokens": 2149,
+            "completion_tokens_details": {
+              "reasoning_tokens": 1655,
+              "text_tokens": 1967
+            },
+            "prompt_tokens_details": {
+              "text_tokens": 182
+            }
+          },
+          "topic_detected": "Other",
+          "lane": "A",
+          "confidence": 1.0,
+          "routing_reasons": [
+            "Question type: MCQ (simpler)",
+            "Short question (17 words)"
+          ],
+          "proof_assessment": null
+        }
+      }
+    },
+    {
+      "id": "prob_003",
+      "topic": "Probability",
+      "qtype": "Short",
+      "difficulty": "medium",
+      "question": "A random variable X has E[X] = 3 and Var(X) = 4. Find E[2X + 1].",
+      "gold_answer": "7",
+      "answer_type": "exact",
+      "modes": {
+        "direct": {
+          "answer": "7",
+          "correct": true,
+          "match_type": "exact",
+          "latency_sec": 5.94,
+          "usage": {
+            "prompt_tokens": 70,
+            "completion_tokens": 1228,
+            "total_tokens": 1298,
+            "completion_tokens_details": {
+              "reasoning_tokens": 934,
+              "text_tokens": 1228
+            },
+            "prompt_tokens_details": {
+              "text_tokens": 70
+            }
+          }
+        },
+        "v2": {
+          "answer": "7",
+          "correct": true,
+          "match_type": "exact",
+          "latency_sec": 7.57,
+          "usage": {
+            "prompt_tokens": 205,
+            "completion_tokens": 1722,
+            "total_tokens": 1927,
+            "completion_tokens_details": {
+              "reasoning_tokens": 1423,
+              "text_tokens": 1722
+            },
+            "prompt_tokens_details": {
+              "text_tokens": 205
+            }
+          },
+          "topic_detected": "Probability",
+          "lane": "A",
+          "confidence": 1.0
+        },
+        "v3": {
+          "answer": "7",
+          "correct": true,
+          "match_type": "exact",
+          "latency_sec": 5.58,
+          "usage": {
+            "prompt_tokens": 167,
+            "completion_tokens": 1128,
+            "total_tokens": 1295,
+            "completion_tokens_details": {
+              "reasoning_tokens": 922,
+              "text_tokens": 1128
+            },
+            "prompt_tokens_details": {
+              "text_tokens": 167
+            }
+          },
+          "topic_detected": "Probability",
+          "lane": "A",
+          "confidence": 1.0,
+          "routing_reasons": [
+            "Short question (16 words)"
+          ],
+          "proof_assessment": null
+        }
+      }
+    },
+    {
+      "id": "prob_004",
+      "topic": "Probability",
+      "qtype": "Short",
+      "difficulty": "hard",
+      "question": "In a class of 30 students, 18 study Maths, 15 study Physics, and 10 study both. How many study neither?",
+      "gold_answer": "7",
+      "answer_type": "exact",
+      "modes": {
+        "direct": {
+          "answer": "7",
+          "correct": true,
+          "match_type": "exact",
+          "latency_sec": 6.66,
+          "usage": {
+            "prompt_tokens": 75,
+            "completion_tokens": 1411,
+            "total_tokens": 1486,
+            "completion_tokens_details": {
+              "reasoning_tokens": 1039,
+              "text_tokens": 1411
+            },
+            "prompt_tokens_details": {
+              "text_tokens": 75
+            }
+          }
+        },
+        "v2": {
+          "answer": "7",
+          "correct": true,
+          "match_type": "exact",
+          "latency_sec": 9.06,
+          "usage": {
+            "prompt_tokens": 210,
+            "completion_tokens": 1777,
+            "total_tokens": 1987,
+            "completion_tokens_details": {
+              "reasoning_tokens": 1378,
+              "text_tokens": 1777
+            },
+            "prompt_tokens_details": {
+              "text_tokens": 210
+            }
+          },
+          "topic_detected": "Other",
+          "lane": "A",
+          "confidence": 1.0
+        },
+        "v3": {
+          "answer": "7",
+          "correct": true,
+          "match_type": "exact",
+          "latency_sec": 7.89,
+          "usage": {
+            "prompt_tokens": 172,
+            "completion_tokens": 1534,
+            "total_tokens": 1706,
+            "completion_tokens_details": {
+              "reasoning_tokens": 1254,
+              "text_tokens": 1534
+            },
+            "prompt_tokens_details": {
+              "text_tokens": 172
+            }
+          },
+          "topic_detected": "Other",
+          "lane": "A",
+          "confidence": 1.0,
+          "routing_reasons": [
+            "Short question (20 words)"
+          ],
+          "proof_assessment": null
+        }
+      }
+    },
+    {
+      "id": "prob_005",
+      "topic": "Probability",
+      "qtype": "Short",
+      "difficulty": "medium",
+      "question": "A coin is tossed 3 times. What is the probability of getting exactly 2 heads?",
+      "gold_answer": "3/8",
+      "answer_type": "exact",
+      "modes": {
+        "direct": {
+          "answer": "3/8",
+          "correct": true,
+          "match_type": "exact",
+          "latency_sec": 9.52,
+          "usage": {
+            "prompt_tokens": 61,
+            "completion_tokens": 2023,
+            "total_tokens": 2084,
+            "completion_tokens_details": {
+              "reasoning_tokens": 1584,
+              "text_tokens": 2023
+            },
+            "prompt_tokens_details": {
+              "text_tokens": 61
+            }
+          }
+        },
+        "v2": {
+          "answer": "3/8",
+          "correct": true,
+          "match_type": "exact",
+          "latency_sec": 8.61,
+          "usage": {
+            "prompt_tokens": 196,
+            "completion_tokens": 1858,
+            "total_tokens": 2054,
+            "completion_tokens_details": {
+              "reasoning_tokens": 1303,
+              "text_tokens": 1858
+            },
+            "prompt_tokens_details": {
+              "text_tokens": 196
+            }
+          },
+          "topic_detected": "Probability",
+          "lane": "A",
+          "confidence": 1.0
+        },
+        "v3": {
+          "answer": "3/8",
+          "correct": true,
+          "match_type": "exact",
+          "latency_sec": 12.85,
+          "usage": {
+            "prompt_tokens": 161,
+            "completion_tokens": 3007,
+            "total_tokens": 3168,
+            "completion_tokens_details": {
+              "reasoning_tokens": 2477,
+              "text_tokens": 3007
+            },
+            "prompt_tokens_details": {
+              "text_tokens": 161
+            }
+          },
+          "topic_detected": "Differential_Equations",
+          "lane": "A",
+          "confidence": 1.0,
+          "routing_reasons": [
+            "Short question (15 words)"
+          ],
+          "proof_assessment": null
+        }
+      }
+    },
+    {
+      "id": "prob_006",
+      "topic": "Probability",
+      "qtype": "Short",
+      "difficulty": "hard",
+      "question": "X ~ N(0, 1). Find P(X > 1.96) to 3 decimal places.",
+      "gold_answer": "0.025",
+      "answer_type": "numeric_tolerance",
+      "modes": {
+        "direct": {
+          "answer": "0.025",
+          "correct": true,
+          "match_type": "numeric",
+          "latency_sec": 7.08,
+          "usage": {
+            "prompt_tokens": 67,
+            "completion_tokens": 1465,
+            "total_tokens": 1532,
+            "completion_tokens_details": {
+              "reasoning_tokens": 1141,
+              "text_tokens": 1465
+            },
+            "prompt_tokens_details": {
+              "text_tokens": 67
+            }
+          }
+        },
+        "v2": {
+          "answer": "0.025",
+          "correct": true,
+          "match_type": "numeric",
+          "latency_sec": 8.73,
+          "usage": {
+            "prompt_tokens": 202,
+            "completion_tokens": 2009,
+            "total_tokens": 2211,
+            "completion_tokens_details": {
+              "reasoning_tokens": 1685,
+              "text_tokens": 2009
+            },
+            "prompt_tokens_details": {
+              "text_tokens": 202
+            }
+          },
+          "topic_detected": "Other",
+          "lane": "A",
+          "confidence": 1.0
+        },
+        "v3": {
+          "answer": "0.025",
+          "correct": true,
+          "match_type": "numeric",
+          "latency_sec": 7.04,
+          "usage": {
+            "prompt_tokens": 164,
+            "completion_tokens": 1552,
+            "total_tokens": 1716,
+            "completion_tokens_details": {
+              "reasoning_tokens": 1264,
+              "text_tokens": 1552
+            },
+            "prompt_tokens_details": {
+              "text_tokens": 164
+            }
+          },
+          "topic_detected": "Other",
+          "lane": "A",
+          "confidence": 1.0,
+          "routing_reasons": [
+            "Short question (12 words)"
+          ],
+          "proof_assessment": null
+        }
+      }
+    },
+    {
+      "id": "de_001",
+      "topic": "Differential_Equations",
+      "qtype": "Short",
+      "difficulty": "medium",
+      "question": "Solve the differential equation: dy/dx = 2x with initial condition y(0) = 3.",
+      "gold_answer": "y = x^2 + 3",
+      "answer_type": "symbolic",
+      "modes": {
+        "direct": {
+          "answer": "y = x^2 + 3",
+          "correct": true,
+          "match_type": "symbolic_fallback",
+          "latency_sec": 7.66,
+          "usage": {
+            "prompt_tokens": 66,
+            "completion_tokens": 1623,
+            "total_tokens": 1689,
+            "completion_tokens_details": {
+              "reasoning_tokens": 1224,
+              "text_tokens": 1623
+            },
+            "prompt_tokens_details": {
+              "text_tokens": 66
+            }
+          }
+        },
+        "v2": {
+          "answer": "y = x^2 + 3",
+          "correct": true,
+          "match_type": "symbolic_fallback",
+          "latency_sec": 8.7,
+          "usage": {
+            "prompt_tokens": 201,
+            "completion_tokens": 1999,
+            "total_tokens": 2200,
+            "completion_tokens_details": {
+              "reasoning_tokens": 1693,
+              "text_tokens": 1999
+            },
+            "prompt_tokens_details": {
+              "text_tokens": 201
+            }
+          },
+          "topic_detected": "Differential_Equations",
+          "lane": "A",
+          "confidence": 1.0
+        },
+        "v3": {
+          "answer": "y = x^2 + 3",
+          "correct": true,
+          "match_type": "symbolic_fallback",
+          "latency_sec": 6.53,
+          "usage": {
+            "prompt_tokens": 167,
+            "completion_tokens": 1449,
+            "total_tokens": 1616,
+            "completion_tokens_details": {
+              "reasoning_tokens": 1208,
+              "text_tokens": 1449
+            },
+            "prompt_tokens_details": {
+              "text_tokens": 167
+            }
+          },
+          "topic_detected": "Proof_Techniques",
+          "lane": "A",
+          "confidence": 1.0,
+          "routing_reasons": [
+            "Weak topic: Proof_Techniques (score: 0.19)",
+            "Short question (13 words)"
+          ],
+          "proof_assessment": null
+        }
+      }
+    },
+    {
+      "id": "de_002",
+      "topic": "Differential_Equations",
+      "qtype": "Short",
+      "difficulty": "medium",
+      "question": "Solve: dy/dx = y/x. Find the general solution.",
+      "gold_answer": "y = Cx",
+      "answer_type": "symbolic",
+      "modes": {
+        "direct": {
+          "answer": "y = Cx",
+          "correct": true,
+          "match_type": "symbolic_fallback",
+          "latency_sec": 14.03,
+          "usage": {
+            "prompt_tokens": 57,
+            "completion_tokens": 2749,
+            "total_tokens": 2806,
+            "completion_tokens_details": {
+              "reasoning_tokens": 2108,
+              "text_tokens": 2749
+            },
+            "prompt_tokens_details": {
+              "text_tokens": 57
+            }
+          }
+        },
+        "v2": {
+          "answer": "y = Cx",
+          "correct": true,
+          "match_type": "symbolic_fallback",
+          "latency_sec": 13.42,
+          "usage": {
+            "prompt_tokens": 192,
+            "completion_tokens": 3134,
+            "total_tokens": 3326,
+            "completion_tokens_details": {
+              "reasoning_tokens": 2572,
+              "text_tokens": 3134
+            },
+            "prompt_tokens_details": {
+              "text_tokens": 192
+            }
+          },
+          "topic_detected": "Differential_Equations",
+          "lane": "A",
+          "confidence": 1.0
+        },
+        "v3": {
+          "answer": "y = Cx",
+          "correct": true,
+          "match_type": "symbolic_fallback",
+          "latency_sec": 9.18,
+          "usage": {
+            "prompt_tokens": 157,
+            "completion_tokens": 2082,
+            "total_tokens": 2239,
+            "completion_tokens_details": {
+              "reasoning_tokens": 1572,
+              "text_tokens": 2082
+            },
+            "prompt_tokens_details": {
+              "text_tokens": 157
+            }
+          },
+          "topic_detected": "Differential_Equations",
+          "lane": "A",
+          "confidence": 1.0,
+          "routing_reasons": [
+            "Short question (8 words)"
+          ],
+          "proof_assessment": null
+        }
+      }
+    },
+    {
+      "id": "de_003",
+      "topic": "Differential_Equations",
+      "qtype": "Short",
+      "difficulty": "hard",
+      "question": "Solve the second-order ODE: y'' + 4y = 0 with y(0) = 1, y'(0) = 0.",
+      "gold_answer": "y = cos(2x)",
+      "answer_type": "symbolic",
+      "modes": {
+        "direct": {
+          "answer": "y = \\cos(2x)",
+          "correct": true,
+          "match_type": "symbolic_fallback",
+          "latency_sec": 11.08,
+          "usage": {
+            "prompt_tokens": 76,
+            "completion_tokens": 2432,
+            "total_tokens": 2508,
+            "completion_tokens_details": {
+              "reasoning_tokens": 1802,
+              "text_tokens": 2432
+            },
+            "prompt_tokens_details": {
+              "text_tokens": 76
+            }
+          }
+        },
+        "v2": {
+          "answer": "y = \\cos(2x)",
+          "correct": true,
+          "match_type": "symbolic_fallback",
+          "latency_sec": 10.91,
+          "usage": {
+            "prompt_tokens": 211,
+            "completion_tokens": 2594,
+            "total_tokens": 2805,
+            "completion_tokens_details": {
+              "reasoning_tokens": 2040,
+              "text_tokens": 2594
+            },
+            "prompt_tokens_details": {
+              "text_tokens": 211
+            }
+          },
+          "topic_detected": "Differential_Equations",
+          "lane": "A",
+          "confidence": 1.0
+        },
+        "v3": {
+          "answer": "y = \\cos(2x)",
+          "correct": true,
+          "match_type": "symbolic_fallback",
+          "latency_sec": 10.85,
+          "usage": {
+            "prompt_tokens": 176,
+            "completion_tokens": 2625,
+            "total_tokens": 2801,
+            "completion_tokens_details": {
+              "reasoning_tokens": 1971,
+              "text_tokens": 2625
+            },
+            "prompt_tokens_details": {
+              "text_tokens": 176
+            }
+          },
+          "topic_detected": "Differential_Equations",
+          "lane": "A",
+          "confidence": 1.0,
+          "routing_reasons": [
+            "Short question (16 words)"
+          ],
+          "proof_assessment": null
+        }
+      }
+    },
+    {
+      "id": "de_004",
+      "topic": "Differential_Equations",
+      "qtype": "Short",
+      "difficulty": "hard",
+      "question": "Solve using integrating factor: dy/dx + 2y = e^x.",
+      "gold_answer": "y = (e^x)/3 + C*e^(-2x)",
+      "answer_type": "symbolic",
+      "modes": {
+        "direct": {
+          "answer": "y = \\frac{1}{3}e^x + Ce^{-2x}",
+          "correct": false,
+          "match_type": "symbolic_fallback",
+          "latency_sec": 10.8,
+          "usage": {
+            "prompt_tokens": 60,
+            "completion_tokens": 2439,
+            "total_tokens": 2499,
+            "completion_tokens_details": {
+              "reasoning_tokens": 1829,
+              "text_tokens": 2439
+            },
+            "prompt_tokens_details": {
+              "text_tokens": 60
+            }
+          }
+        },
+        "v2": {
+          "answer": "y = \\frac{1}{3}e^x + Ce^{-2x}",
+          "correct": false,
+          "match_type": "symbolic_fallback",
+          "latency_sec": 11.53,
+          "usage": {
+            "prompt_tokens": 195,
+            "completion_tokens": 2622,
+            "total_tokens": 2817,
+            "completion_tokens_details": {
+              "reasoning_tokens": 2022,
+              "text_tokens": 2622
+            },
+            "prompt_tokens_details": {
+              "text_tokens": 195
+            }
+          },
+          "topic_detected": "Other",
+          "lane": "A",
+          "confidence": 1.0
+        },
+        "v3": {
+          "answer": "y = \\frac{1}{3}e^x + Ce^{-2x}",
+          "correct": false,
+          "match_type": "symbolic_fallback",
+          "latency_sec": 10.2,
+          "usage": {
+            "prompt_tokens": 160,
+            "completion_tokens": 2447,
+            "total_tokens": 2607,
+            "completion_tokens_details": {
+              "reasoning_tokens": 1940,
+              "text_tokens": 2447
+            },
+            "prompt_tokens_details": {
+              "text_tokens": 160
+            }
+          },
+          "topic_detected": "Differential_Equations",
+          "lane": "A",
+          "confidence": 1.0,
+          "routing_reasons": [
+            "Short question (9 words)"
+          ],
+          "proof_assessment": null
+        }
+      }
+    },
+    {
+      "id": "cn_001",
+      "topic": "Complex_Numbers",
+      "qtype": "Short",
+      "difficulty": "easy",
+      "question": "Find the modulus of z = 3 + 4i.",
+      "gold_answer": "5",
+      "answer_type": "exact",
+      "modes": {
+        "direct": {
+          "answer": "5",
+          "correct": true,
+          "match_type": "exact",
+          "latency_sec": 5.77,
+          "usage": {
+            "prompt_tokens": 55,
+            "completion_tokens": 1260,
+            "total_tokens": 1315,
+            "completion_tokens_details": {
+              "reasoning_tokens": 995,
+              "text_tokens": 1260
+            },
+            "prompt_tokens_details": {
+              "text_tokens": 55
+            }
+          }
+        },
+        "v2": {
+          "answer": "5",
+          "correct": true,
+          "match_type": "exact",
+          "latency_sec": 9.01,
+          "usage": {
+            "prompt_tokens": 190,
+            "completion_tokens": 2086,
+            "total_tokens": 2276,
+            "completion_tokens_details": {
+              "reasoning_tokens": 1788,
+              "text_tokens": 2086
+            },
+            "prompt_tokens_details": {
+              "text_tokens": 190
+            }
+          },
+          "topic_detected": "Complex_Numbers",
+          "lane": "A",
+          "confidence": 1.0
+        },
+        "v3": {
+          "answer": "5",
+          "correct": true,
+          "match_type": "exact",
+          "latency_sec": 4.91,
+          "usage": {
+            "prompt_tokens": 154,
+            "completion_tokens": 1115,
+            "total_tokens": 1269,
+            "completion_tokens_details": {
+              "reasoning_tokens": 917,
+              "text_tokens": 1115
+            },
+            "prompt_tokens_details": {
+              "text_tokens": 154
+            }
+          },
+          "topic_detected": "Complex_Numbers",
+          "lane": "A",
+          "confidence": 1.0,
+          "routing_reasons": [
+            "Short question (9 words)"
+          ],
+          "proof_assessment": null
+        }
+      }
+    },
+    {
+      "id": "cn_002",
+      "topic": "Complex_Numbers",
+      "qtype": "Short",
+      "difficulty": "medium",
+      "question": "Express z = 1 + i in polar form.",
+      "gold_answer": "sqrt(2) * e^(i*pi/4)",
+      "answer_type": "symbolic",
+      "modes": {
+        "direct": {
+          "answer": "\\sqrt{2}\\left(\\cos\\frac{\\pi}{4} + i\\sin\\frac{\\pi}{4}\\right)",
+          "correct": true,
+          "match_type": "symbolic_numbers",
+          "latency_sec": 8.97,
+          "usage": {
+            "prompt_tokens": 53,
+            "completion_tokens": 1955,
+            "total_tokens": 2008,
+            "completion_tokens_details": {
+              "reasoning_tokens": 1492,
+              "text_tokens": 1955
+            },
+            "prompt_tokens_details": {
+              "text_tokens": 53
+            }
+          }
+        },
+        "v2": {
+          "answer": "\\sqrt{2}\\left(\\cos\\frac{\\pi}{4} + i\\sin\\frac{\\pi}{4}\\right)",
+          "correct": true,
+          "match_type": "symbolic_numbers",
+          "latency_sec": 9.91,
+          "usage": {
+            "prompt_tokens": 188,
+            "completion_tokens": 2292,
+            "total_tokens": 2480,
+            "completion_tokens_details": {
+              "reasoning_tokens": 1768,
+              "text_tokens": 2292
+            },
+            "prompt_tokens_details": {
+              "text_tokens": 188
+            }
+          },
+          "topic_detected": "Complex_Numbers",
+          "lane": "A",
+          "confidence": 1.0
+        },
+        "v3": {
+          "answer": "\\sqrt{2} \\left( \\cos \\frac{\\pi}{4} + i \\sin \\frac{\\pi}{4} \\right)",
+          "correct": true,
+          "match_type": "symbolic_numbers",
+          "latency_sec": 8.41,
+          "usage": {
+            "prompt_tokens": 152,
+            "completion_tokens": 1878,
+            "total_tokens": 2030,
+            "completion_tokens_details": {
+              "reasoning_tokens": 1431,
+              "text_tokens": 1878
+            },
+            "prompt_tokens_details": {
+              "text_tokens": 152
+            }
+          },
+          "topic_detected": "Complex_Numbers",
+          "lane": "A",
+          "confidence": 1.0,
+          "routing_reasons": [
+            "Short question (9 words)"
+          ],
+          "proof_assessment": null
+        }
+      }
+    },
+    {
+      "id": "vc_001",
+      "topic": "Vector_Calculus",
+      "qtype": "Short",
+      "difficulty": "medium",
+      "question": "Find the divergence of the vector field F = (x^2, y^2, z^2).",
+      "gold_answer": "2x + 2y + 2z",
+      "answer_type": "symbolic",
+      "modes": {
+        "direct": {
+          "answer": "2x + 2y + 2z",
+          "correct": true,
+          "match_type": "symbolic_fallback",
+          "latency_sec": 7.76,
+          "usage": {
+            "prompt_tokens": 64,
+            "completion_tokens": 1682,
+            "total_tokens": 1746,
+            "completion_tokens_details": {
+              "reasoning_tokens": 1278,
+              "text_tokens": 1682
+            },
+            "prompt_tokens_details": {
+              "text_tokens": 64
+            }
+          }
+        },
+        "v2": {
+          "answer": "2x + 2y + 2z",
+          "correct": true,
+          "match_type": "symbolic_fallback",
+          "latency_sec": 51.61,
+          "usage": {
+            "prompt_tokens": 995,
+            "completion_tokens": 9869,
+            "total_tokens": 10864
+          },
+          "topic_detected": "Series_Convergence",
+          "lane": "B",
+          "confidence": 1.0
+        },
+        "v3": {
+          "answer": "2x + 2y + 2z",
+          "correct": true,
+          "match_type": "symbolic_fallback",
+          "latency_sec": 8.75,
+          "usage": {
+            "prompt_tokens": 164,
+            "completion_tokens": 2041,
+            "total_tokens": 2205,
+            "completion_tokens_details": {
+              "reasoning_tokens": 1726,
+              "text_tokens": 2041
+            },
+            "prompt_tokens_details": {
+              "text_tokens": 164
+            }
+          },
+          "topic_detected": "Vector_Calculus",
+          "lane": "A",
+          "confidence": 1.0,
+          "routing_reasons": [
+            "Weak topic: Vector_Calculus (score: 0.32)",
+            "Short question (12 words)"
+          ],
+          "proof_assessment": null
+        }
+      }
+    },
+    {
+      "id": "vc_002",
+      "topic": "Vector_Calculus",
+      "qtype": "Short",
+      "difficulty": "hard",
+      "question": "Find the curl of the vector field F = (y, z, x).",
+      "gold_answer": "(-1, -1, -1)",
+      "answer_type": "exact",
+      "modes": {
+        "direct": {
+          "answer": "(-1, -1, -1)",
+          "correct": true,
+          "match_type": "exact",
+          "latency_sec": 12.04,
+          "usage": {
+            "prompt_tokens": 58,
+            "completion_tokens": 2731,
+            "total_tokens": 2789,
+            "completion_tokens_details": {
+              "reasoning_tokens": 1927,
+              "text_tokens": 2731
+            },
+            "prompt_tokens_details": {
+              "text_tokens": 58
+            }
+          }
+        },
+        "v2": {
+          "answer": "(-1, -1, -1)",
+          "correct": true,
+          "match_type": "exact",
+          "latency_sec": 84.89,
+          "usage": {
+            "prompt_tokens": 965,
+            "completion_tokens": 16553,
+            "total_tokens": 17518
+          },
+          "topic_detected": "Vector_Calculus",
+          "lane": "B",
+          "confidence": 1.0
+        },
+        "v3": {
+          "answer": "(-1, -1, -1)",
+          "correct": true,
+          "match_type": "exact",
+          "latency_sec": 13.97,
+          "usage": {
+            "prompt_tokens": 158,
+            "completion_tokens": 3016,
+            "total_tokens": 3174,
+            "completion_tokens_details": {
+              "reasoning_tokens": 2405,
+              "text_tokens": 3016
+            },
+            "prompt_tokens_details": {
+              "text_tokens": 158
+            }
+          },
+          "topic_detected": "Vector_Calculus",
+          "lane": "A",
+          "confidence": 1.0,
+          "routing_reasons": [
+            "Weak topic: Vector_Calculus (score: 0.32)",
+            "Short question (12 words)"
+          ],
+          "proof_assessment": null
+        }
+      }
+    },
+    {
+      "id": "mcq_001",
+      "topic": "Limits",
+      "qtype": "MCQ",
+      "difficulty": "easy",
+      "question": "What is the value of lim(x\u21920) sin(x)/x?",
+      "gold_answer": "B",
+      "answer_type": "exact",
+      "modes": {
+        "direct": {
+          "answer": "B",
+          "correct": true,
+          "match_type": "exact",
+          "latency_sec": 13.53,
+          "usage": {
+            "prompt_tokens": 85,
+            "completion_tokens": 2804,
+            "total_tokens": 2889,
+            "completion_tokens_details": {
+              "reasoning_tokens": 2178,
+              "text_tokens": 2804
+            },
+            "prompt_tokens_details": {
+              "text_tokens": 85
+            }
+          }
+        },
+        "v2": {
+          "answer": "B",
+          "correct": true,
+          "match_type": "exact",
+          "latency_sec": 10.29,
+          "usage": {
+            "prompt_tokens": 221,
+            "completion_tokens": 2363,
+            "total_tokens": 2584,
+            "completion_tokens_details": {
+              "reasoning_tokens": 1704,
+              "text_tokens": 2363
+            },
+            "prompt_tokens_details": {
+              "text_tokens": 221
+            }
+          },
+          "topic_detected": "Limits",
+          "lane": "A",
+          "confidence": 1.0
+        },
+        "v3": {
+          "answer": "B",
+          "correct": true,
+          "match_type": "exact",
+          "latency_sec": 11.59,
+          "usage": {
+            "prompt_tokens": 183,
+            "completion_tokens": 2286,
+            "total_tokens": 2469,
+            "completion_tokens_details": {
+              "reasoning_tokens": 1620,
+              "text_tokens": 2286
+            },
+            "prompt_tokens_details": {
+              "text_tokens": 183
+            }
+          },
+          "topic_detected": "Limits",
+          "lane": "A",
+          "confidence": 1.0,
+          "routing_reasons": [
+            "Question type: MCQ (simpler)",
+            "Short question (7 words)"
+          ],
+          "proof_assessment": null
+        }
+      }
+    },
+    {
+      "id": "mcq_002",
+      "topic": "Integration",
+      "qtype": "MCQ",
+      "difficulty": "medium",
+      "question": "Which of the following is the integral of 1/x?",
+      "gold_answer": "B",
+      "answer_type": "exact",
+      "modes": {
+        "direct": {
+          "answer": "B",
+          "correct": true,
+          "match_type": "exact",
+          "latency_sec": 9.46,
+          "usage": {
+            "prompt_tokens": 91,
+            "completion_tokens": 1999,
+            "total_tokens": 2090,
+            "completion_tokens_details": {
+              "reasoning_tokens": 1373,
+              "text_tokens": 1999
+            },
+            "prompt_tokens_details": {
+              "text_tokens": 91
+            }
+          }
+        },
+        "v2": {
+          "answer": "B",
+          "correct": true,
+          "match_type": "exact",
+          "latency_sec": 10.35,
+          "usage": {
+            "prompt_tokens": 227,
+            "completion_tokens": 2451,
+            "total_tokens": 2678,
+            "completion_tokens_details": {
+              "reasoning_tokens": 1801,
+              "text_tokens": 2451
+            },
+            "prompt_tokens_details": {
+              "text_tokens": 227
+            }
+          },
+          "topic_detected": "Integration",
+          "lane": "A",
+          "confidence": 1.0
+        },
+        "v3": {
+          "answer": "B",
+          "correct": true,
+          "match_type": "exact",
+          "latency_sec": 8.58,
+          "usage": {
+            "prompt_tokens": 189,
+            "completion_tokens": 1943,
+            "total_tokens": 2132,
+            "completion_tokens_details": {
+              "reasoning_tokens": 1467,
+              "text_tokens": 1943
+            },
+            "prompt_tokens_details": {
+              "text_tokens": 189
+            }
+          },
+          "topic_detected": "Integration",
+          "lane": "A",
+          "confidence": 1.0,
+          "routing_reasons": [
+            "Question type: MCQ (simpler)",
+            "Short question (9 words)"
+          ],
+          "proof_assessment": null
+        }
+      }
+    },
+    {
+      "id": "mcq_003",
+      "topic": "Linear_Algebra",
+      "qtype": "MCQ",
+      "difficulty": "medium",
+      "question": "If A is a 3x3 matrix with det(A) = 4, what is det(2A)?",
+      "gold_answer": "D",
+      "answer_type": "exact",
+      "modes": {
+        "direct": {
+          "answer": "D",
+          "correct": true,
+          "match_type": "exact",
+          "latency_sec": 7.94,
+          "usage": {
+            "prompt_tokens": 96,
+            "completion_tokens": 1715,
+            "total_tokens": 1811,
+            "completion_tokens_details": {
+              "reasoning_tokens": 1401,
+              "text_tokens": 1715
+            },
+            "prompt_tokens_details": {
+              "text_tokens": 96
+            }
+          }
+        },
+        "v2": {
+          "answer": "D",
+          "correct": true,
+          "match_type": "exact",
+          "latency_sec": 54.54,
+          "usage": {
+            "prompt_tokens": 1160,
+            "completion_tokens": 9476,
+            "total_tokens": 10636
+          },
+          "topic_detected": "Linear_Algebra",
+          "lane": "B",
+          "confidence": 1.0
+        },
+        "v3": {
+          "answer": "D",
+          "correct": true,
+          "match_type": "exact",
+          "latency_sec": 7.99,
+          "usage": {
+            "prompt_tokens": 196,
+            "completion_tokens": 1562,
+            "total_tokens": 1758,
+            "completion_tokens_details": {
+              "reasoning_tokens": 1271,
+              "text_tokens": 1562
+            },
+            "prompt_tokens_details": {
+              "text_tokens": 196
+            }
+          },
+          "topic_detected": "Linear_Algebra",
+          "lane": "A",
+          "confidence": 1.0,
+          "routing_reasons": [
+            "Weak topic: Linear_Algebra (score: 0.14)",
+            "Question type: MCQ (simpler)",
+            "Short question (13 words)"
+          ],
+          "proof_assessment": null
+        }
+      }
+    }
+  ],
+  "summary": {
+    "direct": {
+      "correct": 39,
+      "total": 55,
+      "accuracy": 0.7091,
+      "total_tokens": 126237,
+      "avg_latency_sec": 10.78
+    },
+    "v2": {
+      "correct": 41,
+      "total": 55,
+      "accuracy": 0.7455,
+      "total_tokens": 494986,
+      "avg_latency_sec": 45.1
+    },
+    "v3": {
+      "correct": 49,
+      "total": 55,
+      "accuracy": 0.8909,
+      "total_tokens": 304251,
+      "avg_latency_sec": 24.35
+    }
+  }
+}
