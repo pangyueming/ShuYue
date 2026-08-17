@@ -2,7 +2,7 @@
 # Project Progress & Technical Roadmap
 
 > **用途**：新窗口/新协作者快速了解项目全貌
-> **最后更新**：2026年8月14日（修复迭代 + Reader高亮上线）
+> **最后更新**：2026年8月17日（deepseek UI 重构合并 + Profile 页面上线）
 
 ---
 
@@ -44,6 +44,8 @@
 | 3 | **Recent Activity 学习动态** | ❌ 占位 | Dashboard中占位 |
 | 4 | **前端→后端数据库连接** | ✅ 已完成 | 书架/笔记/上传/Reader全量调后端API，数据持久化到SQLite |
 | 5 | **用户认证(JWT)** | ✅ 已完成 | 注册/登录/游客模式/数据迁移/忘记密码/密码重置完整闭环 + apiFetch统一封装 + DB列迁移修复 |
+| 6 | **User Profile 用户资料** | ✅ 已完成 | 个人资料页（姓名/大学/专业/年级/A-Level成绩/Further Math）+ 头像首字母 + 侧边栏下拉菜单（Profile/Log Out） |
+| 7 | **UI 增强** | ✅ 已完成 | Lucide 图标库替代 emoji + 密码强度检测 + Dashboard 数字滚动动画 + Study Plan 拖拽删除 |
 
 ---
 
@@ -99,6 +101,7 @@ D:\study\智学桥\
 | 层 | 技术 | 版本/来源 |
 |----|------|----------|
 | **前端框架** | Tailwind CSS | CDN |
+| **图标库** | Lucide Icons | unpkg CDN |
 | **PDF渲染** | PDF.js | 3.11.174 (cdnjs) |
 | **PPTX解析** | JSZip | 3.10.1 (cdnjs) |
 | **函数绘图** | Plotly.js | 2.35.2 (cdn.plot.ly) |
@@ -485,7 +488,19 @@ passlib[bcrypt]             # 密码哈希（bcrypt）
 
 ---
 
-## 九、修复与变更记录（2026-08-13 ~ 2026-08-14）
+## 九、修复与变更记录
+
+### 2026-08-17：deepseek 分支同步合并
+
+| # | 变更 | 说明 |
+|---|------|------|
+| 1 | **UI 全面重构** | Lucide Icons 替代 emoji（更专业统一）；Notion 风格配色（低饱和度暖灰）；Dashboard 数字滚动动画（count-up）；Study Plan 拖拽删除 |
+| 2 | **User Profile 新增** | 个人资料页（编辑姓名/大学/专业/年级/A-Level成绩/Further Math）；侧边栏用户信息下拉菜单（Profile / Log Out）；头像首字母自动生成 |
+| 3 | **密码强度检测** | 注册页实时显示密码强度（Weak/Medium/Strong），要求 ≥6 位 + 至少 1 字母 + 1 数字 |
+| 4 | **页面访问控制** | `LOGIN_REQUIRED_PAGES` / `LOGIN_RECOMMENDED_PAGES` 机制，未登录用户访问受限页面时提示登录 |
+| 5 | **游客数据迁移** | `migrateGuestData()` 函数：登录后自动将 `localStorage` 中的游客笔记迁移到后端数据库 |
+
+### 2026-08-13 ~ 2026-08-14：修复迭代
 
 ### 9.1 Bug 修复
 
@@ -538,6 +553,7 @@ passlib[bcrypt]             # 密码哈希（bcrypt）
 |------|--------|------|
 | 2026-08-12 | Harness V3 上线 | 55题基准测试：V3 89.1% vs V2 74.6%，证明题 0%→87.5% |
 | 2026-08-14 | 修复迭代 + Reader高亮上线 | SSE崩溃修复 + System Prompt冲突修复 + 安全加固(XSS/权限) + 翻译重构(qwen-turbo) + Reader高亮持久化(4色+笔记+后端同步) |
+| 2026-08-17 | deepseek 分支 UI 重构合并 | Lucide图标替代emoji + User Profile页面 + 密码强度检测 + Dashboard动画 + Study Plan拖拽 + 游客数据迁移 |
 
 ---
 
@@ -602,6 +618,6 @@ API密钥：.env文件中 DASHSCOPE_API_KEY
 
 ---
 
-*最后更新：2026年8月14日*
-*版本：code_v2 + server.py + harness_v3.py（Harness V3 已上线 + 修复迭代）*
-*状态：功能迭代阶段（前端已连接后端，Harness V3 已接入，用户认证已完成，Reader高亮已上线）*
+*最后更新：2026年8月17日*
+*版本：code_v2 + server.py + harness_v3.py（Harness V3 + deepseek UI 重构）*
+*状态：功能迭代阶段（前端 UI 重构完成，用户认证+资料页完成，Harness V3 已接入）*

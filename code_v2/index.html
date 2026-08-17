@@ -13,32 +13,100 @@
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
     <script>if(window.pdfjsLib)pdfjsLib.GlobalWorkerOptions.workerSrc='https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';</script>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <script src="https://unpkg.com/lucide@latest"></script>
     <style>
         :root {
-            --bg-app:#fff;--bg-sidebar:#f7f6f3;--bg-card:#fff;--bg-hover:#efedea;
-            --bg-input:#fff;--bg-tag:#f0f0ee;--bg-topbar:rgba(255,255,255,.85);
-            --text-primary:#37352f;--text-secondary:#6b6a67;--text-muted:#9b9a97;
-            --border:#e9e9e7;--border-light:#f0f0ee;--accent:#2383e2;--accent-hover:#0b6bcb;
+            /* Notion-inspired warm-grey palette (low saturation, soft borders) */
+            --bg-app:#ffffff;
+            --bg-sidebar:#f7f7f5;
+            --bg-card:#ffffff;
+            --bg-hover:#efefed;
+            --bg-input:#ffffff;
+            --bg-tag:#f1f1ef;
+            --bg-topbar:rgba(255,255,255,.82);
+            --text-primary:#37352f;
+            --text-secondary:rgba(55,53,47,.64);
+            --text-muted:rgba(55,53,47,.44);
+            --border:rgba(55,53,47,.09);
+            --border-light:rgba(55,53,47,.06);
+            --accent:#2383e2;--accent-hover:#1a6fd0;
             --red:#ff6b6b;--green:#52c41a;--orange:#fa8c16;--yellow:#faad14;--purple:#9b59f7;--pink:#eb2f96;
+            --scrollbar-thumb:rgba(55,53,47,.18);
+            --scrollbar-thumb-hover:rgba(55,53,47,.32);
+            /* Elevation + motion */
+            --shadow-xs:0 1px 2px rgba(16,24,40,.04);
+            --shadow-sm:0 1px 3px rgba(16,24,40,.07),0 1px 2px rgba(16,24,40,.04);
+            --shadow-md:0 4px 14px rgba(16,24,40,.09),0 2px 4px rgba(16,24,40,.05);
+            --shadow-lg:0 16px 40px rgba(16,24,40,.14),0 6px 12px rgba(16,24,40,.07);
+            --t-fast:120ms cubic-bezier(.2,.8,.2,1);
+            --t:180ms cubic-bezier(.2,.8,.2,1);
         }
-        body.dark{--bg-app:#191919;--bg-sidebar:#202020;--bg-card:#2f2f2f;--bg-hover:#37352f;
-            --bg-input:#37352f;--bg-tag:#37352f;--bg-topbar:rgba(25,25,25,.85);
-            --text-primary:#e6e6e6;--text-secondary:#a0a0a0;--text-muted:#6b6a67;--border:#3a3a38;--border-light:#2f2f2f;}
+        body.dark{
+            --bg-app:#191919;--bg-sidebar:#1f1f1f;--bg-card:#242424;--bg-hover:#2f2f2f;
+            --bg-input:#2f2f2f;--bg-tag:#2f2f2f;--bg-topbar:rgba(25,25,25,.82);
+            --text-primary:#e7e5e4;--text-secondary:rgba(231,229,228,.64);--text-muted:rgba(231,229,228,.42);
+            --border:rgba(255,255,255,.09);--border-light:rgba(255,255,255,.06);
+            --scrollbar-thumb:rgba(255,255,255,.18);
+            --scrollbar-thumb-hover:rgba(255,255,255,.32);
+        }
         *{margin:0;padding:0;box-sizing:border-box}
-        body{font-family:'Inter',-apple-system,sans-serif;background:var(--bg-app);color:var(--text-primary)}
-        .page-view{display:none}.page-view.active{display:block}
-        .nav-item{display:flex;align-items:center;gap:8px;padding:6px 8px;border-radius:6px;cursor:pointer;font-size:14px;color:var(--text-primary)}
+        html{-webkit-font-smoothing:antialiased;-moz-osx-font-smoothing:grayscale;text-rendering:optimizeLegibility}
+        body{font-family:'Inter',-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;background:var(--bg-app);color:var(--text-primary);line-height:1.55;font-size:14px;transition:background-color var(--t),color var(--t)}
+        ::selection{background:rgba(35,131,226,.16)}
+        .page-view{display:none}
+        .page-view.active{display:block;animation:pageIn var(--t)}
+        @keyframes pageIn{from{opacity:0;transform:translateY(4px)}to{opacity:1;transform:none}}
+        @keyframes toastIn{from{opacity:0;transform:translateY(-8px) scale(.98)}to{opacity:1;transform:none}}
+        @keyframes spin{to{transform:rotate(360deg)}}
+        @keyframes shimmer{from{background-position:200% 0}to{background-position:-200% 0}}
+        @keyframes rippleAnim{to{transform:scale(1);opacity:0}}
+        .nav-item{display:flex;align-items:center;gap:8px;padding:6px 8px;border-radius:6px;cursor:pointer;font-size:14px;color:var(--text-primary);transition:background var(--t-fast);user-select:none}
         .nav-item:hover{background:var(--bg-hover)}.nav-item.active{background:var(--bg-hover);font-weight:500}
-        .btn-primary{background:var(--accent);color:#fff;padding:8px 16px;border-radius:6px;font-size:14px;border:none;cursor:pointer}
-        .btn-primary:hover{background:var(--accent-hover)}
-        .btn-secondary{background:var(--bg-hover);color:var(--text-primary);padding:8px 16px;border-radius:6px;font-size:14px;border:1px solid var(--border);cursor:pointer}
-        .card{background:var(--bg-card);border:1px solid var(--border);border-radius:8px;padding:16px}
-        .input{background:var(--bg-input);border:1px solid var(--border);border-radius:6px;padding:8px 12px;color:var(--text-primary);font-size:14px;outline:none}
-        .input:focus{border-color:var(--accent)}
-        .tag{display:inline-flex;padding:2px 8px;border-radius:4px;font-size:12px;font-weight:500}
-        .placeholder-box{border:2px dashed var(--border);border-radius:8px;padding:40px;text-align:center;color:var(--text-muted)}
-        .scrollbar::-webkit-scrollbar{width:6px}.scrollbar::-webkit-scrollbar-thumb{background:var(--text-muted);border-radius:3px}
-        .progress-bar{background:var(--bg-tag);height:4px;border-radius:2px;overflow:hidden}
+        .btn-primary{background:var(--accent);color:#fff;padding:8px 16px;border-radius:6px;font-size:14px;font-weight:500;border:none;cursor:pointer;box-shadow:var(--shadow-xs);transition:background var(--t-fast),box-shadow var(--t-fast),transform var(--t-fast);position:relative;overflow:hidden}
+        .btn-primary:hover{background:var(--accent-hover);box-shadow:var(--shadow-sm)}
+        .btn-primary:active{transform:translateY(1px)}
+        .btn-secondary{background:var(--bg-card);color:var(--text-primary);padding:8px 16px;border-radius:6px;font-size:14px;border:1px solid var(--border);cursor:pointer;box-shadow:var(--shadow-xs);transition:background var(--t-fast),box-shadow var(--t-fast),transform var(--t-fast);position:relative;overflow:hidden}
+        .btn-secondary:hover{background:var(--bg-hover)}
+        .btn-secondary:active{transform:translateY(1px)}
+        .card{background:var(--bg-card);border:1px solid var(--border);border-radius:8px;padding:16px;transition:border-color var(--t-fast)}
+        .input{background:var(--bg-input);border:1px solid var(--border);border-radius:6px;padding:8px 12px;color:var(--text-primary);font-size:14px;outline:none;transition:border-color var(--t-fast),box-shadow var(--t-fast)}
+        .input:focus{border-color:var(--accent);box-shadow:0 0 0 3px rgba(35,131,226,.12)}
+        .tag{display:inline-flex;align-items:center;padding:2px 8px;border-radius:4px;font-size:12px;font-weight:500;line-height:1.4}
+        .placeholder-box{border:1.5px dashed var(--border);border-radius:8px;padding:40px;text-align:center;color:var(--text-muted)}
+        .spinner{width:16px;height:16px;border:2px solid var(--border);border-top-color:var(--accent);border-radius:50%;animation:spin .7s linear infinite;flex-shrink:0}
+        .toast{animation:toastIn .25s cubic-bezier(.2,.8,.2,1)}
+        .skeleton{background:linear-gradient(90deg,var(--bg-tag) 25%,var(--bg-hover) 50%,var(--bg-tag) 75%);background-size:200% 100%;animation:shimmer 1.4s ease-in-out infinite;border-radius:6px;min-height:12px}
+        .plan-card{user-select:none}
+        .plan-card.dragging{opacity:.4}
+        .plan-card:active{cursor:grabbing}
+        .scrollbar::-webkit-scrollbar{width:8px;height:8px}
+        .scrollbar::-webkit-scrollbar-thumb{background:var(--scrollbar-thumb);border-radius:999px;border:2px solid transparent;background-clip:content-box}
+        .scrollbar::-webkit-scrollbar-thumb:hover{background:var(--scrollbar-thumb-hover);background-clip:content-box}
+        .scrollbar::-webkit-scrollbar-track{background:transparent}
+        .progress-bar{background:var(--bg-tag);height:4px;border-radius:999px;overflow:hidden}
+        button:focus-visible,input:focus-visible,textarea:focus-visible,select:focus-visible,a:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+        /* Lucide line icons (Notion-style) */
+        .lucide{width:16px;height:16px;stroke-width:1.75;flex-shrink:0}
+        .nav-item .lucide{color:var(--text-secondary)}
+        .nav-item.active .lucide{color:var(--text-primary)}
+        .theme-icon-sun{display:none}
+        body.dark .theme-icon-moon{display:none}
+        body.dark .theme-icon-sun{display:block}
+        /* Sidebar collapse: clip overflowing content when width animates to 0 */
+        #app-sidebar{overflow-x:hidden}
+        /* Responsive grid + padding for narrower windows */
+        @media (max-width:1100px){
+            #dash-bs-grid,#bs-page-grid{grid-template-columns:repeat(4,1fr)!important}
+        }
+        @media (max-width:880px){
+            #dash-bs-grid,#bs-page-grid,#reader-bs-grid{grid-template-columns:repeat(3,1fr)!important}
+            .stats-grid{grid-template-columns:repeat(2,1fr)!important}
+        }
+        @media (max-width:640px){
+            #dash-bs-grid,#bs-page-grid,#reader-bs-grid{grid-template-columns:repeat(2,1fr)!important}
+            .stats-grid{grid-template-columns:repeat(2,1fr)!important}
+            .page-view{padding:24px 16px!important}
+        }
         /* PDF.js official textLayer — matches WPS/Viewer behavior exactly */
         .textLayer{position:absolute;text-align:initial;inset:0;overflow:hidden;line-height:1;
             text-size-adjust:none;forced-color-adjust:none;transform-origin:0 0;caret-color:CanvasText;z-index:0;}
@@ -59,29 +127,30 @@
         #reader-content-area{scroll-behavior:smooth;}
     </style>
 </head>
-<body>
+<body class="dark">
+<script>try{if(localStorage.getItem('cb_theme')==='light')document.body.classList.remove('dark');}catch(e){}</script>
 
 <div class="flex h-screen overflow-hidden">
     <!-- SIDEBAR -->
     <aside id="app-sidebar" class="flex-shrink-0 flex flex-col overflow-y-auto scrollbar transition-all duration-200" style="width:240px;min-width:240px;background:var(--bg-sidebar);border-right:1px solid var(--border);">
         <div style="padding:12px;cursor:pointer;display:flex;align-items:center;gap:8px;">
-            <div style="width:32px;height:32px;border-radius:8px;background:linear-gradient(135deg,#2383e2,#722ed1);display:flex;align-items:center;justify-content:center;color:#fff;font-weight:700;font-size:14px;">CB</div>
+            <div style="width:32px;height:32px;border-radius:8px;background:var(--accent);display:flex;align-items:center;justify-content:center;color:#fff;font-weight:600;font-size:14px;letter-spacing:.02em;">CB</div>
             <div><div style="font-weight:600;font-size:14px;">CogniBridge</div><div style="font-size:11px;color:var(--text-muted);">智学桥</div></div>
         </div>
-        <div style="margin:0 8px 8px;padding:6px 8px;border-radius:6px;background:var(--bg-hover);font-size:13px;color:var(--text-muted);cursor:pointer;">🔍 Search...</div>
+        <div style="margin:0 8px 8px;padding:6px 8px;border-radius:6px;background:var(--bg-hover);font-size:13px;color:var(--text-muted);cursor:pointer;display:flex;align-items:center;gap:6px;"><i data-lucide="search" style="width:14px;height:14px;"></i>Search...</div>
         <div style="padding:0 8px;flex:1;">
             <div style="font-size:11px;font-weight:600;color:var(--text-muted);text-transform:uppercase;padding:4px 8px;margin-bottom:4px;">Workspace</div>
-            <div class="nav-item active" onclick="showPage('dashboard')">📊 Dashboard</div>
-            <div class="nav-item" onclick="showPage('pretest')">🧪 Pre-Assessment</div>
-            <div class="nav-item" onclick="showPage('tutor')">🧮 Math Tutor</div>
-            <div class="nav-item" onclick="showPage('plotter')">📉 Function Plotter</div>
-            <div class="nav-item" onclick="showPage('reader')">📖 Reader</div>
-            <div class="nav-item" onclick="showPage('notes')">📝 Notes</div>
-            <div class="nav-item" onclick="showPage('graph')">🗺️ Knowledge Graph</div>
+            <div class="nav-item active" onclick="showPage('dashboard')"><i data-lucide="layout-dashboard"></i>Dashboard</div>
+            <div class="nav-item" onclick="showPage('pretest')"><i data-lucide="clipboard-check"></i>Pre-Assessment</div>
+            <div class="nav-item" onclick="showPage('tutor')"><i data-lucide="sigma"></i>Math Tutor</div>
+            <div class="nav-item" onclick="showPage('plotter')"><i data-lucide="chart-line"></i>Function Plotter</div>
+            <div class="nav-item" onclick="showPage('reader')"><i data-lucide="book-open"></i>Reader</div>
+            <div class="nav-item" onclick="showPage('notes')"><i data-lucide="notebook-pen"></i>Notes</div>
+            <div class="nav-item" onclick="showPage('graph')"><i data-lucide="network"></i>Knowledge Graph</div>
             <div style="font-size:11px;font-weight:600;color:var(--text-muted);text-transform:uppercase;padding:4px 8px;margin-top:16px;margin-bottom:4px;">Community</div>
-            <div class="nav-item" onclick="showPage('forum')">💬 Student Forum</div>
+            <div class="nav-item" onclick="showPage('forum')"><i data-lucide="messages-square"></i>Student Forum</div>
             <div style="font-size:11px;font-weight:600;color:var(--text-muted);text-transform:uppercase;padding:4px 8px;margin-top:16px;margin-bottom:4px;">Bookshelf</div>
-            <div class="nav-item" onclick="showPage('bookshelf')">📚 All Materials</div>
+            <div class="nav-item" onclick="showPage('bookshelf')"><i data-lucide="library"></i>All Materials</div>
         </div>
         <div style="border-top:1px solid var(--border);padding:12px;" id="sidebar-user-area">
             <!-- Dynamic user profile rendered by renderSidebarUser() -->
@@ -91,24 +160,30 @@
     <!-- MAIN -->
     <main class="flex-1 overflow-y-auto scrollbar" style="background:var(--bg-app);">
         <div style="display:flex;align-items:center;gap:8px;padding:8px 12px;position:sticky;top:0;z-index:40;background:var(--bg-topbar);backdrop-filter:blur(8px);border-bottom:1px solid var(--border-light);">
-            <button id="sidebar-toggle-btn" onclick="toggleSidebar()" style="width:32px;height:32px;border-radius:6px;border:none;background:transparent;cursor:pointer;color:var(--text-muted);display:flex;align-items:center;justify-content:center;font-size:18px;transition:all .15s;" onmouseenter="this.style.background='var(--bg-hover)'" onmouseleave="this.style.background='transparent'" title="Toggle sidebar">☰</button>
+            <button id="sidebar-toggle-btn" onclick="toggleSidebar()" style="width:32px;height:32px;border-radius:6px;border:none;background:transparent;cursor:pointer;color:var(--text-muted);display:flex;align-items:center;justify-content:center;transition:all .15s;" onmouseenter="this.style.background='var(--bg-hover)'" onmouseleave="this.style.background='transparent'" title="Toggle sidebar"><i data-lucide="panel-left" style="width:18px;height:18px;"></i></button>
             <span style="color:var(--border);font-size:12px;">/</span>
             <span id="breadcrumb" style="font-size:13px;color:var(--text-muted);">Dashboard</span>
             <div style="flex:1"></div>
-            <button onclick="toggleTheme()" id="theme-btn" style="width:28px;height:28px;border-radius:6px;border:none;background:transparent;cursor:pointer;color:var(--text-muted);">🌙</button>
+            <button onclick="toggleTheme()" id="theme-btn" style="width:28px;height:28px;border-radius:6px;border:none;background:transparent;cursor:pointer;color:var(--text-muted);display:flex;align-items:center;justify-content:center;"><i data-lucide="moon" class="theme-icon-moon"></i><i data-lucide="sun" class="theme-icon-sun"></i></button>
         </div>
 
         <!-- ===== LOGIN / REGISTER ===== -->
-        <div id="page-login" class="page-view" style="max-width:400px;margin:0 auto;padding:60px 24px;text-align:center;">
-            <div style="font-size:48px;margin-bottom:8px;">🎓</div>
-            <h1 style="font-size:24px;font-weight:700;margin-bottom:4px;">Welcome to CogniBridge</h1>
-            <p style="color:var(--text-muted);font-size:14px;margin-bottom:32px;">AI-powered math transition platform</p>
+        <div id="page-login" class="page-view" style="max-width:420px;margin:0 auto;padding:56px 24px;text-align:center;">
+            <div style="margin-bottom:36px;position:relative;">
+                <div style="position:absolute;inset:-60px -80px;background:radial-gradient(circle at 50% 0%,rgba(35,131,226,.1),transparent 62%);pointer-events:none;"></div>
+                <div style="position:relative;">
+                    <div style="width:64px;height:64px;border-radius:18px;background:var(--accent);display:flex;align-items:center;justify-content:center;margin:0 auto 18px;box-shadow:0 10px 28px rgba(35,131,226,.28);"><i data-lucide="graduation-cap" style="width:30px;height:30px;color:#fff;stroke-width:1.5;"></i></div>
+                    <div style="font-size:12px;font-weight:700;color:var(--accent);letter-spacing:.12em;text-transform:uppercase;margin-bottom:8px;">CogniBridge</div>
+                    <h1 style="font-size:26px;font-weight:700;letter-spacing:-.02em;margin-bottom:8px;">Welcome back</h1>
+                    <p style="color:var(--text-muted);font-size:14px;">Bridging A-Level to university mathematics</p>
+                </div>
+            </div>
             
             <!-- Login Form -->
             <div id="login-form">
-                <input id="login-email" class="input" style="width:100%;margin-bottom:12px;" placeholder="📧 Email" type="email">
-                <input id="login-password" class="input" style="width:100%;margin-bottom:16px;" placeholder="🔒 Password" type="password">
-                <button class="btn-primary" style="width:100%;padding:12px;font-size:16px;" onclick="authLogin()">🚀 Log In</button>
+                <input id="login-email" class="input" style="width:100%;margin-bottom:12px;" placeholder="Email" type="email">
+                <input id="login-password" class="input" style="width:100%;margin-bottom:16px;" placeholder="Password" type="password">
+                <button class="btn-primary" style="width:100%;padding:12px;font-size:16px;" onclick="authLogin()">Log In</button>
                 <p style="margin-top:16px;font-size:13px;color:var(--text-muted);">
                     Don't have an account? <a href="#" onclick="authToggleMode()" style="color:var(--accent);">Create one</a>
                 </p>
@@ -119,13 +194,13 @@
             
             <!-- Register Form (hidden by default) -->
             <div id="register-form" style="display:none;">
-                <input id="reg-name" class="input" style="width:100%;margin-bottom:12px;" placeholder="👤 Your name">
-                <input id="reg-email" class="input" style="width:100%;margin-bottom:12px;" placeholder="📧 Email" type="email">
-                <input id="reg-password" class="input" style="width:100%;margin-bottom:8px;" placeholder="🔒 Password" type="password">
+                <input id="reg-name" class="input" style="width:100%;margin-bottom:12px;" placeholder="Your name">
+                <input id="reg-email" class="input" style="width:100%;margin-bottom:12px;" placeholder="Email" type="email">
+                <input id="reg-password" class="input" style="width:100%;margin-bottom:8px;" placeholder="Password" type="password">
                 <div style="text-align:left;font-size:11px;color:var(--text-muted);margin-bottom:12px;">
                     Password strength: <span id="pwd-strength">Enter password</span>
                 </div>
-                <button class="btn-primary" style="width:100%;padding:12px;font-size:16px;" onclick="authRegister()">✨ Create Account</button>
+                <button class="btn-primary" style="width:100%;padding:12px;font-size:16px;" onclick="authRegister()">Create Account</button>
                 <p style="margin-top:16px;font-size:13px;color:var(--text-muted);">
                     Already have an account? <a href="#" onclick="authToggleMode()" style="color:var(--accent);">Log in</a>
                 </p>
@@ -134,8 +209,8 @@
             <!-- Forgot Password Form (hidden by default) -->
             <div id="forgot-form" style="display:none;">
                 <p style="font-size:13px;color:var(--text-muted);margin-bottom:16px;">Enter your email and we'll generate a reset link (check server console).</p>
-                <input id="forgot-email" class="input" style="width:100%;margin-bottom:16px;" placeholder="📧 Email" type="email">
-                <button class="btn-primary" style="width:100%;padding:12px;font-size:16px;" onclick="authForgotPassword()">📨 Send Reset Link</button>
+                <input id="forgot-email" class="input" style="width:100%;margin-bottom:16px;" placeholder="Email" type="email">
+                <button class="btn-primary" style="width:100%;padding:12px;font-size:16px;" onclick="authForgotPassword()">Send Reset Link</button>
                 <p style="margin-top:16px;font-size:13px;color:var(--text-muted);">
                     <a href="#" onclick="authShowLogin()" style="color:var(--accent);">Back to login</a>
                 </p>
@@ -143,7 +218,7 @@
             
             <!-- Guest Entry -->
             <div style="margin-top:24px;padding-top:24px;border-top:1px solid var(--border);">
-                <button class="btn-secondary" style="width:100%;" onclick="authContinueAsGuest()">🌐 Continue as Guest</button>
+                <button class="btn-secondary" style="width:100%;" onclick="authContinueAsGuest()">Continue as Guest</button>
                 <p style="font-size:12px;color:var(--text-muted);margin-top:8px;">Your progress will be saved locally</p>
             </div>
         </div>
@@ -151,33 +226,33 @@
         <!-- ===== DASHBOARD (placeholder) ===== -->
         <div id="page-dashboard" class="page-view active" style="max-width:900px;margin:0 auto;padding:40px 48px;">
             <div style="margin-bottom:32px;">
-                <div style="font-size:13px;color:var(--text-muted);margin-bottom:4px;">📊 Dashboard</div>
-                <h1 style="font-size:28px;font-weight:700;">Good afternoon, Yueming 👋</h1>
+                <div style="font-size:13px;color:var(--text-muted);margin-bottom:4px;">Dashboard</div>
+                <h1 style="font-size:28px;font-weight:700;">Good afternoon, Yueming</h1>
             </div>
-            <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:16px;margin-bottom:32px;">
-                <div class="card"><div style="font-size:24px;margin-bottom:4px;">🧮</div><div style="font-size:24px;font-weight:700;">87%</div><div style="font-size:12px;color:var(--text-muted);">Math Proficiency</div></div>
-                <div class="card"><div style="font-size:24px;margin-bottom:4px;">📖</div><div style="font-size:24px;font-weight:700;">12</div><div style="font-size:12px;color:var(--text-muted);">Documents Read</div></div>
-                <div class="card"><div style="font-size:24px;margin-bottom:4px;">✅</div><div style="font-size:24px;font-weight:700;">156</div><div style="font-size:12px;color:var(--text-muted);">Problems Solved</div></div>
-                <div class="card"><div style="font-size:24px;margin-bottom:4px;">🔥</div><div style="font-size:24px;font-weight:700;">14</div><div style="font-size:12px;color:var(--text-muted);">Day Streak</div></div>
+            <div class="stats-grid" style="display:grid;grid-template-columns:repeat(4,1fr);gap:16px;margin-bottom:32px;">
+                <div class="card"><div style="margin-bottom:6px;color:var(--text-secondary);"><i data-lucide="sigma" style="width:20px;height:20px;"></i></div><div class="count-up" data-count="87" data-suffix="%" style="font-size:24px;font-weight:700;">0%</div><div style="font-size:12px;color:var(--text-muted);">Math Proficiency</div></div>
+                <div class="card"><div style="margin-bottom:6px;color:var(--text-secondary);"><i data-lucide="book-open" style="width:20px;height:20px;"></i></div><div class="count-up" data-count="12" style="font-size:24px;font-weight:700;">0</div><div style="font-size:12px;color:var(--text-muted);">Documents Read</div></div>
+                <div class="card"><div style="margin-bottom:6px;color:var(--text-secondary);"><i data-lucide="circle-check" style="width:20px;height:20px;"></i></div><div class="count-up" data-count="156" style="font-size:24px;font-weight:700;">0</div><div style="font-size:12px;color:var(--text-muted);">Problems Solved</div></div>
+                <div class="card"><div style="margin-bottom:6px;color:var(--text-secondary);"><i data-lucide="flame" style="width:20px;height:20px;"></i></div><div class="count-up" data-count="14" style="font-size:24px;font-weight:700;">0</div><div style="font-size:12px;color:var(--text-muted);">Day Streak</div></div>
             </div>
-            <h2 style="font-size:18px;font-weight:600;margin-bottom:12px;">📚 My Bookshelf</h2>
+            <h2 style="font-size:18px;font-weight:600;margin-bottom:12px;">My Bookshelf</h2>
             <div class="card" style="margin-bottom:32px;padding:12px;">
                 <div id="dash-bs-tabs" style="display:flex;gap:4px;border-bottom:1px solid var(--border);padding-bottom:8px;margin-bottom:12px;flex-wrap:wrap;"></div>
                 <div id="dash-bs-grid" style="display:grid;grid-template-columns:repeat(5,1fr);gap:8px;min-height:120px;"></div>
-                <button class="btn-secondary" style="width:100%;margin-top:8px;border-style:dashed;font-size:13px;padding:8px;" onclick="bsUpload()">📎 Upload PDF / PPTX</button>
+                <button class="btn-secondary" style="width:100%;margin-top:8px;border-style:dashed;font-size:13px;padding:8px;" onclick="bsUpload()">Upload PDF / PPTX</button>
             </div>
-            <h2 style="font-size:18px;font-weight:600;margin-bottom:12px;">📋 Recent Activity</h2>
+            <h2 style="font-size:18px;font-weight:600;margin-bottom:12px;">Recent Activity</h2>
             <div class="card" style="margin-bottom:32px;">
-                <div class="placeholder-box">📋 Your recent learning activity will appear here<br><span style="font-size:12px;">Knowledge points · Reading progress · Last note · Forum activity</span></div>
+                <div class="placeholder-box"><div style="margin-bottom:10px;display:flex;justify-content:center;"><i data-lucide="activity" style="width:28px;height:28px;color:var(--text-muted);stroke-width:1.4;"></i></div>Your recent learning activity will appear here<br><span style="font-size:12px;">Knowledge points · Reading progress · Last note · Forum activity</span></div>
             </div>
-            <h2 style="font-size:18px;font-weight:600;margin-bottom:12px;">📊 Math Skill Breakdown</h2>
+            <h2 style="font-size:18px;font-weight:600;margin-bottom:12px;">Math Skill Breakdown</h2>
             <div class="card" id="math-skill-card" style="margin-bottom:32px;">
-                <div class="placeholder-box" id="math-skill-placeholder">📊 Your math skill analysis will appear here<br><span style="font-size:12px;">Complete pre-assessment to see your knowledge breakdown</span></div>
+                <div class="placeholder-box" id="math-skill-placeholder">Your math skill analysis will appear here<br><span style="font-size:12px;">Complete pre-assessment to see your knowledge breakdown</span></div>
                 <div id="math-skill-content" style="display:none;"></div>
             </div>
-            <h2 style="font-size:18px;font-weight:600;margin-bottom:12px;display:flex;align-items:center;gap:8px;">📋 Study Plan <button class="btn-secondary" style="font-size:11px;padding:2px 8px;margin-left:auto;" onclick="togglePlanEdit()">Edit ✏️</button></h2>
+            <h2 style="font-size:18px;font-weight:600;margin-bottom:12px;display:flex;align-items:center;gap:8px;">Study Plan <button class="btn-secondary" style="font-size:11px;padding:2px 8px;margin-left:auto;" onclick="togglePlanEdit()">Edit</button></h2>
             <div class="card" id="study-plan-card">
-                <div class="placeholder-box" id="study-plan-placeholder">📋 AI-generated study plan based on your assessment<br><span style="font-size:12px;">Complete pre-assessment to unlock personalised plan</span></div>
+                <div class="placeholder-box" id="study-plan-placeholder">AI-generated study plan based on your assessment<br><span style="font-size:12px;">Complete pre-assessment to unlock personalised plan</span></div>
                 <div id="study-plan-content" style="display:none;"></div>
             </div>
         </div>
@@ -186,24 +261,24 @@
         <div id="page-pretest" class="page-view" style="max-width:600px;margin:0 auto;padding:40px 48px;">
             <!-- Welcome -->
             <div id="pt-welcome" style="text-align:center;">
-                <div style="font-size:60px;margin-bottom:16px;">🧪</div>
+                <div style="margin-bottom:12px;color:var(--text-primary);display:flex;justify-content:center;"><i data-lucide="clipboard-check" style="width:40px;height:40px;stroke-width:1.5;"></i></div>
                 <h1 style="font-size:28px;font-weight:700;margin-bottom:8px;">Math Transition Diagnostic</h1>
                 <p style="color:var(--text-muted);font-size:14px;margin-bottom:24px;">Pre-Assessment · 3 min personalised gap analysis</p>
                 <div class="card" style="text-align:left;margin-bottom:24px;">
                     <div style="display:flex;flex-direction:column;gap:8px;">
-                        <div style="font-size:14px;">✅ Weak high school knowledge identified</div>
-                        <div style="font-size:14px;">✅ University transition warnings</div>
-                        <div style="font-size:14px;">✅ Personalised learning path</div>
-                        <div style="font-size:14px;">✅ Unlock full knowledge graph & AI practice</div>
+                        <div style="font-size:14px;">Weak high school knowledge identified</div>
+                        <div style="font-size:14px;">University transition warnings</div>
+                        <div style="font-size:14px;">Personalised learning path</div>
+                        <div style="font-size:14px;">Unlock full knowledge graph & AI practice</div>
                     </div>
                 </div>
-                <button class="btn-primary" style="width:100%;padding:12px;font-size:16px;margin-bottom:8px;" onclick="ptGo(1)">🚀 Start Assessment (3 min)</button>
-                <button class="btn-secondary" style="width:100%;padding:8px;" onclick="showPage('dashboard')">👀 Skip for now</button>
+                <button class="btn-primary" style="width:100%;padding:12px;font-size:16px;margin-bottom:8px;" onclick="ptGo(1)">Start Assessment (3 min)</button>
+                <button class="btn-secondary" style="width:100%;padding:8px;" onclick="showPage('dashboard')">Skip for now</button>
             </div>
             <!-- Step 1 -->
             <div id="pt-step1" style="display:none;">
                 <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;">
-                    <h2 style="font-size:20px;font-weight:700;">📋 Basic Information</h2>
+                    <h2 style="font-size:20px;font-weight:700;">Basic Information</h2>
                     <span class="tag" style="background:rgba(35,131,226,.1);color:var(--accent);">Step 1/4</span>
                 </div>
                 <div class="progress-bar" style="margin-bottom:24px;"><div style="background:var(--accent);height:4px;border-radius:2px;width:25%;"></div></div>
@@ -224,7 +299,7 @@
             <!-- Step 2 -->
             <div id="pt-step2" style="display:none;">
                 <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;">
-                    <h2 style="font-size:20px;font-weight:700;">📊 High School Knowledge Self-Assessment</h2>
+                    <h2 style="font-size:20px;font-weight:700;">High School Knowledge Self-Assessment</h2>
                     <span class="tag" style="background:rgba(35,131,226,.1);color:var(--accent);">Step 2/4</span>
                 </div>
                 <div class="progress-bar" style="margin-bottom:16px;"><div style="background:var(--accent);height:4px;border-radius:2px;width:50%;"></div></div>
@@ -235,7 +310,7 @@
             <!-- Step 3 -->
             <div id="pt-step3" style="display:none;">
                 <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;">
-                    <h2 style="font-size:20px;font-weight:700;">⚠️ University Transition Warnings</h2>
+                    <h2 style="font-size:20px;font-weight:700;">University Transition Warnings</h2>
                     <span class="tag" style="background:rgba(35,131,226,.1);color:var(--accent);">Step 3/4</span>
                 </div>
                 <div class="progress-bar" style="margin-bottom:16px;"><div style="background:var(--accent);height:4px;border-radius:2px;width:75%;"></div></div>
@@ -248,39 +323,39 @@
             <!-- Step 4 -->
             <div id="pt-step4" style="display:none;">
                 <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;">
-                    <h2 style="font-size:20px;font-weight:700;">🧮 Quick Assessment</h2>
+                    <h2 style="font-size:20px;font-weight:700;">Quick Assessment</h2>
                     <span class="tag" style="background:rgba(35,131,226,.1);color:var(--accent);">Step 4/4</span>
                 </div>
                 <div class="progress-bar" style="margin-bottom:16px;"><div style="background:var(--accent);height:4px;border-radius:2px;width:90%;"></div></div>
                 <p style="font-size:12px;color:var(--text-muted);margin-bottom:16px;">10 questions (5 Basic + 2 Intermediate + 3 Hard)</p>
                 <div id="pt-quiz-list" style="display:flex;flex-direction:column;gap:16px;"></div>
-                <div style="display:flex;gap:8px;margin-top:16px;"><button class="btn-secondary" style="flex:1;" onclick="ptGo(3)">← Back</button><button class="btn-primary" style="flex:1;" onclick="ptGenerateReport()">📊 Generate Report</button></div>
+                <div style="display:flex;gap:8px;margin-top:16px;"><button class="btn-secondary" style="flex:1;" onclick="ptGo(3)">← Back</button><button class="btn-primary" style="flex:1;" onclick="ptGenerateReport()">Generate Report</button></div>
             </div>
             <!-- Report -->
             <div id="pt-report" style="display:none;">
                 <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;">
-                    <h2 style="font-size:20px;font-weight:700;">📊 Diagnostic Report</h2>
-                    <span class="tag" style="background:rgba(82,196,26,.1);color:var(--green);">✓ Complete</span>
+                    <h2 style="font-size:20px;font-weight:700;">Diagnostic Report</h2>
+                    <span class="tag" style="background:rgba(82,196,26,.1);color:var(--green);">Complete</span>
                 </div>
                 <div class="progress-bar" style="margin-bottom:24px;"><div style="background:var(--green);height:4px;border-radius:2px;width:100%;"></div></div>
                 <div id="pt-report-content" style="display:flex;flex-direction:column;gap:16px;"></div>
-                <div style="display:flex;gap:8px;margin-top:16px;"><button class="btn-primary" style="flex:1;padding:12px;" onclick="showPage('graph')">📊 View Graph</button><button class="btn-secondary" style="flex:1;padding:12px;" onclick="showPage('tutor')">🚀 Start Learning</button></div>
+                <div style="display:flex;gap:8px;margin-top:16px;"><button class="btn-primary" style="flex:1;padding:12px;" onclick="showPage('graph')">View Graph</button><button class="btn-secondary" style="flex:1;padding:12px;" onclick="showPage('tutor')">Start Learning</button></div>
             </div>
         </div>
 
         <!-- ===== MATH TUTOR (FUNCTIONAL) ===== -->
         <div id="page-tutor" class="page-view" style="max-width:720px;margin:0 auto;padding:32px 48px;">
-            <h1 style="font-size:24px;font-weight:700;margin-bottom:16px;">🧮 AI Problem Solver</h1>
+            <h1 style="font-size:24px;font-weight:700;margin-bottom:16px;">AI Problem Solver</h1>
             <div style="display:flex;background:var(--bg-tag);border-radius:10px;padding:3px;margin-bottom:4px;">
-                <button id="tutor-mode-general" style="flex:1;padding:8px;border-radius:8px;border:none;font-size:13px;font-weight:600;background:var(--accent);color:#fff;cursor:pointer;" onclick="tutorSwitchMode('general')">⚡ General Mode</button>
-                <button id="tutor-mode-deep" style="flex:1;padding:8px;border-radius:8px;border:none;font-size:13px;font-weight:600;background:transparent;color:var(--text-secondary);cursor:pointer;" onclick="tutorSwitchMode('deep')">🧠 Deep Learning Mode</button>
+                <button id="tutor-mode-general" style="flex:1;padding:8px;border-radius:8px;border:none;font-size:13px;font-weight:600;background:var(--accent);color:#fff;cursor:pointer;" onclick="tutorSwitchMode('general')">General Mode</button>
+                <button id="tutor-mode-deep" style="flex:1;padding:8px;border-radius:8px;border:none;font-size:13px;font-weight:600;background:transparent;color:var(--text-secondary);cursor:pointer;" onclick="tutorSwitchMode('deep')">Deep Learning Mode</button>
             </div>
-            <p id="tutor-mode-desc" style="font-size:11px;color:var(--text-muted);margin-bottom:16px;">⚡ Direct answers with knowledge sources, method breakdowns & easy explanations</p>
+            <p id="tutor-mode-desc" style="font-size:11px;color:var(--text-muted);margin-bottom:16px;">Direct answers with knowledge sources, method breakdowns & easy explanations</p>
             <!-- Uploaded materials -->
             <div id="tutor-materials" style="margin-bottom:12px;"></div>
             <!-- Chat area -->
             <div id="tutor-chat" style="min-height:calc(100vh - 320px);display:flex;flex-direction:column;gap:12px;margin-bottom:16px;">
-                <div style="text-align:center;padding:40px 20px;color:var(--text-muted);font-size:13px;">💬 Ask a question or upload materials to get started<br><span style="font-size:11px;">Powered by Qwen3.6-35B-A3B</span></div>
+                <div style="text-align:center;padding:40px 20px;color:var(--text-muted);font-size:13px;">Ask a question or upload materials to get started<br><span style="font-size:11px;">Powered by Qwen3.6-35B-A3B</span></div>
             </div>
             <!-- Quick examples -->
             <div style="display:flex;gap:6px;margin-bottom:12px;flex-wrap:wrap;">
@@ -291,7 +366,7 @@
             </div>
             <!-- Input -->
             <div class="card" style="display:flex;align-items:center;gap:12px;">
-                <span style="font-size:20px;cursor:pointer;" onclick="tutorUploadMaterial()">📎</span>
+                <span style="cursor:pointer;color:var(--text-secondary);display:flex;align-items:center;" onclick="tutorUploadMaterial()"><i data-lucide="paperclip" style="width:18px;height:18px;"></i></span>
                 <input id="tutor-input" class="input" style="flex:1;border:none;background:transparent;" placeholder="Ask a math question..." onkeypress="if(event.key==='Enter')tutorSend()">
                 <button class="btn-primary" onclick="tutorSend()">Send</button>
             </div>
@@ -301,7 +376,7 @@
         <div id="page-notes" class="page-view" style="max-width:800px;margin:0 auto;padding:32px 48px;">
             <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:24px;">
                 <div>
-                    <h1 style="font-size:24px;font-weight:700;">📝 My Notes</h1>
+                    <h1 style="font-size:24px;font-weight:700;">My Notes</h1>
                     <p style="font-size:13px;color:var(--text-muted);margin-top:4px;" id="notes-count">0 notes</p>
                 </div>
                 <button class="btn-primary" style="font-size:13px;" onclick="notesNewNote()">+ New Note</button>
@@ -322,7 +397,7 @@
                 </div>
                 <textarea id="notes-editor-content" style="width:100%;min-height:400px;padding:16px;border-radius:8px;border:1px solid var(--border);background:var(--bg-input);color:var(--text-primary);font-size:15px;line-height:1.8;resize:vertical;outline:none;font-family:inherit;" placeholder="Write your note here..."></textarea>
                 <div style="display:flex;gap:8px;margin-top:16px;">
-                    <button class="btn-primary" style="flex:1;padding:10px;font-size:14px;" onclick="notesSaveFromEditor()">💾 Save Note</button>
+                    <button class="btn-primary" style="flex:1;padding:10px;font-size:14px;" onclick="notesSaveFromEditor()">Save Note</button>
                     <button class="btn-secondary" style="padding:10px;" onclick="notesCloseEditor()">Cancel</button>
                 </div>
             </div>
@@ -349,21 +424,21 @@
                             <div id="plot-examples" style="display:flex;flex-wrap:wrap;gap:6px;"></div>
                         </div>
                         <div style="padding:16px;border-bottom:1px solid var(--border);">
-                            <div style="font-size:11px;font-weight:600;text-transform:uppercase;color:var(--text-muted);margin-bottom:8px;">📐 Conic Sections</div>
+                            <div style="font-size:11px;font-weight:600;text-transform:uppercase;color:var(--text-muted);margin-bottom:8px;">Conic Sections</div>
                             <div id="plot-conics" style="display:flex;flex-wrap:wrap;gap:6px;margin-bottom:8px;"></div>
-                            <div id="plot-conic-params" style="display:none;"><div id="plot-conic-fields"></div><button class="btn-primary" style="width:100%;font-size:12px;padding:6px;margin-top:8px;" onclick="plotDrawConic(currentPlotConicType)">📊 Render Conic</button></div>
+                            <div id="plot-conic-params" style="display:none;"><div id="plot-conic-fields"></div><button class="btn-primary" style="width:100%;font-size:12px;padding:6px;margin-top:8px;" onclick="plotDrawConic(currentPlotConicType)">Render Conic</button></div>
                         </div>
                         <div style="padding:16px;">
-                            <button class="btn-primary" style="width:100%;margin-bottom:8px;" onclick="plotRender()">📊 Render</button>
-                            <div style="display:flex;gap:8px;"><button class="btn-secondary" style="flex:1;font-size:13px;" onclick="plotReset()">🔄 Reset</button><button class="btn-secondary" style="flex:1;font-size:13px;color:var(--red);" onclick="plotClear()">🗑 Clear</button></div>
+                            <button class="btn-primary" style="width:100%;margin-bottom:8px;" onclick="plotRender()">Render</button>
+                            <div style="display:flex;gap:8px;"><button class="btn-secondary" style="flex:1;font-size:13px;" onclick="plotReset()">Reset</button><button class="btn-secondary" style="flex:1;font-size:13px;color:var(--red);" onclick="plotClear()">Clear</button></div>
                         </div>
                     </div>
                 </aside>
                 <div style="flex:1;display:flex;flex-direction:column;overflow:hidden;">
                     <div style="display:flex;justify-content:space-between;align-items:center;padding:12px;border-bottom:1px solid var(--border);">
                         <div style="display:flex;background:var(--bg-tag);border-radius:10px;padding:3px;">
-                            <button id="plot-mode-2d" style="padding:8px 20px;border-radius:8px;border:none;font-size:13px;font-weight:600;background:var(--accent);color:#fff;cursor:pointer;" onclick="plotSwitchMode('2d')">📈 2D Mode</button>
-                            <button id="plot-mode-3d" style="padding:8px 20px;border-radius:8px;border:none;font-size:13px;font-weight:600;background:transparent;color:var(--text-secondary);cursor:pointer;" onclick="plotSwitchMode('3d')">🗺️ 3D Mode</button>
+                            <button id="plot-mode-2d" style="padding:8px 20px;border-radius:8px;border:none;font-size:13px;font-weight:600;background:var(--accent);color:#fff;cursor:pointer;" onclick="plotSwitchMode('2d')">2D Mode</button>
+                            <button id="plot-mode-3d" style="padding:8px 20px;border-radius:8px;border:none;font-size:13px;font-weight:600;background:transparent;color:var(--text-secondary);cursor:pointer;" onclick="plotSwitchMode('3d')">3D Mode</button>
                         </div>
                         <span id="plot-info" style="font-size:12px;color:var(--text-muted);">2D · Enter f(x) and click Render</span>
                     </div>
@@ -379,7 +454,7 @@
         <div id="page-reader" class="page-view">
             <div style="display:flex;height:calc(100vh - 49px);">
                 <aside style="width:220px;border-right:1px solid var(--border);background:var(--bg-sidebar);padding:12px;flex-shrink:0;overflow-y:auto;" class="scrollbar">
-                    <button onclick="readerOpenBookshelf()" class="btn-secondary" style="width:100%;margin-bottom:12px;font-size:13px;">📚 Open Bookshelf</button>
+                    <button onclick="readerOpenBookshelf()" class="btn-secondary" style="width:100%;margin-bottom:12px;font-size:13px;">Open Bookshelf</button>
                     <div id="reader-sidebar-info">
                         <div style="font-size:11px;color:var(--text-muted);margin-bottom:4px;">Document</div>
                         <div style="font-size:14px;font-weight:600;" id="reader-doc-title">No document open</div>
@@ -390,21 +465,23 @@
                     <div style="padding:8px 24px;border-bottom:1px solid var(--border);background:var(--bg-card);"><span style="font-size:14px;font-weight:500;" id="reader-toolbar">Select text to translate, annotate or ask AI</span></div>
                     <div id="reader-content-area" style="flex:1;overflow-y:auto;padding:32px 16px;background:var(--bg-tag);" class="scrollbar">
                         <div class="placeholder-box" style="max-width:600px;margin:0 auto;min-height:calc(100vh - 250px);background:var(--bg-card);">
-                            📖 Reading Area<br><span style="font-size:12px;">Open a document from the bookshelf to start reading</span><br><br>
-                            <button class="btn-primary" onclick="readerOpenBookshelf()">📚 Open Bookshelf</button>
+                            <div style="margin-bottom:14px;display:flex;justify-content:center;"><i data-lucide="book-open" style="width:40px;height:40px;color:var(--text-muted);stroke-width:1.4;"></i></div>
+                            <div style="font-size:15px;font-weight:600;color:var(--text-secondary);margin-bottom:6px;">Reading Area</div>
+                            <span style="font-size:12px;">Open a document from the bookshelf to start reading</span><br><br>
+                            <button class="btn-primary" onclick="readerOpenBookshelf()">Open Bookshelf</button>
                         </div>
                     </div>
                     <div id="reader-float-menu" style="display:none;position:fixed;z-index:50;align-items:center;gap:4px;padding:6px 8px;border-radius:10px;box-shadow:0 4px 12px rgba(0,0,0,.15);background:var(--bg-card);border:1px solid var(--border);">
-                        <button onclick="readerAction('translate')" style="padding:6px 12px;border-radius:6px;border:none;font-size:12px;font-weight:600;background:#2383e2;color:#fff;cursor:pointer;">🌐 Translate</button>
-                        <button onclick="readerAction('highlight')" style="padding:6px 12px;border-radius:6px;border:none;font-size:12px;font-weight:600;background:#faad14;color:#fff;cursor:pointer;">🖍 Highlight</button>
-                        <button onclick="readerAction('note')" style="padding:6px 12px;border-radius:6px;border:none;font-size:12px;font-weight:600;background:#52c41a;color:#fff;cursor:pointer;">📝 Note</button>
-                        <button onclick="readerAction('ai')" style="padding:6px 12px;border-radius:6px;border:none;font-size:12px;font-weight:600;background:#722ed1;color:#fff;cursor:pointer;">🤖 Ask AI</button>
+                        <button onclick="readerAction('translate')" style="padding:6px 12px;border-radius:6px;border:none;font-size:12px;font-weight:600;background:#2383e2;color:#fff;cursor:pointer;">Translate</button>
+                        <button onclick="readerAction('highlight')" style="padding:6px 12px;border-radius:6px;border:none;font-size:12px;font-weight:600;background:#faad14;color:#fff;cursor:pointer;">Highlight</button>
+                        <button onclick="readerAction('note')" style="padding:6px 12px;border-radius:6px;border:none;font-size:12px;font-weight:600;background:#52c41a;color:#fff;cursor:pointer;">Note</button>
+                        <button onclick="readerAction('ai')" style="padding:6px 12px;border-radius:6px;border:none;font-size:12px;font-weight:600;background:#722ed1;color:#fff;cursor:pointer;">Ask AI</button>
                     </div>
                     <div id="reader-action-panel" style="display:none;max-width:600px;margin:0 auto;padding:0 16px 16px;"></div>
                 </div>
                 <aside id="reader-notes-aside" class="reader-notes-panel" style="width:280px;border-left:1px solid var(--border);background:var(--bg-card);padding:16px;flex-shrink:0;overflow-y:auto;transition:width .2s ease,min-width .2s ease,padding .2s ease,border .2s ease;" class="scrollbar">
                     <div style="display:flex;align-items:center;gap:8px;margin-bottom:12px;">
-                        <h3 style="font-size:14px;font-weight:600;">📝 Notes</h3>
+                        <h3 style="font-size:14px;font-weight:600;">Notes</h3>
                         <span style="margin-left:auto;font-size:12px;color:var(--text-muted);" id="reader-note-count">0 notes</span>
                         <button onclick="toggleNotesPanel()" id="notes-toggle-btn" style="width:24px;height:24px;border-radius:4px;border:none;background:var(--bg-hover);color:var(--text-muted);cursor:pointer;font-size:12px;flex-shrink:0;" title="Collapse notes">▶</button>
                     </div>
@@ -415,7 +492,7 @@
                         </div>
                         <div id="reader-notes-list" style="display:flex;flex-direction:column;gap:8px;margin-bottom:16px;"></div>
                         <div style="border-top:1px solid var(--border);padding-top:12px;">
-                            <h3 style="font-size:11px;font-weight:600;text-transform:uppercase;color:var(--text-muted);margin-bottom:8px;">🎨 Highlights</h3>
+                            <h3 style="font-size:11px;font-weight:600;text-transform:uppercase;color:var(--text-muted);margin-bottom:8px;">Highlights</h3>
                             <div id="reader-highlights-list" style="display:flex;flex-direction:column;gap:4px;"></div>
                         </div>
                     </div>
@@ -427,9 +504,9 @@
         <div id="reader-bs-modal" style="display:none;position:fixed;inset:0;z-index:50;align-items:center;justify-content:center;padding:16px;background:rgba(0,0,0,.5);" onclick="if(event.target===this)readerCloseBookshelf()">
             <div style="border-radius:16px;max-width:800px;width:100%;max-height:80vh;display:flex;flex-direction:column;overflow:hidden;background:var(--bg-card);border:1px solid var(--border);">
                 <div style="display:flex;align-items:center;justify-content:space-between;padding:16px 24px;border-bottom:1px solid var(--border);">
-                    <div><h3 style="font-size:18px;font-weight:700;">📚 My Bookshelf</h3><p style="font-size:12px;color:var(--text-muted);">Click a document to open it</p></div>
+                    <div><h3 style="font-size:18px;font-weight:700;">My Bookshelf</h3><p style="font-size:12px;color:var(--text-muted);">Click a document to open it</p></div>
                     <div style="display:flex;align-items:center;gap:8px;">
-                        <button class="btn-secondary" style="font-size:13px;" onclick="bsUpload()">📎 Upload</button>
+                        <button class="btn-secondary" style="font-size:13px;" onclick="bsUpload()">Upload</button>
                         <button onclick="readerCloseBookshelf()" style="font-size:20px;color:var(--text-muted);background:none;border:none;cursor:pointer;">✕</button>
                     </div>
                 </div>
@@ -446,32 +523,32 @@
                 <h3 style="font-size:18px;font-weight:700;margin-bottom:4px;">Select Category</h3>
                 <p style="font-size:12px;color:var(--text-muted);margin-bottom:16px;" id="bs-upload-filename">file.pdf</p>
                 <div id="bs-upload-cats" style="display:flex;flex-direction:column;gap:8px;margin-bottom:16px;"></div>
-                <div style="display:flex;gap:8px;"><button class="btn-primary" style="flex:1;padding:8px;" onclick="bsConfirmUpload()">✅ Confirm</button><button class="btn-secondary" onclick="bsCloseUpload()">Cancel</button></div>
+                <div style="display:flex;gap:8px;"><button class="btn-primary" style="flex:1;padding:8px;" onclick="bsConfirmUpload()">Confirm</button><button class="btn-secondary" onclick="bsCloseUpload()">Cancel</button></div>
             </div>
         </div>
 
         <!-- ===== KNOWLEDGE GRAPH (placeholder) ===== -->
         <div id="page-graph" class="page-view" style="max-width:900px;margin:0 auto;padding:32px 48px;">
-            <h1 style="font-size:24px;font-weight:700;margin-bottom:16px;">🗺️ Knowledge Graph</h1>
-            <div style="display:flex;gap:16px;margin-bottom:16px;font-size:12px;"><span>🟢 Mastered</span><span>🟡 Learning</span><span>🔴 Not started</span></div>
-            <div class="placeholder-box" style="min-height:400px;">🗺️ Interactive knowledge graph — Complete pre-assessment to unlock</div>
+            <h1 style="font-size:24px;font-weight:700;margin-bottom:16px;">Knowledge Graph</h1>
+            <div style="display:flex;gap:16px;margin-bottom:16px;font-size:12px;color:var(--text-secondary);"><span style="display:inline-flex;align-items:center;gap:5px;"><span style="width:8px;height:8px;border-radius:50%;background:#52c41a;display:inline-block;"></span>Mastered</span><span style="display:inline-flex;align-items:center;gap:5px;"><span style="width:8px;height:8px;border-radius:50%;background:#faad14;display:inline-block;"></span>Learning</span><span style="display:inline-flex;align-items:center;gap:5px;"><span style="width:8px;height:8px;border-radius:50%;background:#f5222d;display:inline-block;"></span>Not started</span></div>
+            <div class="placeholder-box" style="min-height:400px;"><div style="margin-bottom:12px;display:flex;justify-content:center;"><i data-lucide="network" style="width:36px;height:36px;color:var(--text-muted);stroke-width:1.4;"></i></div>Interactive knowledge graph<br><span style="font-size:12px;">Complete pre-assessment to unlock</span></div>
         </div>
 
         <!-- ===== FORUM (placeholder) ===== -->
         <div id="page-forum" class="page-view">
             <div style="display:flex;height:calc(100vh - 49px);">
                 <aside style="width:220px;border-right:1px solid var(--border);background:var(--bg-sidebar);padding:12px;flex-shrink:0;overflow-y:auto;" class="scrollbar">
-                    <div style="font-size:11px;font-weight:600;text-transform:uppercase;color:var(--text-muted);margin-bottom:4px;">🌍 Community</div>
-                    <div class="nav-item active" style="font-size:13px;">🔥 All Posts</div>
-                    <div class="nav-item" style="font-size:13px;">⭐ Following</div>
-                    <div style="font-size:11px;font-weight:600;text-transform:uppercase;color:var(--text-muted);margin-top:16px;margin-bottom:4px;">🇬🇧 UK Students</div>
-                    <div class="nav-item" style="font-size:13px;">🏫 Queen Mary</div>
-                    <div style="font-size:11px;font-weight:600;text-transform:uppercase;color:var(--text-muted);margin-top:16px;margin-bottom:4px;">🌏 International</div>
-                    <div class="nav-item" style="font-size:13px;">🇨🇳 Chinese Students</div>
+                    <div style="font-size:11px;font-weight:600;text-transform:uppercase;color:var(--text-muted);margin-bottom:4px;">Community</div>
+                    <div class="nav-item active" style="font-size:13px;">All Posts</div>
+                    <div class="nav-item" style="font-size:13px;">Following</div>
+                    <div style="font-size:11px;font-weight:600;text-transform:uppercase;color:var(--text-muted);margin-top:16px;margin-bottom:4px;">UK Students</div>
+                    <div class="nav-item" style="font-size:13px;">Queen Mary</div>
+                    <div style="font-size:11px;font-weight:600;text-transform:uppercase;color:var(--text-muted);margin-top:16px;margin-bottom:4px;">International</div>
+                    <div class="nav-item" style="font-size:13px;">Chinese Students</div>
                 </aside>
                 <div style="flex:1;overflow-y:auto;padding:24px 32px;max-width:720px;margin:0 auto;width:100%;">
-                    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;"><h1 style="font-size:22px;font-weight:700;">🔥 Trending Discussions</h1><button class="btn-primary" style="font-size:13px;">✏️ New Post</button></div>
-                    <div class="placeholder-box" style="min-height:300px;">💬 Forum posts will appear here</div>
+                    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;"><h1 style="font-size:22px;font-weight:700;">Trending Discussions</h1><button class="btn-primary" style="font-size:13px;">New Post</button></div>
+                    <div class="placeholder-box" style="min-height:300px;">Forum posts will appear here</div>
                 </div>
             </div>
         </div>
@@ -479,8 +556,8 @@
         <!-- ===== BOOKSHELF (FUNCTIONAL) ===== -->
         <div id="page-bookshelf" class="page-view" style="max-width:1000px;margin:0 auto;padding:40px 48px;">
             <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:24px;">
-                <div><h1 style="font-size:24px;font-weight:700;">📚 My Bookshelf</h1><p style="color:var(--text-muted);font-size:13px;margin-top:4px;" id="bs-page-count">All your study materials</p></div>
-                <button class="btn-secondary" style="border-style:dashed;" onclick="bsUpload()">📎 Upload PDF</button>
+                <div><h1 style="font-size:24px;font-weight:700;">My Bookshelf</h1><p style="color:var(--text-muted);font-size:13px;margin-top:4px;" id="bs-page-count">All your study materials</p></div>
+                <button class="btn-secondary" style="border-style:dashed;" onclick="bsUpload()">Upload PDF</button>
             </div>
             <div id="bs-page-tabs" style="display:flex;gap:4px;border-bottom:1px solid var(--border);padding-bottom:8px;margin-bottom:16px;"></div>
             <div id="bs-page-grid" style="display:grid;grid-template-columns:repeat(5,1fr);gap:12px;min-height:300px;"></div>
@@ -488,9 +565,9 @@
 
         <!-- ===== PROFILE ===== -->
         <div id="page-profile" class="page-view" style="max-width:600px;margin:0 auto;padding:40px 48px;">
-            <h1 style="font-size:24px;font-weight:700;margin-bottom:24px;">👤 Profile</h1>
+            <h1 style="font-size:24px;font-weight:700;margin-bottom:24px;">Profile</h1>
             <div class="card" style="margin-bottom:24px;text-align:center;padding:32px;">
-                <div id="profile-avatar" style="width:80px;height:80px;border-radius:50%;background:linear-gradient(135deg,#ff8c00,#e91e63);display:flex;align-items:center;justify-content:center;color:#fff;font-size:32px;font-weight:600;margin:0 auto 16px;">U</div>
+                <div id="profile-avatar" style="width:80px;height:80px;border-radius:50%;background:var(--accent);display:flex;align-items:center;justify-content:center;color:#fff;font-size:32px;font-weight:600;margin:0 auto 16px;">U</div>
                 <div id="profile-name" style="font-size:20px;font-weight:600;">User</div>
                 <div id="profile-email" style="font-size:14px;color:var(--text-muted);margin-top:4px;">email@example.com</div>
             </div>
@@ -534,7 +611,7 @@
                         <label for="profile-input-fm" style="font-size:13px;color:var(--text-secondary);">I took Further Mathematics</label>
                     </div>
                 </div>
-                <button class="btn-primary" style="width:100%;margin-top:20px;padding:10px;" onclick="saveProfile()">💾 Save Changes</button>
+                <button class="btn-primary" style="width:100%;margin-top:20px;padding:10px;" onclick="saveProfile()">Save Changes</button>
             </div>
         </div>
 
@@ -544,9 +621,9 @@
 <!-- AI Chat Dialog -->
 <div id="ai-chat-modal" style="display:none;position:fixed;bottom:0;right:24px;z-index:100;width:440px;max-width:calc(100vw - 48px);height:600px;max-height:calc(100vh - 100px);flex-direction:column;border-radius:16px 16px 0 0;box-shadow:0 -4px 24px rgba(0,0,0,.2);background:var(--bg-card);border:1px solid var(--border);overflow:hidden;">
     <!-- Header -->
-    <div style="display:flex;align-items:center;justify-content:space-between;padding:12px 16px;border-bottom:1px solid var(--border);background:linear-gradient(135deg,rgba(114,46,209,.08),rgba(35,131,226,.08));">
+    <div style="display:flex;align-items:center;justify-content:space-between;padding:12px 16px;border-bottom:1px solid var(--border);background:var(--bg-card);">
         <div style="display:flex;align-items:center;gap:8px;">
-            <div style="width:32px;height:32px;border-radius:8px;background:linear-gradient(135deg,#722ed1,#9b59f7);display:flex;align-items:center;justify-content:center;color:#fff;font-size:14px;">🤖</div>
+            <div style="width:32px;height:32px;border-radius:8px;background:var(--accent);display:flex;align-items:center;justify-content:center;color:#fff;"><i data-lucide="sparkles" style="width:16px;height:16px;"></i></div>
             <div>
                 <div style="font-size:15px;font-weight:700;color:var(--text-primary);">AI Tutor</div>
                 <div style="font-size:10px;color:var(--text-muted);">Qwen3.6 · CogniBridge</div>
@@ -560,14 +637,14 @@
     <div id="ai-chat-messages" style="flex:1;overflow-y:auto;padding:16px;" class="scrollbar"></div>
     <!-- Quick buttons -->
     <div style="display:flex;gap:6px;padding:8px 16px;border-top:1px solid var(--border);background:var(--bg-sidebar);">
-        <button onclick="aiChatQuick(this)" data-q="Explain this in simple terms for a first-year student" style="font-size:11px;padding:5px 10px;border-radius:999px;background:var(--bg-input);color:var(--text-secondary);border:1px solid var(--border);cursor:pointer;white-space:nowrap;">💡 Explain</button>
-        <button onclick="aiChatQuick(this)" data-q="Give me a concrete example of this concept" style="font-size:11px;padding:5px 10px;border-radius:999px;background:var(--bg-input);color:var(--text-secondary);border:1px solid var(--border);cursor:pointer;white-space:nowrap;">📝 Example</button>
-        <button onclick="aiChatQuick(this)" data-q="How does this relate to high school mathematics?" style="font-size:11px;padding:5px 10px;border-radius:999px;background:var(--bg-input);color:var(--text-secondary);border:1px solid var(--border);cursor:pointer;white-space:nowrap;">🎓 HS Link</button>
+        <button onclick="aiChatQuick(this)" data-q="Explain this in simple terms for a first-year student" style="font-size:11px;padding:5px 10px;border-radius:999px;background:var(--bg-input);color:var(--text-secondary);border:1px solid var(--border);cursor:pointer;white-space:nowrap;">Explain</button>
+        <button onclick="aiChatQuick(this)" data-q="Give me a concrete example of this concept" style="font-size:11px;padding:5px 10px;border-radius:999px;background:var(--bg-input);color:var(--text-secondary);border:1px solid var(--border);cursor:pointer;white-space:nowrap;">Example</button>
+        <button onclick="aiChatQuick(this)" data-q="How does this relate to high school mathematics?" style="font-size:11px;padding:5px 10px;border-radius:999px;background:var(--bg-input);color:var(--text-secondary);border:1px solid var(--border);cursor:pointer;white-space:nowrap;">HS Link</button>
     </div>
     <!-- Input -->
     <div style="display:flex;align-items:center;gap:8px;padding:12px 16px;border-top:1px solid var(--border);background:var(--bg-card);">
         <input id="ai-chat-input" type="text" placeholder="Ask a follow-up question..." class="input" style="flex:1;" onkeypress="if(event.key==='Enter')aiChatSend()">
-        <button onclick="aiChatSend()" style="width:36px;height:36px;border-radius:8px;border:none;background:var(--accent);color:#fff;cursor:pointer;font-size:16px;display:flex;align-items:center;justify-content:center;">➤</button>
+        <button onclick="aiChatSend()" style="width:36px;height:36px;border-radius:8px;border:none;background:var(--accent);color:#fff;cursor:pointer;display:flex;align-items:center;justify-content:center;"><i data-lucide="arrow-up" style="width:16px;height:16px;"></i></button>
     </div>
 </div>
 
@@ -657,7 +734,7 @@ async function authForgotPassword(){
     try{
         const res=await fetch(AI_BACKEND_URL+'/api/auth/forgot-password',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({email})});
         if(!res.ok)throw new Error('Failed');
-        showNotification('📨 Reset link generated. Check server console.');
+        showNotification('Reset link generated. Check server console.');
         authShowLogin();
     }catch(e){showNotification('❌ Failed to generate reset link');}
 }
@@ -671,7 +748,7 @@ function authLogout(){
 }
 
 function authContinueAsGuest(){
-    showNotification('🌐 Continuing as guest. Your progress is saved locally.');
+    showNotification('Continuing as guest. Your progress is saved locally.');
     showPage('dashboard');
 }
 
@@ -679,7 +756,7 @@ async function migrateGuestData(){
     const guestNotes=JSON.parse(localStorage.getItem('cb_notes_guest')||'[]');
     const pretest=localStorage.getItem('cb_pretest');
     if(guestNotes.length===0&&!pretest)return;
-    showNotification('🔄 Migrating your local data...');
+    showNotification('Migrating your local data...');
     for(const note of guestNotes){
         try{await apiFetch('/api/notes',{method:'POST',body:JSON.stringify({title:note.title,tag:note.tag,content:note.content,source:note.source||'manual'})});}catch(e){}
     }
@@ -768,10 +845,10 @@ function renderSidebarUser(){
     const token=localStorage.getItem('cb_token');
     const user=token?JSON.parse(localStorage.getItem('cb_user')||'{}'):null;
     if(!token){
-        container.innerHTML=`<div style="padding:12px;text-align:center;"><button class="btn-primary" style="width:100%;margin-bottom:8px;font-size:13px;" onclick="showPage('login')">🔑 Log In</button><p style="font-size:11px;color:var(--text-muted);">🌐 Guest Mode</p></div>`;
+        container.innerHTML=`<div style="padding:12px;text-align:center;"><button class="btn-primary" style="width:100%;margin-bottom:8px;font-size:13px;" onclick="showPage('login')">Log In</button><p style="font-size:11px;color:var(--text-muted);">Guest Mode</p></div>`;refreshIcons();
     }else{
         const initial=(user.name||'U')[0].toUpperCase();
-        container.innerHTML=`<div style="position:relative;"><div style="display:flex;align-items:center;gap:8px;cursor:pointer;padding:4px;" onclick="document.getElementById('user-dropdown').style.display=document.getElementById('user-dropdown').style.display==='none'?'block':'none';"><div style="width:32px;height:32px;border-radius:50%;background:linear-gradient(135deg,#ff8c00,#e91e63);display:flex;align-items:center;justify-content:center;color:#fff;font-size:13px;font-weight:600;">${initial}</div><div style="flex:1;min-width:0;"><div style="font-size:13px;font-weight:500;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${escapeHtml(user.name||'User')}</div><div style="font-size:11px;color:var(--text-muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${escapeHtml(user.university||'Student')}</div></div><span style="font-size:10px;color:var(--text-muted);">▼</span></div><div id="user-dropdown" style="display:none;padding:4px 0;border-top:1px solid var(--border);margin-top:4px;"><div class="nav-item" style="font-size:13px;padding:4px 8px;" onclick="showPage('profile')">👤 Profile</div><div class="nav-item" style="font-size:13px;padding:4px 8px;" onclick="authLogout()">🚪 Log Out</div></div></div>`;
+        container.innerHTML=`<div style="position:relative;"><div style="display:flex;align-items:center;gap:8px;cursor:pointer;padding:4px;" onclick="document.getElementById('user-dropdown').style.display=document.getElementById('user-dropdown').style.display==='none'?'block':'none';"><div style="width:32px;height:32px;border-radius:50%;background:var(--accent);display:flex;align-items:center;justify-content:center;color:#fff;font-size:13px;font-weight:600;">${initial}</div><div style="flex:1;min-width:0;"><div style="font-size:13px;font-weight:500;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${escapeHtml(user.name||'User')}</div><div style="font-size:11px;color:var(--text-muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${escapeHtml(user.university||'Student')}</div></div><span style="font-size:10px;color:var(--text-muted);">▼</span></div><div id="user-dropdown" style="display:none;padding:4px 0;border-top:1px solid var(--border);margin-top:4px;"><div class="nav-item" style="font-size:13px;padding:4px 8px;" onclick="showPage('profile')"><i data-lucide="user" style="width:14px;height:14px;"></i>Profile</div><div class="nav-item" style="font-size:13px;padding:4px 8px;" onclick="authLogout()"><i data-lucide="log-out" style="width:14px;height:14px;"></i>Log Out</div></div></div>`;refreshIcons();
     }
 }
 
@@ -813,7 +890,7 @@ function toggleSidebar(){
         sb.style.width='0';sb.style.minWidth='0';sb.style.borderRight='none';
     }
 }
-function toggleTheme(){document.body.classList.toggle('dark');document.getElementById('theme-btn').textContent=document.body.classList.contains('dark')?'☀️':'🌙';}
+function toggleTheme(){document.body.classList.toggle('dark');try{localStorage.setItem('cb_theme',document.body.classList.contains('dark')?'dark':'light');}catch(e){}}
 
 // ===== MATH TUTOR =====
 let tutorMode='general';
@@ -852,9 +929,9 @@ function tutorRenderMaterials(){
     const c=document.getElementById('tutor-materials');if(!c)return;
     c.innerHTML=tutorMaterials.map((m,i)=>
         `<div style="display:flex;align-items:center;gap:8px;padding:6px 12px;border-radius:6px;background:var(--bg-input);margin-bottom:4px;font-size:12px;">
-        <span>📎</span><span style="color:var(--text-primary);">${m.name}</span><span style="color:var(--text-muted);">${m.size}</span>
+        <span style="color:var(--text-secondary);">${iconHtml('paperclip',13)}</span><span style="color:var(--text-primary);">${m.name}</span><span style="color:var(--text-muted);">${m.size}</span>
         <button onclick="tutorMaterials.splice(${i},1);tutorRenderMaterials()" style="margin-left:auto;color:#ff6b6b;background:none;border:none;cursor:pointer;font-size:14px;">×</button></div>`
-    ).join('');
+    ).join('');refreshIcons();
 }
 
 function tutorSendQuick(q){
@@ -885,7 +962,7 @@ function tutorSend(){
     // Render user bubble
     const userDiv=document.createElement('div');
     userDiv.style.cssText='display:flex;flex-direction:row-reverse;gap:8px;';
-    userDiv.innerHTML='<div style="width:28px;height:28px;border-radius:50%;background:linear-gradient(135deg,#ff8c00,#e91e63);display:flex;align-items:center;justify-content:center;color:#fff;font-size:12px;font-weight:600;flex-shrink:0;">Y</div>'+
+    userDiv.innerHTML='<div style="width:28px;height:28px;border-radius:50%;background:var(--accent);display:flex;align-items:center;justify-content:center;color:#fff;font-size:12px;font-weight:600;flex-shrink:0;">Y</div>'+
         '<div style="background:var(--accent);color:#fff;padding:8px 14px;border-radius:12px 12px 4px 12px;font-size:13px;max-width:75%;">'+escapeHtmlTutor(q)+'</div>';
     chat.appendChild(userDiv);
 
@@ -911,8 +988,8 @@ function tutorSend(){
             }else if(tutorMode==='deep'){
                 const sug=document.createElement('div');sug.style.cssText='display:flex;gap:8px;margin-top:4px;flex-wrap:wrap;';
                 sug.innerHTML='<div style="width:28px;flex-shrink:0;"></div>'+
-                    '<button onclick="tutorSendQuick(\'I need a hint\')" style="font-size:11px;padding:4px 10px;border-radius:6px;background:rgba(250,172,22,.1);border:1px solid rgba(250,172,22,.3);color:#faad14;cursor:pointer;white-space:nowrap;">💡 Need a hint</button>'+
-                    '<button onclick="tutorSendQuick(\'I am stuck, can you walk me through this?\')" style="font-size:11px;padding:4px 10px;border-radius:6px;background:rgba(255,107,107,.1);border:1px solid rgba(255,107,107,.3);color:#ff6b6b;cursor:pointer;white-space:nowrap;">🆘 I am stuck</button>';
+                    '<button onclick="tutorSendQuick(\'I need a hint\')" style="font-size:11px;padding:4px 10px;border-radius:6px;background:rgba(250,172,22,.1);border:1px solid rgba(250,172,22,.3);color:#faad14;cursor:pointer;white-space:nowrap;">Need a hint</button>'+
+                    '<button onclick="tutorSendQuick(\'I am stuck, can you walk me through this?\')" style="font-size:11px;padding:4px 10px;border-radius:6px;background:rgba(255,107,107,.1);border:1px solid rgba(255,107,107,.3);color:#ff6b6b;cursor:pointer;white-space:nowrap;">I am stuck</button>';
                 chat.appendChild(sug);chat.scrollTop=chat.scrollHeight;
             }
         },
@@ -1033,7 +1110,7 @@ function notesRender(){
     tagButtons=tagButtons.concat(allTags.map(t=>'<button onclick="notesFilterTag=\''+escapeHtml(t)+'\';notesRender()" style="font-size:11px;padding:4px 10px;border-radius:999px;cursor:pointer;border:1px solid '+(notesFilterTag===t?'var(--accent)':'var(--border)')+';background:'+(notesFilterTag===t?'var(--accent)':'var(--bg-input)')+';color:'+(notesFilterTag===t?'#fff':'var(--text-secondary)')+';">'+escapeHtml(t)+'</button>'));
     // Add Recycle Bin tag
     const rbStyle=notesFilterTag==='__recycle__'?'border:1px solid #ff6b6b;background:#ff6b6b;color:#fff;':'border:1px solid var(--border);background:var(--bg-input);color:var(--text-secondary);';
-    tagButtons.push('<button onclick="notesFilterTag=\'__recycle__\';notesRender()" style="font-size:11px;padding:4px 10px;border-radius:999px;cursor:pointer;'+rbStyle+'">🗑️ Recycle Bin'+(deletedCount>0?' <span style="font-size:10px;padding:1px 5px;border-radius:999px;background:#fff;color:#ff6b6b;font-weight:600;">'+deletedCount+'</span>':'')+'</button>');
+    tagButtons.push('<button onclick="notesFilterTag=\'__recycle__\';notesRender()" style="font-size:11px;padding:4px 10px;border-radius:999px;cursor:pointer;'+rbStyle+'">Recycle Bin'+(deletedCount>0?' <span style="font-size:10px;padding:1px 5px;border-radius:999px;background:#fff;color:#ff6b6b;font-weight:600;">'+deletedCount+'</span>':'')+'</button>');
     if(tagsEl)tagsEl.innerHTML=tagButtons.join('');
     // Filter
     let filtered;
@@ -1060,13 +1137,13 @@ function notesRender(){
                 </div>
                 <p style="font-size:13px;color:var(--text-secondary);white-space:pre-wrap;">${escapeHtml(preview)}</p>
                 <div style="display:flex;gap:8px;margin-top:10px;">
-                    <button onclick="notesRestoreNote('${n.id}')" style="font-size:11px;padding:4px 10px;border-radius:6px;background:rgba(82,196,26,.1);border:1px solid rgba(82,196,26,.3);color:#52c41a;cursor:pointer;">♻️ Restore</button>
-                    <button onclick="notesPermanentlyDeleteNote('${n.id}')" style="font-size:11px;padding:4px 10px;border-radius:6px;background:rgba(255,107,107,.1);border:1px solid rgba(255,107,107,.3);color:#ff6b6b;cursor:pointer;">💥 Delete Forever</button>
+                    <button onclick="notesRestoreNote('${n.id}')" style="font-size:11px;padding:4px 10px;border-radius:6px;background:rgba(82,196,26,.1);border:1px solid rgba(82,196,26,.3);color:#52c41a;cursor:pointer;">Restore</button>
+                    <button onclick="notesPermanentlyDeleteNote('${n.id}')" style="font-size:11px;padding:4px 10px;border-radius:6px;background:rgba(255,107,107,.1);border:1px solid rgba(255,107,107,.3);color:#ff6b6b;cursor:pointer;">Delete Forever</button>
                 </div>
             </div>`;
         }
         return `<div class="card" style="cursor:pointer;position:relative;" onmouseenter="this.querySelector('.note-del-btn').style.opacity='1'" onmouseleave="this.querySelector('.note-del-btn').style.opacity='0'">
-            <button class="note-del-btn" onclick="event.stopPropagation();notesDeleteNote('${n.id}')" style="position:absolute;top:8px;right:8px;width:22px;height:22px;border-radius:6px;border:none;background:rgba(255,107,107,.9);color:#fff;font-size:11px;cursor:pointer;opacity:0;transition:opacity .15s;display:flex;align-items:center;justify-content:center;z-index:2;">🗑️</button>
+            <button class="note-del-btn" onclick="event.stopPropagation();notesDeleteNote('${n.id}')" style="position:absolute;top:8px;right:8px;width:22px;height:22px;border-radius:6px;border:none;background:rgba(255,107,107,.9);color:#fff;font-size:11px;cursor:pointer;opacity:0;transition:opacity .15s;display:flex;align-items:center;justify-content:center;z-index:2;">×</button>
             <div onclick="notesEdit('${n.id}')" style="width:100%;">
             <div style="display:flex;align-items:center;gap:8px;margin-bottom:6px;">
                 <span style="font-size:14px;font-weight:600;color:var(--text-primary);">${escapeHtml(n.title||'Untitled')}</span>
@@ -1186,11 +1263,11 @@ function ptGenerateReport(){const al=document.getElementById('pt-alevel').value|
     transitionTopics.forEach((t,i)=>{const v=ptState.transition[i];if(v==='unknown')danger.push(t);else if(v==='heard')warn.push(t);});
     let qc=0;ptState.quiz.forEach((a,i)=>{if(a===quizQs[i].ans)qc++;});
     document.getElementById('pt-report-content').innerHTML=`
-        <div class="card" style="display:flex;align-items:center;gap:16px;"><div style="width:48px;height:48px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:24px;background:linear-gradient(135deg,#2383e2,#722ed1);">🎓</div><div><div style="font-size:14px;font-weight:500;">Queen Mary · Computer Science</div><div style="font-size:12px;color:var(--text-muted);">A-Level: ${al} · First Year</div></div></div>
-        <div class="card"><div style="display:flex;justify-content:space-between;margin-bottom:12px;"><span style="font-size:14px;font-weight:500;">📈 High School Mastery</span><span style="font-size:24px;font-weight:700;color:${avg>=70?'#52c41a':avg>=40?'#faad14':'#f5222d'};">${avg}%</span></div><div class="progress-bar"><div style="background:${avg>=70?'#52c41a':avg>=40?'#faad14':'#f5222d'};height:4px;border-radius:2px;width:${avg}%;"></div></div>${strong.length?`<div style="font-size:12px;margin-top:8px;"><span style="color:#52c41a">🟢 Mastered:</span> ${strong.join(', ')}</div>`:''}${weak.length?`<div style="font-size:12px;"><span style="color:#f5222d">🔴 Needs work:</span> ${weak.join(', ')}</div>`:''}</div>
-        <div class="card"><div style="font-size:14px;font-weight:500;margin-bottom:12px;">⚠️ Transition Warnings (CS)</div>${danger.map(t=>`<div style="display:flex;gap:8px;margin-bottom:8px;padding:8px;border-radius:6px;background:rgba(245,34,45,.06);"><span style="color:#f5222d">🔴</span><div><div style="font-size:13px;font-weight:500;">${t.n}</div><div style="font-size:11px;color:var(--text-muted)">${t.d}</div></div></div>`).join('')}${warn.map(t=>`<div style="display:flex;gap:8px;margin-bottom:8px;padding:8px;border-radius:6px;background:rgba(250,173,20,.06);"><span style="color:#faad14">🟡</span><div><div style="font-size:13px;font-weight:500;">${t.n}</div><div style="font-size:11px;color:var(--text-muted)">${t.d}</div></div></div>`).join('')}</div>
-        <div class="card"><div style="display:flex;justify-content:space-between;margin-bottom:8px;"><span style="font-size:14px;font-weight:500;">🧮 Quiz Results</span><span style="font-size:14px;font-weight:700;color:${qc>=7?'#52c41a':qc>=4?'#faad14':'#f5222d'};">${qc}/10 Correct</span></div></div>
-        <div class="card" style="background:rgba(35,131,226,.06);border-color:rgba(35,131,226,.2);"><div style="font-size:14px;font-weight:500;color:var(--accent);margin-bottom:12px;">📋 Recommended Path</div>${danger.length?`<div style="font-size:13px;margin-bottom:8px;"><span style="color:#f5222d;font-weight:700;">1️⃣</span> Start: <strong>${danger[0].n}</strong></div>`:''}${weak.length?`<div style="font-size:13px;margin-bottom:8px;"><span style="color:#faad14;font-weight:700;">2️⃣</span> Fix: <strong>${weak[0]}</strong></div>`:''}</div>`;
+        <div class="card" style="display:flex;align-items:center;gap:16px;"><div style="width:48px;height:48px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:24px;background:var(--accent);">🎓</div><div><div style="font-size:14px;font-weight:500;">Queen Mary · Computer Science</div><div style="font-size:12px;color:var(--text-muted);">A-Level: ${al} · First Year</div></div></div>
+        <div class="card"><div style="display:flex;justify-content:space-between;margin-bottom:12px;"><span style="font-size:14px;font-weight:500;">High School Mastery</span><span style="font-size:24px;font-weight:700;color:${avg>=70?'#52c41a':avg>=40?'#faad14':'#f5222d'};">${avg}%</span></div><div class="progress-bar"><div style="background:${avg>=70?'#52c41a':avg>=40?'#faad14':'#f5222d'};height:4px;border-radius:2px;width:${avg}%;"></div></div>${strong.length?`<div style="font-size:12px;margin-top:8px;"><span style="color:#52c41a">Mastered:</span> ${strong.join(', ')}</div>`:''}${weak.length?`<div style="font-size:12px;"><span style="color:#f5222d">Needs work:</span> ${weak.join(', ')}</div>`:''}</div>
+        <div class="card"><div style="font-size:14px;font-weight:500;margin-bottom:12px;">Transition Warnings (CS)</div>${danger.map(t=>`<div style="display:flex;gap:8px;margin-bottom:8px;padding:8px;border-radius:6px;background:rgba(245,34,45,.06);"><span style="color:#f5222d">•</span><div><div style="font-size:13px;font-weight:500;">${t.n}</div><div style="font-size:11px;color:var(--text-muted)">${t.d}</div></div></div>`).join('')}${warn.map(t=>`<div style="display:flex;gap:8px;margin-bottom:8px;padding:8px;border-radius:6px;background:rgba(250,173,20,.06);"><span style="color:#faad14">•</span><div><div style="font-size:13px;font-weight:500;">${t.n}</div><div style="font-size:11px;color:var(--text-muted)">${t.d}</div></div></div>`).join('')}</div>
+        <div class="card"><div style="display:flex;justify-content:space-between;margin-bottom:8px;"><span style="font-size:14px;font-weight:500;">Quiz Results</span><span style="font-size:14px;font-weight:700;color:${qc>=7?'#52c41a':qc>=4?'#faad14':'#f5222d'};">${qc}/10 Correct</span></div></div>
+        <div class="card" style="background:rgba(35,131,226,.06);border-color:rgba(35,131,226,.2);"><div style="font-size:14px;font-weight:500;color:var(--accent);margin-bottom:12px;">Recommended Path</div>${danger.length?`<div style="font-size:13px;margin-bottom:8px;"><span style="color:#f5222d;font-weight:700;">1.</span> Start: <strong>${danger[0].n}</strong></div>`:''}${weak.length?`<div style="font-size:13px;margin-bottom:8px;"><span style="color:#faad14;font-weight:700;">2.</span> Fix: <strong>${weak[0]}</strong></div>`:''}</div>`;
     ptGo(5);document.getElementById('pt-report').style.display='';
 
     // Store pre-assessment results globally
@@ -1245,10 +1322,7 @@ function renderStudyPlan(result){
     if(!ph||!ct)return;
     ph.style.display='none';ct.style.display='block';
     const ks={master:100,ok:75,fuzzy:40,none:0};
-    // Build plan items from pretest
-    let p1Items=[];//Red: this week
-    let p2Items=[];//Yellow: next week
-    let p3Items=[];//Green: maintenance
+    let p1Items=[],p2Items=[],p3Items=[];
     hsKnowledge.forEach((kp,i)=>{
         const lv=result.knowledge[i]||'none';
         if(lv==='none'||lv==='fuzzy')p1Items.push({name:kp.n,score:ks[lv],target:75,type:'hs'});
@@ -1257,51 +1331,69 @@ function renderStudyPlan(result){
     });
     if(result.dangerTopics)result.dangerTopics.forEach(t=>p1Items.unshift({name:t.n,score:0,target:60,type:'transition',desc:t.d}));
     if(result.warningTopics)result.warningTopics.forEach(t=>p2Items.push({name:t.n,score:25,target:60,type:'transition',desc:t.d}));
-    // Load progress from localStorage
     let planState=loadPlanState();
-    // Render
-    let html='';
-    // P1: This week
-    if(p1Items.length){
-        html+='<div style="font-size:11px;font-weight:600;color:#f5222d;text-transform:uppercase;margin-bottom:8px;letter-spacing:.05em;">🔴 This Week — Fix Critical Gaps</div>';
-        p1Items.forEach((item,i)=>{
-            const key='p1_'+i;const prog=planState.progress[key]||0;
-            html+=renderPlanCard(key,item,prog,'#f5222d');
+    planState.completed=planState.completed||{};
+    planState.deleted=planState.deleted||{};
+    planState.order=planState.order||{};
+
+    const groups=[
+        {key:'p1',items:p1Items,color:'#f5222d',label:'This Week — Fix Critical Gaps'},
+        {key:'p2',items:p2Items,color:'#faad14',label:'Next Week — Strengthen',compact:true},
+        {key:'p3',items:p3Items.slice(0,3),color:'#52c41a',label:'Maintenance — Spaced Repetition',compact:true},
+    ];
+
+    // Trash (top-right)
+    let html='<div style="display:flex;justify-content:flex-end;align-items:center;margin-bottom:14px;"><span style="font-size:11px;color:var(--text-muted);margin-right:8px;">Drag a plan here to remove it</span><div id="plan-trash" ondragover="allowDrop(event)" ondrop="dropToTrash(event)" ondragenter="this.style.borderColor=\'#ff6b6b\';this.style.background=\'rgba(255,107,107,.1)\'" ondragleave="this.style.borderColor=\'var(--border)\';this.style.background=\'transparent\'" style="width:38px;height:38px;border-radius:8px;border:1.5px dashed var(--border);display:flex;align-items:center;justify-content:center;color:var(--text-muted);cursor:pointer;transition:all .15s;" title="Drag a plan here to remove it"><i data-lucide="trash-2" style="width:16px;height:16px;"></i></div></div>';
+
+    groups.forEach((g,gi)=>{
+        const items=g.items.map(item=>({item,key:planKey(g.key,item.name)})).filter(x=>!planState.deleted[x.key]);
+        if(!items.length)return;
+        const order=planState.order[g.key]||[];
+        if(order.length)items.sort((a,b)=>{
+            const ia=order.indexOf(a.key),ib=order.indexOf(b.key);
+            return (ia===-1?999:ia)-(ib===-1?999:ib);
         });
-    }
-    // P2: Next week
-    if(p2Items.length){
-        html+='<div style="font-size:11px;font-weight:600;color:#faad14;text-transform:uppercase;margin:16px 0 8px;letter-spacing:.05em;">🟡 Next Week — Strengthen</div>';
-        p2Items.forEach((item,i)=>{
-            const key='p2_'+i;const prog=planState.progress[key]||0;
-            html+=renderPlanCard(key,item,prog,'#faad14',true);
+        html+=`<div style="font-size:11px;font-weight:600;color:${g.color};text-transform:uppercase;margin:${gi===0?'0':'16px 0 8px'};letter-spacing:.05em;">${g.label}</div>`;
+        html+=`<div class="plan-group" data-group="${g.key}">`;
+        items.forEach(x=>{
+            const prog=planState.progress[x.key]||0;
+            const completed=!!planState.completed[x.key]||prog>=100;
+            html+=renderPlanCard(x.key,x.item,prog,g.color,g.compact||false,completed);
         });
-    }
-    // P3: Maintenance
-    if(p3Items.length){
-        html+='<div style="font-size:11px;font-weight:600;color:#52c41a;text-transform:uppercase;margin:16px 0 8px;letter-spacing:.05em;">🟢 Maintenance — Spaced Repetition</div>';
-        p3Items.slice(0,3).forEach((item,i)=>{
-            html+=`<div style="display:flex;align-items:center;gap:8px;padding:8px;border-radius:6px;background:rgba(82,196,26,.04);border-left:3px solid #52c41a;"><span style="font-size:13px;color:var(--text-primary);">${item.name}</span><span style="font-size:11px;color:var(--text-muted);margin-left:auto;">Last: 3 days ago · Next: Day 7</span><button style="font-size:11px;color:var(--accent);background:none;border:none;cursor:pointer;">Review early</button></div>`;
-        });
-    }
+        html+='</div>';
+    });
+
     // Weekly summary
-    const totalTopics=p1Items.length;
-    const completed=p1Items.filter((_,i)=>planState.progress['p1_'+i]>=100).length;
-    html+=`<div style="margin-top:16px;padding-top:12px;border-top:1px solid var(--border);"><div style="display:flex;justify-content:space-between;font-size:12px;margin-bottom:6px;"><span style="color:var(--text-muted);">Weekly Goal: ${totalTopics} topics</span><span style="color:var(--text-secondary);">Completed: ${completed}/${totalTopics}</span></div><div class="progress-bar"><div style="background:linear-gradient(90deg,#f5222d,#faad14,#52c41a);height:5px;border-radius:3px;width:${totalTopics>0?Math.round(completed/totalTopics*100):0}%;transition:width .3s;"></div></div></div>`;
+    const totalKeys=p1Items.map(i=>planKey('p1',i.name));
+    const total=totalKeys.filter(k=>!planState.deleted[k]).length;
+    const done=totalKeys.filter(k=>!planState.deleted[k]&&(planState.completed[k]||(planState.progress[k]||0)>=100)).length;
+    html+=`<div style="margin-top:16px;padding-top:12px;border-top:1px solid var(--border);"><div style="display:flex;justify-content:space-between;font-size:12px;margin-bottom:6px;"><span style="color:var(--text-muted);">Weekly Goal: ${total} topics</span><span style="color:var(--text-secondary);">Completed: ${done}/${total}</span></div><div class="progress-bar"><div style="background:linear-gradient(90deg,#f5222d,#faad14,#52c41a);height:5px;border-radius:3px;width:${total>0?Math.round(done/total*100):0}%;transition:width .3s;"></div></div></div>`;
     ct.innerHTML=html;
+    if(window.lucide)lucide.createIcons();
 }
 
-function renderPlanCard(key,item,prog,color,compact){
-    const completed=prog>=100;
+function planKey(group,name){return group+'_'+String(name).replace(/[^a-zA-Z0-9]/g,'_');}
+
+function renderPlanCard(key,item,prog,color,compact,completed){
+    const checked=completed?'checked':'';
     if(completed){
-        return `<div style="padding:10px;margin-bottom:8px;border-radius:6px;background:rgba(82,196,26,.06);border-left:3px solid #52c41a;opacity:.6;"><div style="font-size:13px;color:var(--text-primary);text-decoration:line-through;">${item.name} ✓ Completed</div></div>`;
+        return `<div class="plan-card" draggable="true" data-key="${key}" style="padding:10px;margin-bottom:8px;border-radius:6px;background:rgba(82,196,26,.06);border-left:3px solid #52c41a;opacity:.55;cursor:grab;">
+            <div style="display:flex;align-items:center;gap:8px;">
+                <input type="checkbox" class="plan-check" data-key="${key}" ${checked} style="accent-color:#52c41a;cursor:pointer;width:15px;height:15px;flex-shrink:0;">
+                <span style="font-size:13px;color:var(--text-primary);text-decoration:line-through;">${escapeHtml(item.name)}</span>
+                <span style="font-size:11px;color:var(--text-muted);margin-left:auto;">Done</span>
+            </div>
+        </div>`;
     }
-    let html=`<div style="padding:10px;margin-bottom:8px;border-radius:6px;background:rgba(${color==='#f5222d'?'245,34,45':'250,173,20'},.04);border-left:3px solid ${color};">`;
-    html+=`<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px;"><span style="font-size:13px;font-weight:500;color:var(--text-primary);">${item.name}</span><span style="font-size:11px;color:var(--text-muted);">${item.desc||''}</span></div>`;
+    let html=`<div class="plan-card" draggable="true" data-key="${key}" style="padding:10px;margin-bottom:8px;border-radius:6px;background:rgba(${color==='#f5222d'?'245,34,45':'250,173,20'},.04);border-left:3px solid ${color};cursor:grab;transition:opacity .15s;">
+        <div style="display:flex;align-items:center;gap:8px;margin-bottom:4px;">
+            <input type="checkbox" class="plan-check" data-key="${key}" style="accent-color:${color};cursor:pointer;width:15px;height:15px;flex-shrink:0;">
+            <span style="font-size:13px;font-weight:500;color:var(--text-primary);flex:1;">${escapeHtml(item.name)}</span>
+            <span style="font-size:11px;color:var(--text-muted);">${escapeHtml(item.desc||'')}</span>
+        </div>`;
     if(!compact){
-        html+=`<div style="display:flex;gap:12px;font-size:11px;color:var(--text-muted);margin-bottom:6px;"><span>📊 ${item.score}% → ${item.target}%</span><span>📝 ${Math.ceil((100-prog)/20)} problems</span></div>`;
-        html+=`<div class="progress-bar" style="margin-bottom:6px;"><div style="background:${color};height:4px;border-radius:2px;width:${prog}%;transition:width .3s;"></div></div>`;
-        html+=`<div style="display:flex;justify-content:space-between;align-items:center;"><span style="font-size:11px;color:var(--text-muted);">Progress: ${prog}%</span><button onclick="updatePlanProgress('${key}')" style="font-size:11px;padding:3px 10px;border-radius:4px;background:${color};color:#fff;border:none;cursor:pointer;">${prog>0?'Continue':'Start'} →</button></div>`;
+        html+=`<div style="display:flex;gap:12px;font-size:11px;color:var(--text-muted);margin-bottom:6px;margin-left:23px;"><span>${item.score}% → ${item.target}%</span><span>${Math.ceil((100-prog)/20)} problems</span></div>`;
+        html+=`<div class="progress-bar" style="margin-bottom:6px;margin-left:23px;width:calc(100% - 23px);"><div style="background:${color};height:4px;border-radius:2px;width:${prog}%;transition:width .3s;"></div></div>`;
     }
     html+='</div>';
     return html;
@@ -1321,13 +1413,50 @@ function updatePlanProgress(key){
 function togglePlanEdit(){
     const ct=document.getElementById('study-plan-content');
     if(!ct||ct.style.display==='none'){showNotification('Complete pre-assessment first');return;}
-    showNotification('✏️ Edit mode — add custom goals in future update');
+    showNotification('Edit mode — add custom goals in future update');
 }
 
 function loadPlanState(){
-    try{const s=localStorage.getItem('cb_plan');return s?JSON.parse(s):{progress:{},lastUpdate:new Date().toISOString()};}catch(e){return{progress:{},lastUpdate:new Date().toISOString()};}
+    try{const s=localStorage.getItem('cb_plan');return s?JSON.parse(s):{progress:{},completed:{},deleted:{},order:{},lastUpdate:new Date().toISOString()};}catch(e){return{progress:{},completed:{},deleted:{},order:{},lastUpdate:new Date().toISOString()};}
 }
 function savePlanState(s){try{localStorage.setItem('cb_plan',JSON.stringify(s));}catch(e){}}
+
+let planDragKey=null;
+function togglePlanComplete(key){
+    const planState=loadPlanState();
+    planState.completed=planState.completed||{};
+    if(planState.completed[key]){delete planState.completed[key];}
+    else{planState.completed[key]=true;}
+    savePlanState(planState);
+    if(window.pretestResult)renderStudyPlan(window.pretestResult);
+}
+function allowDrop(e){e.preventDefault();e.dataTransfer.dropEffect='move';}
+function dropToSort(e){
+    e.preventDefault();
+    const target=e.target.closest('.plan-card');
+    if(!target||!planDragKey)return;
+    const dragEl=document.querySelector('.plan-card[data-key="'+planDragKey+'"]');
+    if(!dragEl||target===dragEl)return;
+    const group=target.closest('.plan-group');
+    if(!group||dragEl.closest('.plan-group')!==group)return;
+    const rect=target.getBoundingClientRect();
+    const before=e.clientY<rect.top+rect.height/2;
+    group.insertBefore(dragEl,before?target:target.nextSibling);
+    const planState=loadPlanState();
+    planState.order=planState.order||{};
+    planState.order[group.dataset.group]=Array.from(group.querySelectorAll('.plan-card')).map(c=>c.dataset.key);
+    savePlanState(planState);
+}
+function dropToTrash(e){
+    e.preventDefault();
+    if(!planDragKey)return;
+    const planState=loadPlanState();
+    planState.deleted=planState.deleted||{};
+    planState.deleted[planDragKey]=true;
+    savePlanState(planState);
+    if(window.pretestResult)renderStudyPlan(window.pretestResult);
+    showNotification('Removed from plan');
+}
 
 function checkWeeklyUpdate(){
     let planState=loadPlanState();
@@ -1379,7 +1508,7 @@ function plot3D(){if(!p3e.trim()){document.getElementById('plot-status').textCon
 function plotReset(){document.getElementById('plot-xmin').value='-5';document.getElementById('plot-xmax').value='5';document.getElementById('plot-ymin').value='';document.getElementById('plot-ymax').value='';plotRender();}
 function plotClear(){pf=[{e:'',c:'#2383e2'}];pci=1;plotRenderFuncList();Plotly.purge('plot-canvas');document.getElementById('plot-status').textContent='Cleared';}
 // Conics
-const PC_TYPES=[{t:'circle',l:'⭕ Circle'},{t:'ellipse',l:'🔵 Ellipse'},{t:'parabola',l:'📊 Parabola'},{t:'hyperbola',l:'8️⃣ Hyperbola'}];
+const PC_TYPES=[{t:'circle',l:'Circle'},{t:'ellipse',l:'Ellipse'},{t:'parabola',l:'Parabola'},{t:'hyperbola',l:'Hyperbola'}];
 const PC_PARAMS={circle:[{id:'r',l:'Radius r',def:3},{id:'cx',l:'Center x',def:0},{id:'cy',l:'Center y',def:0}],ellipse:[{id:'a',l:'Semi-axis a',def:4},{id:'b',l:'Semi-axis b',def:2},{id:'cx',l:'Center x',def:0},{id:'cy',l:'Center y',def:0}],parabola:[{id:'pa',l:'Coefficient a',def:.5}],hyperbola:[{id:'ha',l:'Semi-axis a',def:2},{id:'hb',l:'Semi-axis b',def:2}]};
 let currentPlotConicType='';
 function plotRenderConics(){const c=document.getElementById('plot-conics');if(!c)return;c.innerHTML='';PC_TYPES.forEach(it=>{const ch=document.createElement('div');ch.style.cssText='padding:6px 12px;background:var(--bg-input);border:1px solid var(--border);border-radius:999px;font-size:12px;color:var(--text-secondary);cursor:pointer;font-family:Cambria Math,serif;';ch.textContent=it.l;ch.onclick=()=>plotSetupConic(it.t);c.appendChild(ch);});}
@@ -1395,10 +1524,15 @@ function plotDrawConic(t){const tr=[],N=200,tA=[];for(let i=0;i<=N;i++)tA.push(-
 
 // ===== SHARED BOOKSHELF DATA =====
 const BS_CATS=[
-    {key:'slides',icon:'📊',label:'Slides'},{key:'textbooks',icon:'📖',label:'Textbooks'},
-    {key:'exercises',icon:'📝',label:'Exercises'},{key:'exam-papers',icon:'📄',label:'Exam Papers'},
-    {key:'research-papers',icon:'📜',label:'Research Papers'}
+    {key:'slides',icon:'presentation',label:'Slides'},
+    {key:'textbooks',icon:'book-open',label:'Textbooks'},
+    {key:'exercises',icon:'pen-line',label:'Exercises'},
+    {key:'exam-papers',icon:'file-text',label:'Exam Papers'},
+    {key:'research-papers',icon:'scroll-text',label:'Research Papers'}
 ];
+function iconHtml(name,size){size=size||16;return `<i data-lucide="${name}" style="width:${size}px;height:${size}px;flex-shrink:0;"></i>`;}
+function refreshIcons(){if(window.lucide)lucide.createIcons();}
+function categoryIcon(category){const c=BS_CATS.find(x=>x.key===category);return c?c.icon:'file';}
 let bsData={slides:[],textbooks:[],exercises:[],'exam-papers':[],'research-papers':[]};
 let bsPageCat='slides', bsModalCat='all';
 let bsPendingFile=null, bsPendingCat=null;
@@ -1451,10 +1585,16 @@ async function kimiCallFallback(messages,onChunk,onDone){
 
 // ===== BOOKSHELF PAGE =====
 async function bsPageInit(){
+    renderSkeletonGrid('dash-bs-grid',5);
+    renderSkeletonGrid('bs-page-grid',5);
     await loadDocumentsFromBackend();
     bsPageRenderTabs();
     bsPageRenderGrid('slides');
     bsRenderDashboard(bsPageCat);
+}
+function renderSkeletonGrid(id,count){
+    const g=document.getElementById(id);if(!g)return;
+    g.innerHTML=Array.from({length:count}).map(()=>'<div style="display:flex;flex-direction:column;gap:10px;align-items:center;padding:14px;"><div class="skeleton" style="width:48px;height:56px;border-radius:8px;"></div><div class="skeleton" style="width:72%;height:12px;"></div><div class="skeleton" style="width:48%;height:10px;"></div></div>').join('');
 }
 async function loadDocumentsFromBackend(){
     try{
@@ -1468,7 +1608,7 @@ async function loadDocumentsFromBackend(){
             if(bsData[cat]!==undefined){
                 bsData[cat].push({
                     id:d.id,
-                    icon:d.icon||'📄',
+                    icon:categoryIcon(cat),
                     title:d.title,
                     desc:d.desc||'',
                     category:cat,
@@ -1491,27 +1631,27 @@ function bsRenderDashboard(cat){
     // Render tabs
     tabs.innerHTML='';
     BS_CATS.forEach((c,i)=>{const t=document.createElement('span');t.style.cssText=`font-size:12px;padding:3px 10px;cursor:pointer;border-bottom:2px solid ${c.key===cat?'var(--accent)':'transparent'};color:${c.key===cat?'var(--accent)':'var(--text-muted)'};font-weight:${c.key===cat?'600':'400'};white-space:nowrap;`;
-        t.textContent=c.icon+' '+c.label;t.onclick=()=>{bsRenderDashboard(c.key);};tabs.appendChild(t);});
+        t.innerHTML=iconHtml(c.icon,13)+' '+c.label;t.onclick=()=>{bsRenderDashboard(c.key);};tabs.appendChild(t);});refreshIcons();
     // Render grid
     const docs=(bsData[cat]||[]).filter(d=>!d.isDeleted);
     if(docs.length===0){grid.innerHTML='<div style="grid-column:1/-1;text-align:center;padding:20px;color:var(--text-muted);font-size:12px;">No documents in this category</div>';return;}
     grid.innerHTML=docs.map((d,i)=>{const origIdx=(bsData[cat]||[]).indexOf(d);return `<div style="border:1px solid var(--border);border-radius:8px;padding:8px;text-align:center;transition:all .15s;background:var(--bg-card);position:relative;" onmouseenter="this.style.borderColor='var(--accent)';this.querySelector('.dash-del-btn').style.opacity='1'" onmouseleave="this.style.borderColor='var(--border)';this.querySelector('.dash-del-btn').style.opacity='0'">
         <button class="dash-del-btn" onclick="event.stopPropagation();bsDeleteDocument('${d.id}')" style="position:absolute;top:2px;right:2px;width:18px;height:18px;border-radius:4px;border:none;background:rgba(255,107,107,.9);color:#fff;font-size:11px;cursor:pointer;opacity:0;transition:opacity .15s;display:flex;align-items:center;justify-content:center;z-index:2;">×</button>
         <div onclick="bsOpenFromDash('${cat}',${origIdx})" style="cursor:pointer;">
-        <div style="font-size:20px;margin-bottom:4px;">${d.icon}</div>
-        <div style="font-size:11px;font-weight:500;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;color:var(--text-primary);">${d.title}</div></div></div>`;}).join('');
+        <div style="margin-bottom:4px;display:flex;justify-content:center;color:var(--text-secondary);">${iconHtml(d.icon,20)}</div>
+        <div style="font-size:11px;font-weight:500;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;color:var(--text-primary);">${d.title}</div></div></div>`;}).join('');refreshIcons();
 }
 function bsOpenFromDash(cat,idx){showPage('reader');setTimeout(()=>readerOpenDoc(cat,idx),100);}
 function bsPageRenderTabs(){const c=document.getElementById('bs-page-tabs');if(!c)return;c.innerHTML='';
-    const allCats=[...BS_CATS,{key:'recycle-bin',icon:'🗑️',label:'Recycle Bin'}];
+    const allCats=[...BS_CATS,{key:'recycle-bin',icon:'trash-2',label:'Recycle Bin'}];
     allCats.forEach((cat,i)=>{const t=document.createElement('span');t.style.cssText=`font-size:14px;padding:4px 16px;cursor:pointer;border-bottom:2px solid ${cat.key===bsPageCat?'var(--accent)':'transparent'};color:${cat.key===bsPageCat?'var(--accent)':'var(--text-muted)'};font-weight:${cat.key===bsPageCat?'600':'400'};white-space:nowrap;`;
-        t.textContent=cat.icon+' '+cat.label;
+        t.innerHTML=iconHtml(cat.icon,14)+' '+cat.label;
         if(cat.key==='recycle-bin'){
             const deletedCount=Object.values(bsData).flat().filter(d=>d.isDeleted).length;
             if(deletedCount>0)t.innerHTML+=` <span style="font-size:10px;padding:1px 5px;border-radius:999px;background:#ff6b6b;color:#fff;font-weight:600;">${deletedCount}</span>`;
             if(bsPageCat==='recycle-bin'){t.style.borderBottomColor='#ff6b6b';t.style.color='#ff6b6b';}
         }
-        t.onclick=()=>{c.querySelectorAll('span').forEach(s=>{s.style.borderBottomColor='transparent';s.style.color='var(--text-muted)';s.style.fontWeight='400';});t.style.borderBottomColor='var(--accent)';t.style.color='var(--accent)';t.style.fontWeight='600';if(cat.key==='recycle-bin'){t.style.borderBottomColor='#ff6b6b';t.style.color='#ff6b6b';}bsPageCat=cat.key;bsPageRenderGrid(cat.key);};c.appendChild(t);});}
+        t.onclick=()=>{c.querySelectorAll('span').forEach(s=>{s.style.borderBottomColor='transparent';s.style.color='var(--text-muted)';s.style.fontWeight='400';});t.style.borderBottomColor='var(--accent)';t.style.color='var(--accent)';t.style.fontWeight='600';if(cat.key==='recycle-bin'){t.style.borderBottomColor='#ff6b6b';t.style.color='#ff6b6b';}bsPageCat=cat.key;bsPageRenderGrid(cat.key);};c.appendChild(t);});refreshIcons();}
 function bsPageRenderGrid(cat){
     const g=document.getElementById('bs-page-grid');const c=document.getElementById('bs-page-count');if(!g)return;
     if(cat==='recycle-bin'){
@@ -1519,25 +1659,25 @@ function bsPageRenderGrid(cat){
         if(c)c.textContent=`${docs.length} document(s) in Recycle Bin`;
         if(docs.length===0){g.innerHTML=`<div class="placeholder-box" style="grid-column:1/-1;">Recycle Bin is empty<br><span style="font-size:12px;">Deleted documents will appear here</span></div>`;return;}
         g.innerHTML=docs.map(d=>`<div style="border:1px solid var(--border);border-radius:10px;padding:12px;transition:all .15s;background:var(--bg-card);position:relative;opacity:.6;" onmouseenter="this.style.opacity='1'" onmouseleave="this.style.opacity='.6'">
-            <div style="text-align:center;margin-bottom:8px;"><div style="width:48px;height:56px;border-radius:8px;display:inline-flex;align-items:center;justify-content:center;font-size:22px;background:linear-gradient(135deg,#ffe0e0,#ffcccc);">${d.icon}</div></div>
+            <div style="text-align:center;margin-bottom:8px;"><div style="width:48px;height:56px;border-radius:8px;display:inline-flex;align-items:center;justify-content:center;color:var(--text-secondary);background:var(--bg-tag);">${iconHtml(d.icon,22)}</div></div>
             <div style="font-size:13px;font-weight:600;text-align:center;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${d.title}</div>
             <div style="font-size:11px;color:var(--text-muted);text-align:center;">Deleted ${d.deletedAt?new Date(d.deletedAt).toLocaleDateString():''}</div>
             <div style="display:flex;gap:6px;margin-top:10px;justify-content:center;">
-                <button onclick="bsRestoreDocument('${d.id}')" style="font-size:11px;padding:4px 10px;border-radius:6px;background:rgba(82,196,26,.1);border:1px solid rgba(82,196,26,.3);color:#52c41a;cursor:pointer;">♻️ Restore</button>
-                <button onclick="bsPermanentlyDeleteDocument('${d.id}')" style="font-size:11px;padding:4px 10px;border-radius:6px;background:rgba(255,107,107,.1);border:1px solid rgba(255,107,107,.3);color:#ff6b6b;cursor:pointer;">💥 Delete Forever</button>
-            </div></div>`).join('');
+                <button onclick="bsRestoreDocument('${d.id}')" style="font-size:11px;padding:4px 10px;border-radius:6px;background:rgba(82,196,26,.1);border:1px solid rgba(82,196,26,.3);color:#52c41a;cursor:pointer;">Restore</button>
+                <button onclick="bsPermanentlyDeleteDocument('${d.id}')" style="font-size:11px;padding:4px 10px;border-radius:6px;background:rgba(255,107,107,.1);border:1px solid rgba(255,107,107,.3);color:#ff6b6b;cursor:pointer;">Delete Forever</button>
+            </div></div>`).join('');refreshIcons();
         return;
     }
     const docs=(bsData[cat]||[]).filter(d=>!d.isDeleted);
     if(c)c.textContent=`${docs.length} document(s)`;
-    if(docs.length===0){g.innerHTML=`<div class="placeholder-box" style="grid-column:1/-1;">No documents yet<br><button class="btn-secondary" style="margin-top:12px;" onclick="bsUpload()">📎 Upload PDF</button></div>`;return;}
-    g.innerHTML=docs.map((d,i)=>{const origIdx=(bsData[cat]||[]).indexOf(d);return `<div style="border:1px solid var(--border);border-radius:10px;padding:12px;cursor:pointer;transition:all .15s;background:var(--bg-card);position:relative;" onmouseenter="this.style.borderColor='var(--accent)';this.style.transform='translateY(-3px)';this.querySelector('.bs-del-btn').style.opacity='1'" onmouseleave="this.style.borderColor='var(--border)';this.style.transform='translateY(0)';this.querySelector('.bs-del-btn').style.opacity='0'">
-        <button class="bs-del-btn" onclick="event.stopPropagation();bsDeleteDocument('${d.id}')" style="position:absolute;top:6px;right:6px;width:22px;height:22px;border-radius:6px;border:none;background:rgba(255,107,107,.9);color:#fff;font-size:11px;cursor:pointer;opacity:0;transition:opacity .15s;display:flex;align-items:center;justify-content:center;z-index:2;">🗑️</button>
+    if(docs.length===0){g.innerHTML=`<div class="placeholder-box" style="grid-column:1/-1;">No documents yet<br><button class="btn-secondary" style="margin-top:12px;" onclick="bsUpload()">Upload PDF</button></div>`;return;}
+    g.innerHTML=docs.map((d,i)=>{const origIdx=(bsData[cat]||[]).indexOf(d);return `<div style="border:1px solid var(--border);border-radius:10px;padding:12px;cursor:pointer;transition:all .18s cubic-bezier(.2,.8,.2,1);background:var(--bg-card);position:relative;box-shadow:var(--shadow-xs);" onmouseenter="this.style.borderColor='var(--accent)';this.style.transform='translateY(-3px)';this.style.boxShadow='var(--shadow-md)';this.querySelector('.bs-del-btn').style.opacity='1'" onmouseleave="this.style.borderColor='var(--border)';this.style.transform='translateY(0)';this.style.boxShadow='var(--shadow-xs)';this.querySelector('.bs-del-btn').style.opacity='0'">
+        <button class="bs-del-btn" onclick="event.stopPropagation();bsDeleteDocument('${d.id}')" style="position:absolute;top:6px;right:6px;width:22px;height:22px;border-radius:6px;border:none;background:rgba(255,107,107,.9);color:#fff;font-size:11px;cursor:pointer;opacity:0;transition:opacity .15s;display:flex;align-items:center;justify-content:center;z-index:2;">×</button>
         <span style="position:absolute;top:6px;left:6px;font-size:9px;padding:1px 6px;border-radius:4px;background:rgba(82,196,26,.15);color:#52c41a;font-weight:500;">Yours</span>
         <div onclick="bsOpenFromPage('${cat}',${origIdx})" style="width:100%;height:100%;">
-        <div style="text-align:center;margin-bottom:8px;"><div style="width:48px;height:56px;border-radius:8px;display:inline-flex;align-items:center;justify-content:center;font-size:22px;background:linear-gradient(135deg,#d9f7be,#b7eb8f);">${d.icon}</div></div>
+        <div style="text-align:center;margin-bottom:8px;"><div style="width:48px;height:56px;border-radius:8px;display:inline-flex;align-items:center;justify-content:center;color:var(--text-secondary);background:var(--bg-tag);">${iconHtml(d.icon,22)}</div></div>
         <div style="font-size:13px;font-weight:600;text-align:center;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${d.title}</div><div style="font-size:11px;color:var(--text-muted);text-align:center;">${d.desc}</div>
-        <div style="text-align:center;margin-top:8px;"><span style="font-size:11px;padding:2px 8px;border-radius:4px;background:var(--accent);color:#fff;">📖 Read</span></div></div></div>`;}).join('');}
+        <div style="text-align:center;margin-top:8px;"><span style="font-size:11px;padding:2px 8px;border-radius:4px;background:var(--accent);color:#fff;">Read</span></div></div></div>`;}).join('');refreshIcons();}
 function bsOpenFromPage(cat,idx){showPage('reader');setTimeout(()=>readerOpenDoc(cat,idx),100);}
 function bsOpenFromDash(cat,idx){showPage('reader');setTimeout(()=>readerOpenDoc(cat,idx),100);}
 
@@ -1546,9 +1686,9 @@ function bsUpload(){const old=document.getElementById('bs-file-input');if(old)ol
 function bsShowUploadModal(file){bsPendingFile=file;const m=document.getElementById('bs-upload-modal');const fn=document.getElementById('bs-upload-filename');const cl=document.getElementById('bs-upload-cats');
     fn.textContent=file.name+' ('+(file.size/1024/1024).toFixed(1)+' MB)';bsPendingCat=null;
     cl.innerHTML=BS_CATS.map(c=>`<div onclick="bsSelCat('${c.key}',this)" style="display:flex;align-items:center;gap:12px;padding:12px;border-radius:8px;cursor:pointer;border:1px solid var(--border);background:var(--bg-input);">
-        <span style="font-size:18px;">${c.icon}</span><span style="font-size:14px;">${c.label}</span>
+        <span style="color:var(--text-secondary);display:flex;align-items:center;">${iconHtml(c.icon,18)}</span><span style="font-size:14px;">${c.label}</span>
         <span style="margin-left:auto;font-size:12px;color:var(--text-muted);">${(bsData[c.key]||[]).length} items</span></div>`).join('');
-    m.style.display='flex';}
+    m.style.display='flex';refreshIcons();}
 function bsSelCat(key,el){bsPendingCat=key;el.parentElement.querySelectorAll('div').forEach(d=>{d.style.borderColor='var(--border)';d.style.background='var(--bg-input)';});el.style.borderColor='var(--accent)';el.style.background='rgba(35,131,226,.08)';}
 function bsCloseUpload(){document.getElementById('bs-upload-modal').style.display='none';bsPendingFile=null;bsPendingCat=null;}
 async function bsConfirmUpload(){if(!bsPendingFile||!bsPendingCat)return;
@@ -1562,7 +1702,7 @@ async function bsConfirmUpload(){if(!bsPendingFile||!bsPendingCat)return;
         const doc=await res.json();
         bsData[bsPendingCat].push({
             id:doc.id,
-            icon:doc.icon,
+            icon:categoryIcon(bsPendingCat),
             title:doc.title,
             desc:doc.sizeText,
             category:bsPendingCat,
@@ -1584,20 +1724,21 @@ async function bsConfirmUpload(){if(!bsPendingFile||!bsPendingCat)return;
 function readerOpenBookshelf(){readerRenderModalTabs();readerRenderModalDocs('all');document.getElementById('reader-bs-modal').style.display='flex';}
 function readerCloseBookshelf(){document.getElementById('reader-bs-modal').style.display='none';}
 function readerRenderModalTabs(){const c=document.getElementById('reader-bs-tabs');if(!c)return;c.innerHTML='';
-    const cats=[{key:'all',icon:'📚',label:'All'},...BS_CATS];
+    const cats=[{key:'all',icon:'layout-grid',label:'All'},...BS_CATS];
     cats.forEach((cat,i)=>{const t=document.createElement('button');t.style.cssText=`padding:6px 12px;border-radius:6px;border:none;font-size:13px;font-weight:${i===0?'600':'400'};background:${i===0?'var(--accent)':'transparent'};color:${i===0?'#fff':'var(--text-secondary)'};cursor:pointer;`;
-        t.textContent=cat.icon+' '+cat.label;t.onclick=()=>{c.querySelectorAll('button').forEach(b=>{b.style.background='transparent';b.style.color='var(--text-secondary)';b.style.fontWeight='400';});t.style.background='var(--accent)';t.style.color='#fff';t.style.fontWeight='600';bsModalCat=cat.key;readerRenderModalDocs(cat.key);};c.appendChild(t);});}
+        t.innerHTML=iconHtml(cat.icon,14)+' '+cat.label;t.onclick=()=>{c.querySelectorAll('button').forEach(b=>{b.style.background='transparent';b.style.color='var(--text-secondary)';b.style.fontWeight='400';});t.style.background='var(--accent)';t.style.color='#fff';t.style.fontWeight='600';bsModalCat=cat.key;readerRenderModalDocs(cat.key);};c.appendChild(t);});refreshIcons();}
 function readerRenderModalDocs(cat){const g=document.getElementById('reader-bs-grid');if(!g)return;
     const all=[];Object.keys(bsData).forEach(c=>bsData[c].forEach((d,i)=>{if(!d.isDeleted)all.push({...d,cat:c,idx:i});}));
     const docs=cat==='all'?all:all.filter(d=>d.cat===cat);
     if(docs.length===0){g.innerHTML=`<div class="placeholder-box" style="grid-column:1/-1;">No documents<br><button class="btn-secondary" style="margin-top:12px;" onclick="bsUpload()">📎 Upload PDF</button></div>`;return;}
     g.innerHTML=docs.map(d=>{const cl=BS_CATS.find(c=>c.key===d.cat);
-        return `<div onclick="readerOpenDoc('${d.cat}',${d.idx})" style="border:1px solid var(--border);border-radius:10px;padding:12px;cursor:pointer;transition:all .15s;background:var(--bg-sidebar);" onmouseenter="this.style.borderColor='var(--accent)';this.style.transform='translateY(-3px)'" onmouseleave="this.style.borderColor='var(--border)';this.style.transform='translateY(0)'">
-        <div style="text-align:center;margin-bottom:8px;"><div style="width:48px;height:56px;border-radius:8px;display:inline-flex;align-items:center;justify-content:center;font-size:22px;background:linear-gradient(135deg,#d9f7be,#b7eb8f);">${d.icon}</div></div>
-        <div style="font-size:13px;font-weight:600;text-align:center;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${d.title}</div><div style="font-size:11px;color:var(--text-muted);text-align:center;">${cl?cl.label:''}</div></div>`;}).join('');}
+        return `<div onclick="readerOpenDoc('${d.cat}',${d.idx})" style="border:1px solid var(--border);border-radius:10px;padding:12px;cursor:pointer;transition:all .18s cubic-bezier(.2,.8,.2,1);background:var(--bg-sidebar);box-shadow:var(--shadow-xs);" onmouseenter="this.style.borderColor='var(--accent)';this.style.transform='translateY(-3px)';this.style.boxShadow='var(--shadow-md)'" onmouseleave="this.style.borderColor='var(--border)';this.style.transform='translateY(0)';this.style.boxShadow='var(--shadow-xs)'">
+        <div style="text-align:center;margin-bottom:8px;"><div style="width:48px;height:56px;border-radius:8px;display:inline-flex;align-items:center;justify-content:center;color:var(--text-secondary);background:var(--bg-tag);">${iconHtml(d.icon,22)}</div></div>
+        <div style="font-size:13px;font-weight:600;text-align:center;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${d.title}</div><div style="font-size:11px;color:var(--text-muted);text-align:center;">${cl?cl.label:''}</div></div>`;}).join('');refreshIcons();}
 
 // ===== READER: OPEN DOC WITH PDF.JS (ScholarRead — text layer + smooth scroll) =====
 let readerNotes=[],readerHighlights=[],readerSelText='',readerSelRange=null,readerPdfDoc=null,readerPdfTotal=0;
+let readerDocType=null;
 let readerRenderedPages=new Set();
 let readerScale=1.3;
 let readerScrollObserver=null;
@@ -1608,6 +1749,7 @@ function readerOpenDoc(cat,idx){
     if(doc.isDeleted){showNotification('⚠️ Restore this document first to open it');return;}
     readerCloseBookshelf();
     readerCurrentDocId=doc.id;
+    readerPdfDoc=null;readerPdfTotal=0;readerDocType=null;
     document.getElementById('reader-doc-title').textContent=doc.title;
     document.getElementById('reader-doc-meta').textContent=doc.desc;
     document.getElementById('reader-toolbar').textContent=doc.title;
@@ -1621,7 +1763,7 @@ function readerOpenDoc(cat,idx){
     readerRenderedPages.clear();
 
     // Fetch file from backend
-    area.innerHTML='<div style="text-align:center;padding:60px;color:var(--text-muted);"><div style="font-size:48px;margin-bottom:16px;">📄</div><p>Loading document...</p></div>';
+    area.innerHTML='<div style="padding:24px 8px;display:flex;flex-direction:column;gap:16px;align-items:center;"><div class="skeleton" style="width:min(600px,92%);height:760px;border-radius:8px;"></div><div class="skeleton" style="width:min(600px,92%);height:760px;border-radius:8px;"></div></div>';
     apiFetch('/api/documents/'+doc.id+'/file')
         .then(res=>{if(!res.ok)throw new Error('HTTP '+res.status);return res.arrayBuffer();})
         .then(arrayBuffer=>{
@@ -1639,7 +1781,8 @@ function readerOpenDoc(cat,idx){
 
 // ===== PPTX Rendering (JSZip + XML text extraction) =====
 async function readerOpenPPTX(arrayBuffer,doc,area){
-    area.innerHTML='<div style="text-align:center;padding:60px;color:var(--text-muted);"><div style="font-size:48px;margin-bottom:16px;">📊</div><p>Loading PPTX...</p></div>';
+    readerDocType='pptx';
+    area.innerHTML='<div style="text-align:center;padding:60px;color:var(--text-muted);display:flex;flex-direction:column;align-items:center;gap:12px;"><div class="spinner"></div><p>Loading PPTX...</p></div>';
     try{
         const zip=await JSZip.loadAsync(arrayBuffer);
         const slideNames=Object.keys(zip.files).filter(n=>n.match(/^ppt\/slides\/slide\d+\.xml$/)).sort((a,b)=>{
@@ -1768,9 +1911,9 @@ async function readerOpenPPTX(arrayBuffer,doc,area){
 
 // ===== PDF Rendering (existing logic, extracted) =====
 function readerOpenPDF(arrayBuffer,doc,area){
-    area.innerHTML='<div style="text-align:center;padding:60px;color:var(--text-muted);"><div style="font-size:48px;margin-bottom:16px;">📄</div><p>Loading PDF...</p></div>';
+    area.innerHTML='<div style="text-align:center;padding:60px;color:var(--text-muted);display:flex;flex-direction:column;align-items:center;gap:12px;"><div class="spinner"></div><p>Loading PDF...</p></div>';
     pdfjsLib.getDocument({data:arrayBuffer}).promise.then(async pdf=>{
-        readerPdfDoc=pdf;readerPdfTotal=pdf.numPages;
+        readerPdfDoc=pdf;readerPdfTotal=pdf.numPages;readerDocType='pdf';
 
         // Dynamic scale: fit PDF page width to reading area
         const firstPage=await pdf.getPage(1);
@@ -1896,9 +2039,9 @@ document.addEventListener('mouseup',e=>{const area=document.getElementById('read
 // ===== READER ACTIONS =====
 function readerAction(action){const menu=document.getElementById('reader-float-menu');menu.style.display='none';const panel=document.getElementById('reader-action-panel');const text=readerSelText;
     if(action==='translate'){panel.innerHTML=`<div class="card" style="border-left:4px solid #2383e2;background:rgba(35,131,226,.06);">
-        <div style="display:flex;gap:12px;"><div style="width:32px;height:32px;border-radius:8px;display:flex;align-items:center;justify-content:center;font-size:14px;font-weight:700;color:#fff;background:linear-gradient(135deg,#2383e2,#4090e8);flex-shrink:0;">🌐</div>
+        <div style="display:flex;gap:12px;"><div style="width:32px;height:32px;border-radius:8px;display:flex;align-items:center;justify-content:center;font-size:14px;font-weight:700;color:#fff;background:var(--accent);flex-shrink:0;">译</div>
         <div style="flex:1;"><div style="font-size:12px;font-weight:600;color:#2383e2;margin-bottom:4px;">🌐 Translating...</div><p style="font-size:14px;margin-bottom:8px;">${escapeHtml(text)}</p><div id="reader-translate-result" style="color:var(--text-muted);font-size:13px;">⏳ Calling AI...</div>
-        <div style="display:flex;gap:8px;margin-top:8px;"><button onclick="readerAction('note')" style="font-size:12px;padding:6px 12px;border-radius:6px;background:var(--bg-input);color:var(--text-secondary);border:1px solid var(--border);cursor:pointer;">📝 Save note</button><button onclick="readerAction('highlight')" style="font-size:12px;padding:6px 12px;border-radius:6px;background:var(--bg-input);color:var(--text-secondary);border:1px solid var(--border);cursor:pointer;">🖍 Highlight</button><button onclick="document.getElementById('reader-action-panel').style.display='none'" style="font-size:12px;padding:6px 12px;border-radius:6px;background:transparent;color:var(--text-muted);border:none;cursor:pointer;">✕ Close</button></div></div></div></div>`;
+        <div style="display:flex;gap:8px;margin-top:8px;"><button onclick="readerAction('note')" style="font-size:12px;padding:6px 12px;border-radius:6px;background:var(--bg-input);color:var(--text-secondary);border:1px solid var(--border);cursor:pointer;">Save note</button><button onclick="readerAction('highlight')" style="font-size:12px;padding:6px 12px;border-radius:6px;background:var(--bg-input);color:var(--text-secondary);border:1px solid var(--border);cursor:pointer;">Highlight</button><button onclick="document.getElementById('reader-action-panel').style.display='none'" style="font-size:12px;padding:6px 12px;border-radius:6px;background:transparent;color:var(--text-muted);border:none;cursor:pointer;">✕ Close</button></div></div></div></div>`;
         panel.style.display='block';
         fetch(AI_BACKEND_URL+'/api/translate',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({text:text,target_lang:'auto'})})
         .then(r=>r.json()).then(data=>{
@@ -1914,7 +2057,7 @@ function readerAction(action){const menu=document.getElementById('reader-float-m
         // Show color picker + note panel
         const colors=[{c:'#faad14',n:'Yellow'},{c:'#52c41a',n:'Green'},{c:'#2383e2',n:'Blue'},{c:'#ff6b6b',n:'Red'}];
         panel.innerHTML=`<div class="card" style="border-left:4px solid #faad14;background:rgba(250,173,20,.06);">
-        <div style="font-size:12px;font-weight:600;color:#faad14;margin-bottom:8px;">🖍 Highlight</div>
+        <div style="font-size:12px;font-weight:600;color:#faad14;margin-bottom:8px;">Highlight</div>
         <div style="font-size:12px;padding:8px;border-radius:6px;background:var(--bg-input);color:var(--text-secondary);font-style:italic;margin-bottom:8px;">"${escapeHtml(text.substring(0,120))}${text.length>120?'...':''}"</div>
         <div style="display:flex;gap:8px;margin-bottom:8px;">
             ${colors.map(cl=>`<button onclick="readerSetHlColor('${cl.c}')" id="hl-color-btn-${cl.c}" style="width:32px;height:32px;border-radius:50%;border:3px solid ${cl.c===colors[0].c?'#333':'transparent'};background:${cl.c};cursor:pointer;" title="${cl.n}"></button>`).join('')}
@@ -1922,14 +2065,14 @@ function readerAction(action){const menu=document.getElementById('reader-float-m
         <input type="hidden" id="hl-selected-color" value="${colors[0].c}">
         <textarea id="hl-note-input" placeholder="Add a note (optional)..." style="width:100%;padding:8px;border-radius:6px;font-size:13px;resize:none;border:1px solid var(--border);background:var(--bg-input);color:var(--text-primary);outline:none;" rows="2"></textarea>
         <div style="display:flex;gap:8px;margin-top:8px;">
-            <button class="btn-primary" style="font-size:13px;padding:6px 16px;" onclick="readerSaveHighlightFromPanel()">💾 Save</button>
+            <button class="btn-primary" style="font-size:13px;padding:6px 16px;" onclick="readerSaveHighlightFromPanel()">Save</button>
             <button onclick="document.getElementById('reader-action-panel').style.display='none'" style="font-size:13px;padding:6px 12px;color:var(--text-muted);background:none;border:none;cursor:pointer;">Cancel</button>
         </div></div>`;
         panel.style.display='block';
     }else if(action==='note'){panel.innerHTML=`<div class="card" style="border-left:4px solid #52c41a;background:rgba(82,196,26,.06);">
-        <div style="font-size:12px;font-weight:600;color:#52c41a;margin-bottom:4px;">📝 New Note</div><div style="font-size:12px;padding:8px;border-radius:6px;background:var(--bg-input);color:var(--text-secondary);font-style:italic;margin-bottom:8px;">"${escapeHtml(text.substring(0,100))}${text.length>100?'...':''}"</div>
+        <div style="font-size:12px;font-weight:600;color:#52c41a;margin-bottom:4px;">New Note</div><div style="font-size:12px;padding:8px;border-radius:6px;background:var(--bg-input);color:var(--text-secondary);font-style:italic;margin-bottom:8px;">"${escapeHtml(text.substring(0,100))}${text.length>100?'...':''}"</div>
         <textarea id="reader-note-input" placeholder="Write your note..." style="width:100%;padding:8px;border-radius:6px;font-size:14px;resize:none;border:1px solid var(--border);background:var(--bg-input);color:var(--text-primary);outline:none;" rows="3"></textarea>
-        <div style="display:flex;gap:8px;margin-top:8px;"><button class="btn-primary" style="font-size:13px;padding:6px 16px;" onclick="readerSaveNoteFromSel()">💾 Save</button><button onclick="document.getElementById('reader-action-panel').style.display='none'" style="font-size:13px;padding:6px 12px;color:var(--text-muted);background:none;border:none;cursor:pointer;">Cancel</button></div></div>`;
+        <div style="display:flex;gap:8px;margin-top:8px;"><button class="btn-primary" style="font-size:13px;padding:6px 16px;" onclick="readerSaveNoteFromSel()">Save</button><button onclick="document.getElementById('reader-action-panel').style.display='none'" style="font-size:13px;padding:6px 12px;color:var(--text-muted);background:none;border:none;cursor:pointer;">Cancel</button></div></div>`;
         panel.style.display='block';document.getElementById('reader-note-input').focus();
     }else if(action==='ai'){
         openAIChat(readerSelText);
@@ -1990,7 +2133,7 @@ function aiChatSend(text){
     // Add user message to UI
     const userDiv=document.createElement('div');
     userDiv.style.cssText='display:flex;flex-direction:row-reverse;gap:8px;margin-bottom:12px;';
-    userDiv.innerHTML='<div style="width:28px;height:28px;border-radius:50%;background:linear-gradient(135deg,#ff8c00,#e91e63);display:flex;align-items:center;justify-content:center;color:#fff;font-size:12px;font-weight:600;flex-shrink:0;">Y</div>'+
+    userDiv.innerHTML='<div style="width:28px;height:28px;border-radius:50%;background:var(--accent);display:flex;align-items:center;justify-content:center;color:#fff;font-size:12px;font-weight:600;flex-shrink:0;">Y</div>'+
         '<div style="background:var(--accent);color:#fff;padding:8px 14px;border-radius:12px 12px 4px 12px;font-size:13px;max-width:75%;">'+escapeHtml(text)+'</div>';
     msgArea.appendChild(userDiv);
 
@@ -2000,7 +2143,7 @@ function aiChatSend(text){
     // Create AI response placeholder
     const aiDiv=document.createElement('div');
     aiDiv.style.cssText='display:flex;gap:8px;margin-bottom:12px;';
-    aiDiv.innerHTML='<div style="width:28px;height:28px;border-radius:50%;background:linear-gradient(135deg,#722ed1,#9b59f7);display:flex;align-items:center;justify-content:center;color:#fff;font-size:12px;font-weight:600;flex-shrink:0;">🤖</div>'+
+    aiDiv.innerHTML='<div style="width:28px;height:28px;border-radius:50%;background:var(--accent);display:flex;align-items:center;justify-content:center;color:#fff;font-size:10px;font-weight:600;flex-shrink:0;">AI</div>'+
         '<div id="ai-streaming-'+Date.now()+'" style="background:var(--bg-hover);color:var(--text-primary);padding:8px 14px;border-radius:12px 12px 12px 4px;font-size:13px;max-width:75%;"><span style="color:var(--text-muted);">⏳ Thinking...</span></div>';
     msgArea.appendChild(aiDiv);
     const streamId=aiDiv.querySelector('div:last-child').id;
@@ -2082,9 +2225,9 @@ async function readerSaveNoteFromSel(){
         const res=await apiFetch('/api/notes',{
             method:'POST',
             body:JSON.stringify({
-                title:'📖 '+(quote.substring(0,30)||'Reader Note'),
+                title:'Reading · '+(quote.substring(0,30)||'Reader Note'),
                 tag:'Reading Note',
-                content:noteText+'\n\n📖 Quoted: "'+quote+(readerSelText.length>100?'...':'')+'"',
+                content:noteText+'\n\nQuoted: "'+quote+(readerSelText.length>100?'...':'')+'"',
                 source:'reader'
             })
         });
@@ -2136,7 +2279,7 @@ async function readerSaveQuickNote(){
 }
 function readerDeleteNote(i){readerNotes.splice(i,1);readerRenderNotes();}
 function readerRenderNotes(){const list=document.getElementById('reader-notes-list');const cnt=document.getElementById('reader-note-count');if(!list)return;if(cnt)cnt.textContent=readerNotes.length+(readerNotes.length===1?' note':' notes');
-    if(readerNotes.length===0){list.innerHTML='<p style="font-size:12px;text-align:center;padding:16px;color:var(--text-muted);">No notes yet. Select text and click 📝 Note.</p>';return;}
+    if(readerNotes.length===0){list.innerHTML='<p style="font-size:12px;text-align:center;padding:16px;color:var(--text-muted);">No notes yet. Select text and click Note.</p>';return;}
     list.innerHTML=readerNotes.map((n,i)=>`<div class="card" style="padding:12px;border-left:3px solid ${n.color};">
         ${n.quote?`<div style="font-size:11px;margin-bottom:4px;font-style:italic;color:var(--text-muted);">"${n.quote}${n.quote.length>=100?'...':''}"</div>`:''}
         <p style="font-size:13px;">${n.text}</p><div style="display:flex;justify-content:space-between;margin-top:4px;"><span style="font-size:11px;color:var(--text-muted);">${n.time}</span><button onclick="readerDeleteNote(${i})" style="font-size:12px;color:#ff6b6b;background:none;border:none;cursor:pointer;">✕</button></div></div>`).join('');}
@@ -2240,7 +2383,7 @@ function readerRenderHighlights(){
     const list=document.getElementById('reader-highlights-list');if(!list)return;
     if(readerHighlights.length===0){list.innerHTML='<p style="font-size:12px;color:var(--text-muted);">No highlights yet</p>';return;}
     list.innerHTML=readerHighlights.map(h=>{
-        const noteBadge=h.note?`<span style="font-size:10px;padding:1px 5px;border-radius:4px;background:${h.color}22;color:${h.color};margin-left:4px;">📝</span>`:'';
+        const noteBadge=h.note?'':'';
         return `<div style="font-size:12px;padding:6px 8px;border-radius:4px;background:${h.color}11;border-left:3px solid ${h.color};color:var(--text-secondary);cursor:pointer;margin-bottom:4px;" onclick="readerJumpToPage(${h.page})" title="Page ${h.page}">
         <div style="display:flex;align-items:center;justify-content:space-between;">
             <span>🖍 ${escapeHtml(h.text.substring(0,40))}${h.text.length>40?'...':''}${noteBadge}</span>
@@ -2264,7 +2407,7 @@ function showConfirmDialog(opts){
     overlay.id='confirm-dialog-overlay';
     overlay.style.cssText='position:fixed;inset:0;z-index:200;display:flex;align-items:center;justify-content:center;padding:16px;background:rgba(0,0,0,.5);';
     overlay.innerHTML=`<div style="background:var(--bg-card);border:1px solid var(--border);border-radius:16px;max-width:360px;width:100%;padding:24px;text-align:center;">
-        <div style="font-size:36px;margin-bottom:8px;">${escapeHtml(opts.icon||'🗑️')}</div>
+        <div style="font-size:36px;margin-bottom:8px;">${escapeHtml(opts.icon||'')}</div>
         <div style="font-size:18px;font-weight:700;margin-bottom:8px;color:var(--text-primary);">${escapeHtml(opts.title||'Are you sure?')}</div>
         <div style="font-size:14px;color:var(--text-secondary);margin-bottom:24px;white-space:pre-wrap;">${escapeHtml(opts.message||'')}</div>
         <div style="display:flex;gap:8px;">
@@ -2304,7 +2447,7 @@ function bsRestoreDocument(docId){
     doc.deletedAt=null;
     bsPageRenderGrid(bsPageCat);
     bsRenderDashboard(bsPageCat);
-    showNotification('♻️ Document restored');
+    showNotification('Document restored');
 }
 async function bsPermanentlyDeleteDocument(docId){
     const doc=Object.values(bsData).flat().find(d=>d.id===docId);
@@ -2353,7 +2496,7 @@ function notesRestoreNote(noteId){
     n.isDeleted=false;
     n.deletedAt=null;
     notesSave();notesRender();
-    showNotification('♻️ Note restored');
+    showNotification('Note restored');
 }
 function notesPermanentlyDeleteNote(noteId){
     const n=notesData.find(x=>x.id===noteId);
@@ -2377,7 +2520,47 @@ function notesPermanentlyDeleteNote(noteId){
 }
 
 // ===== UTIL =====
-function showNotification(text){const n=document.createElement('div');n.style.cssText='position:fixed;top:80px;right:24px;z-index:100;padding:12px 20px;border-radius:8px;background:rgba(82,196,26,.9);color:#fff;font-size:14px;box-shadow:0 4px 12px rgba(0,0,0,.2);transition:opacity .3s;';n.textContent=text;document.body.appendChild(n);setTimeout(()=>{n.style.opacity='0';setTimeout(()=>n.remove(),300);},2500);}
+function showNotification(text){
+    const t=String(text||'');
+    let type='info';
+    if(/✅|saved|Saved|created|Created|uploaded|Uploaded|restored|Restored|updated|Updated|Welcome|welcome|deleted|Deleted|complete|Complete/.test(t))type='success';
+    else if(/❌|⚠️|failed|Failed|error|Error|expired|Invalid|invalid|denied/.test(t))type='error';
+    const meta={success:['check-circle','#52c41a'],error:['alert-circle','#ff6b6b'],info:['info','#2383e2']}[type];
+    const clean=t.replace(/^[✅❌⚠️🌐📨🔄♻️✏️💡🆘🎉🔥]+\s*/,'');
+    const n=document.createElement('div');
+    n.className='toast';
+    n.style.cssText='position:fixed;top:72px;right:20px;z-index:1000;display:flex;align-items:center;gap:10px;padding:12px 16px;border-radius:10px;background:var(--bg-card);color:var(--text-primary);font-size:14px;box-shadow:var(--shadow-lg);border:1px solid var(--border);max-width:380px;';
+    n.innerHTML='<i data-lucide="'+meta[0]+'" style="width:18px;height:18px;color:'+meta[1]+';flex-shrink:0;"></i><span style="flex:1;line-height:1.4;">'+escapeHtml(clean)+'</span>';
+    document.body.appendChild(n);
+    if(window.lucide)lucide.createIcons();
+    setTimeout(()=>{n.style.transition='opacity .25s ease,transform .25s ease';n.style.opacity='0';n.style.transform='translateY(-8px)';setTimeout(()=>n.remove(),260);},2500);
+}
+function animateCountUp(){
+    document.querySelectorAll('.count-up').forEach(el=>{
+        const target=parseFloat(el.dataset.count||'0');
+        const suffix=el.dataset.suffix||'';
+        const dur=1200;
+        const start=performance.now();
+        function frame(now){
+            const t=Math.min((now-start)/dur,1);
+            const eased=1-Math.pow(1-t,4);
+            el.textContent=Math.round(target*eased)+suffix;
+            if(t<1)requestAnimationFrame(frame);
+        }
+        requestAnimationFrame(frame);
+    });
+}
+function ripple(e){
+    const btn=e.currentTarget;
+    const rect=btn.getBoundingClientRect();
+    const size=Math.max(rect.width,rect.height)*2;
+    const x=e.clientX-rect.left-size/2;
+    const y=e.clientY-rect.top-size/2;
+    const r=document.createElement('span');
+    r.style.cssText='position:absolute;left:'+x+'px;top:'+y+'px;width:'+size+'px;height:'+size+'px;border-radius:50%;background:'+(btn.classList.contains('btn-primary')?'rgba(255,255,255,.4)':'rgba(55,53,47,.08)')+';transform:scale(0);animation:rippleAnim .6s ease-out;pointer-events:none;';
+    btn.appendChild(r);
+    setTimeout(()=>r.remove(),620);
+}
 function toggleNotesPanel(){
     const p=document.getElementById('reader-notes-aside');
     const b=document.getElementById('notes-toggle-btn');
@@ -2388,33 +2571,56 @@ function toggleNotesPanel(){
         p.classList.add('collapsed');
         b.textContent='◀';b.title='Expand notes';
     }
-    // After CSS transition (250ms), re-render PDF to fill new width
-    if(readerPdfDoc){
-        setTimeout(async()=>{
-            const area=document.getElementById('reader-content-area');
-            if(!area)return;
-            try{
-                const firstPage=await readerPdfDoc.getPage(1);
-                const nativeWidth=firstPage.getViewport({scale:1}).width;
-                const newWidth=area.clientWidth-48;
-                readerScale=Math.min(2.0,Math.max(0.5,newWidth/nativeWidth));
-                readerRenderedPages.clear();
-                for(let i=1;i<=readerPdfTotal;i++){
-                    const pd=document.getElementById('pdf-page-'+i);
-                    if(pd){
-                        pd.innerHTML='<div style="display:flex;align-items:center;justify-content:center;padding:40px;color:var(--text-muted);font-size:13px;">⏳ Page '+i+'</div>';
-                        pd.style.cssText='margin:0 auto 16px;width:auto;min-height:400px;background:#fff;border-radius:4px;box-shadow:0 2px 8px rgba(0,0,0,.12);overflow:hidden;position:relative;';
-                    }
+    // PPTX slides are width:auto and reflow on their own; only PDF needs a
+    // scale-aware re-render. Re-render just the viewport pages (plus a small
+    // buffer) instead of resetting every page — the old full reset caused
+    // scroll jumps and slow redraws.
+    if(readerDocType!=='pdf'||!readerPdfDoc)return;
+    setTimeout(async()=>{
+        const area=document.getElementById('reader-content-area');
+        if(!area)return;
+        try{
+            const firstPage=await readerPdfDoc.getPage(1);
+            const nativeWidth=firstPage.getViewport({scale:1}).width;
+            const newWidth=area.clientWidth-48;
+            readerScale=Math.min(2.0,Math.max(0.5,newWidth/nativeWidth));
+            readerRenderedPages.clear();
+            const areaRect=area.getBoundingClientRect();
+            area.querySelectorAll('[data-page-num]').forEach(pd=>{
+                const rect=pd.getBoundingClientRect();
+                if(rect.bottom>areaRect.top-200&&rect.top<areaRect.bottom+200){
+                    pd.innerHTML='<div style="display:flex;align-items:center;justify-content:center;padding:40px;color:var(--text-muted);font-size:13px;">⏳ Page '+pd.dataset.pageNum+'</div>';
+                    pd.style.cssText='margin:0 auto 16px;width:auto;min-height:400px;background:#fff;border-radius:4px;box-shadow:0 2px 8px rgba(0,0,0,.12);overflow:hidden;position:relative;';
+                    readerRenderPdfPageFull(parseInt(pd.dataset.pageNum));
                 }
-            }catch(e){}
-        },280);
-    }
+            });
+        }catch(e){}
+    },280);
 }
 
 // ===== Init =====
 document.addEventListener('DOMContentLoaded',async()=>{
+    if(window.lucide)lucide.createIcons();
     renderSidebarUser();
     plotInit();
+    animateCountUp();
+    document.addEventListener('click',function(e){
+        const btn=e.target.closest('.btn-primary,.btn-secondary');
+        if(btn)ripple({currentTarget:btn,clientX:e.clientX,clientY:e.clientY});
+    });
+    // Study plan: checkbox toggle + drag & drop
+    document.addEventListener('change',function(e){
+        if(e.target.classList&&e.target.classList.contains('plan-check'))togglePlanComplete(e.target.dataset.key);
+    });
+    document.addEventListener('dragstart',function(e){
+        const card=e.target.closest('.plan-card');
+        if(card){planDragKey=card.dataset.key;card.classList.add('dragging');e.dataTransfer.effectAllowed='move';try{e.dataTransfer.setData('text/plain',card.dataset.key);}catch(_){}}
+    });
+    document.addEventListener('dragend',function(e){
+        const card=e.target.closest('.plan-card');
+        if(card)card.classList.remove('dragging');
+        planDragKey=null;
+    });
     // Check if logged in
     const token=localStorage.getItem('cb_token');
     if(token){

@@ -30,16 +30,18 @@ class StepChecker:
 
         Returns:
             {
-                'valid': bool,
+                'valid': bool,             # True only if no verified errors
                 'steps_checked': int,
-                'errors': List[Dict],
-                'step_results': List[Dict],
+                'errors': List[Dict],       # verified mismatches (real errors)
+                'unverifiable': List[Dict], # could not verify (NOT errors)
+                'step_results': List[Dict], # per-step valid: True/False/None
             }
         """
         # Extract equations from solution
         equations = self._extract_equations(solution)
 
         errors = []
+        unverifiable = []
         step_results = []
 
         for i, eq in enumerate(equations):
@@ -51,11 +53,17 @@ class StepChecker:
                 "error": result.get("error", ""),
             })
 
-            if not result["valid"]:
+            if result["valid"] is False:
                 errors.append({
                     "step": i + 1,
                     "equation": eq,
                     "error": result.get("error", "Symbolic mismatch"),
+                })
+            elif result["valid"] is None:
+                unverifiable.append({
+                    "step": i + 1,
+                    "equation": eq,
+                    "error": result.get("error", "Could not verify"),
                 })
 
         # If expected steps provided, verify they appear
@@ -75,6 +83,7 @@ class StepChecker:
             "valid": valid,
             "steps_checked": len(equations),
             "errors": errors,
+            "unverifiable": unverifiable,
             "step_results": step_results,
         }
 
@@ -121,39 +130,50 @@ class StepChecker:
         return unique[:10]  # Limit to first 10 equations
 
     def _verify_equation(self, eq: str) -> Dict:
-        """Verify a single equation for symbolic consistency."""
-        # Simple heuristic: if equation has =, check if LHS and RHS are equivalent
+        """
+        Verify a single equation for symbolic consistency.
+
+        ``valid`` is three-valued: ``True`` (verified equivalent),
+        ``False`` (verified NOT equivalent), or ``None`` (could not verify).
+        Callers must only treat ``False`` as an error.
+        """
         if "=" not in eq:
-            return {"valid": True, "error": ""}
+            return {"valid": None, "error": "No equality to verify"}
 
         parts = eq.split("=")
         if len(parts) != 2:
-            return {"valid": True, "error": ""}
+            return {"valid": None, "error": "Multiple '=' signs in one line"}
 
         lhs = parts[0].strip()
         rhs = parts[1].strip()
 
-        # Skip trivial cases
         if not lhs or not rhs:
-            return {"valid": True, "error": ""}
+            return {"valid": None, "error": "Empty side of equation"}
 
-        # Check if RHS is a numeric value (no need to verify)
+        # A bare numeric RHS is usually a solved value (e.g. "x = 5"), not an
+        # identity to prove. Skip it honestly instead of claiming it valid.
         if self._is_simple_numeric(rhs):
+            return {"valid": None, "error": "Numeric RHS; skipped (solved value, not an identity)"}
+
+        result = self.executor.verify_expression(lhs, rhs)
+
+        if result.get("equivalent") is True:
             return {"valid": True, "error": ""}
 
-        # Try symbolic verification
-        try:
-            result = self.executor.verify_expression(lhs, rhs)
-            if result["equivalent"]:
-                return {"valid": True, "error": ""}
-            else:
-                return {
-                    "valid": False,
-                    "error": f"LHS ({lhs}) not equivalent to RHS ({rhs})",
-                }
-        except Exception as e:
-            # If verification fails, assume valid (don't penalize parsing issues)
-            return {"valid": True, "error": f"Could not verify: {e}"}
+        if result.get("equivalent") is False:
+            return {
+                "valid": False,
+                "error": (
+                    f"LHS ({lhs}) not equivalent to RHS ({rhs}); "
+                    f"difference = {result.get('difference')}"
+                ),
+            }
+
+        # equivalent is None -> could not determine; report honestly.
+        return {
+            "valid": None,
+            "error": result.get("error", "Could not verify"),
+        }
 
     def _is_simple_numeric(self, expr: str) -> bool:
         """Check if expression is just a number."""

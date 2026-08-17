@@ -33,6 +33,26 @@ sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..', 'harness_design
 # Import server bridge (supports V2/V3 switching via HARNESS_VERSION env var)
 from server_bridge import solve_question
 
+# ---------------------------------------------------------------------------
+# Import V3 analysis + verification components (fall back gracefully).
+# These power /api/chat's routing and proof verification with the real
+# Harness V3 engine instead of the simplified inline lexicon further down.
+# ---------------------------------------------------------------------------
+try:
+    from core.topic_detector import TopicDetector
+    from core.question_classifier import QuestionClassifier
+    from core.router import SmartRouter
+    from verification.proof_verifier import ProofVerifier
+    from models.api_client import APIClient as HarnessAPIClient
+    _V3_ANALYSIS_AVAILABLE = True
+except ImportError:
+    _V3_ANALYSIS_AVAILABLE = False
+    TopicDetector = None
+    QuestionClassifier = None
+    SmartRouter = None
+    ProofVerifier = None
+    HarnessAPIClient = None
+
 from fastapi import FastAPI, UploadFile, File, Form, HTTPException, Depends, Header
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import StreamingResponse, FileResponse, JSONResponse
@@ -415,6 +435,54 @@ def run_verifier(question: str, original_answer: str, messages: list) -> str:
     except Exception as e:
         return f"[Verifier error: {e}]"
 
+
+def _analyze_question_v3(question: str):
+    """Analyze a question with the Harness V3 analysis layer.
+
+    Returns a dict with topic/qtype/lane/verification flags, or None when V3
+    is unavailable or fails — callers then fall back to the legacy lexicon.
+    """
+    if not _V3_ANALYSIS_AVAILABLE:
+        return None
+    try:
+        topic_match = TopicDetector().detect(question)
+        qtype_result = QuestionClassifier().classify(question)
+        decision = SmartRouter().route(question, topic_override=topic_match.name)
+        return {
+            "topic": topic_match.name,
+            "qtype": qtype_result.qtype.value,
+            "lane": decision.lane,
+            "is_weak": topic_match.name in TopicDetector.WEAK_TOPICS,
+            "is_proof": qtype_result.qtype.value == "Proof",
+            "use_proof_verifier": decision.use_proof_verifier,
+        }
+    except Exception:
+        return None
+
+
+def _verify_proof_v3(question: str, solution: str):
+    """Run the upgraded ProofVerifier (LLM semantic grading) on a proof.
+
+    Returns a ProofAssessment or None on any failure.
+    """
+    if not _V3_ANALYSIS_AVAILABLE or ProofVerifier is None:
+        return None
+    try:
+        client = HarnessAPIClient(
+            api_key=DASHSCOPE_API_KEY,
+            base_url=BASE_URL.replace("/chat/completions", ""),
+            model=MODEL,
+            timeout=60,
+            retries=1,
+        )
+        verifier = ProofVerifier(client=client)
+        assessment = verifier.verify(question, solution, use_llm=True)
+        client.close()
+        return assessment
+    except Exception:
+        return None
+
+
 # ============================================================================
 # FASTAPI APP
 # ============================================================================
@@ -603,9 +671,25 @@ async def health():
 
 @app.post("/api/chat")
 async def chat(req: ChatRequest):
-    """Streaming chat endpoint — routes through Harness."""
-    topic = infer_topic(req.messages[-1].get("content", "") if req.messages else "")
-    is_weak = should_use_verifier(topic)
+    """Streaming chat endpoint — routed through Harness V3 analysis layer."""
+    question = req.messages[-1].get("content", "") if req.messages else ""
+
+    # Use the V3 analysis layer (TopicDetector + QuestionClassifier +
+    # SmartRouter) when available; fall back to the legacy lexicon otherwise.
+    analysis = _analyze_question_v3(question)
+    if analysis:
+        topic = analysis["topic"]
+        qtype = analysis["qtype"]
+        lane = analysis["lane"]
+        is_weak = analysis["is_weak"]
+        is_proof = analysis["is_proof"]
+    else:
+        topic = infer_topic(question)
+        qtype = "Short"
+        lane = "B" if should_use_verifier(topic) else "A"
+        is_weak = should_use_verifier(topic)
+        is_proof = False
+
     model = get_model_for_task(req.task_type)
     system_prompt = get_system_prompt(req.task_type)
 
@@ -648,25 +732,36 @@ async def chat(req: ChatRequest):
                         if "<thinking>" in display_delta or "</thinking>" in display_delta:
                             display_delta = re.sub(r"<thinking>.*?</thinking>", "", display_delta, flags=re.DOTALL)
                         if display_delta:
-                            yield f"data: {json.dumps({'content': display_delta, 'topic': topic, 'lane': 'B' if is_weak else 'A'})}\n\n"
+                            yield f"data: {json.dumps({'content': display_delta, 'topic': topic, 'qtype': qtype, 'lane': lane})}\n\n"
                 except json.JSONDecodeError:
                     continue
 
             # Strip thinking blocks before verification
             clean_text = re.sub(r"<thinking>.*?</thinking>", "", full_text, flags=re.DOTALL).strip()
 
-            # Verifier post-processing for weak topics (non-streaming, added at end)
-            if is_weak and req.task_type in ("math_solve", "general") and len(clean_text) > 50:
-                yield f"data: {json.dumps({'content': '\n\n---\n🔍 **Verifier check** (topic: ' + topic + ')...\n', 'topic': topic, 'verifier': True})}\n\n"
-                verification = run_verifier(
-                    (req.messages[-1].get("content", "") if req.messages else ""),
-                    clean_text,
-                    full_messages
-                )
-                if "correct" in verification.lower() or "confirm" in verification.lower():
-                    yield f"data: {json.dumps({'content': '✅ **Verified**: Solution confirmed correct.\n', 'verifier': True})}\n\n"
-                else:
-                    yield f"data: {json.dumps({'content': '⚠️ **Verifier note**: ' + verification[:500] + '\n', 'verifier': True})}\n\n"
+            # Post-stream verification (added at the end, non-streaming)
+            if req.task_type in ("math_solve", "general") and len(clean_text) > 50:
+                if is_proof:
+                    # Proof questions: Harness V3 ProofVerifier with LLM semantic grading
+                    yield f"data: {json.dumps({'content': '\n\n---\n🔍 **Proof verification** (type: ' + qtype + ')...\n', 'topic': topic, 'verifier': True})}\n\n"
+                    assessment = _verify_proof_v3(question, clean_text)
+                    if assessment is not None:
+                        icon = {"pass": "✅", "needs_revision": "⚠️", "fail": "❌"}.get(assessment.overall, "⚠️")
+                        yield f"data: {json.dumps({'content': f"{icon} **Proof verdict: {assessment.overall.upper()}** (score {assessment.score:.2f})\n{assessment.feedback}\n", 'verifier': True})}\n\n"
+                    else:
+                        yield f"data: {json.dumps({'content': '⚠️ Proof verification unavailable; treat the above with caution.\n', 'verifier': True})}\n\n"
+                elif is_weak:
+                    # Weak topics: legacy cross-check verifier
+                    yield f"data: {json.dumps({'content': '\n\n---\n🔍 **Verifier check** (topic: ' + topic + ')...\n', 'topic': topic, 'verifier': True})}\n\n"
+                    verification = run_verifier(
+                        question,
+                        clean_text,
+                        full_messages
+                    )
+                    if "correct" in verification.lower() or "confirm" in verification.lower():
+                        yield f"data: {json.dumps({'content': '✅ **Verified**: Solution confirmed correct.\n', 'verifier': True})}\n\n"
+                    else:
+                        yield f"data: {json.dumps({'content': '⚠️ **Verifier note**: ' + verification[:500] + '\n', 'verifier': True})}\n\n"
 
             yield "data: [DONE]\n\n"
 

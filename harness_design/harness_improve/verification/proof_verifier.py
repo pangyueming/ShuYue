@@ -1,10 +1,13 @@
 """
 Proof Verifier: Structured proof validation using model-graded assessment
 """
+import json
 import re
 from enum import Enum
 from typing import Dict, List, Optional
 from dataclasses import dataclass
+
+from prompts.system_prompts import get_system_prompt
 
 
 class ProofType(Enum):
@@ -82,8 +85,10 @@ class ProofVerifier:
         },
     }
 
-    def __init__(self):
-        pass
+    def __init__(self, client=None):
+        # Optional APIClient. When provided and use_llm=True, verify() adds an
+        # LLM semantic grading pass on top of the structural checklist.
+        self.client = client
 
     def detect_proof_type(self, question: str, solution: str) -> ProofType:
         """Detect the type of proof from question and solution text."""
@@ -122,12 +127,34 @@ class ProofVerifier:
             return ProofType.UNKNOWN
         return best_type
 
-    def verify(self, question: str, solution: str) -> ProofAssessment:
+    def verify(self, question: str, solution: str, use_llm: bool = False) -> ProofAssessment:
         """
-        Verify proof structure using checklist-based assessment.
+        Verify a proof.
+
+        Always runs the structural (keyword-checklist) assessment first. When
+        ``use_llm`` is True and a client is configured, adds an LLM semantic
+        grading pass that checks MATHEMATICAL CORRECTNESS — not just keyword
+        presence — and returns that result when it succeeds. Any LLM failure
+        falls back to the structural assessment rather than crashing.
         """
         proof_type = self.detect_proof_type(question, solution)
+        structural = self._assess_structure(proof_type, solution)
 
+        if use_llm and self.client is not None:
+            try:
+                llm_assessment = self._llm_grade(
+                    question, solution, proof_type, structural
+                )
+                if llm_assessment is not None:
+                    return llm_assessment
+            except Exception:
+                # Never let an LLM failure crash verification; fall back.
+                pass
+
+        return structural
+
+    def _assess_structure(self, proof_type: ProofType, solution: str) -> ProofAssessment:
+        """Keyword-checklist structural assessment (fast, deterministic)."""
         if proof_type == ProofType.UNKNOWN or proof_type not in self.RUBRICS:
             # Generic assessment
             return self._generic_verify(solution)
@@ -227,6 +254,100 @@ class ProofVerifier:
                 "Basic proof structure present." if score > 0.5 else "Proof structure unclear."
             ),
         )
+
+    def _llm_grade(
+        self,
+        question: str,
+        solution: str,
+        proof_type: ProofType,
+        structural: ProofAssessment,
+    ) -> Optional[ProofAssessment]:
+        """
+        LLM-based semantic grading of a proof.
+
+        Unlike the structural checklist (which only checks whether expected
+        keywords are present), this asks the model to judge MATHEMATICAL
+        CORRECTNESS and LOGICAL RIGOUR. Returns None when the LLM is
+        unavailable or returns unparseable output.
+        """
+        structural_summary = "\n".join(
+            f"- {s.name}: {s.quality}" for s in structural.sections
+        ) or "(no structural sections)"
+
+        prompt = (
+            f"Proof type: {proof_type.value}\n\n"
+            f"Question:\n{question}\n\n"
+            f"Student solution:\n{solution}\n\n"
+            f"Structural checklist result (keyword-based only, may be misleading):\n"
+            f"{structural_summary}\n\n"
+            "Grade the proof for MATHEMATICAL CORRECTNESS and LOGICAL RIGOUR, "
+            "not just keyword presence. A proof can contain every expected "
+            "keyword yet be mathematically wrong, or be correct but terse. "
+            "Identify the first substantive error if any.\n\n"
+            'Respond with ONLY a JSON object (no markdown fences), exactly this shape:\n'
+            '{"overall": "pass" or "needs_revision" or "fail", '
+            '"score": <number 0.0 to 1.0>, '
+            '"is_mathematically_correct": <true or false>, '
+            '"feedback": "<one or two sentences of constructive feedback>"}'
+        )
+
+        text, usage, error = self.client.chat_completion(
+            messages=[
+                {"role": "system", "content": get_system_prompt("proof_verifier")},
+                {"role": "user", "content": prompt},
+            ],
+            temperature=0.0,
+            max_tokens=500,
+        )
+        if error or not text:
+            return None
+
+        data = self._parse_llm_json(text)
+        if data is None:
+            return None
+
+        overall = data.get("overall")
+        if overall not in ("pass", "needs_revision", "fail"):
+            overall = structural.overall
+
+        try:
+            score = float(data.get("score", structural.score))
+        except (TypeError, ValueError):
+            score = structural.score
+        score = max(0.0, min(1.0, score))
+
+        feedback = str(data.get("feedback") or structural.feedback)
+
+        return ProofAssessment(
+            proof_type=proof_type,
+            sections=structural.sections,
+            overall=overall,
+            score=round(score, 3),
+            feedback=feedback,
+        )
+
+    @staticmethod
+    def _parse_llm_json(text: str) -> Optional[Dict]:
+        """Parse a JSON object out of LLM output, tolerating code fences."""
+        cleaned = (text or "").strip()
+        cleaned = re.sub(r"^```(?:json)?\s*", "", cleaned)
+        cleaned = re.sub(r"\s*```$", "", cleaned)
+        try:
+            data = json.loads(cleaned)
+            if isinstance(data, dict):
+                return data
+        except Exception:
+            pass
+        # Fallback: extract the first {...} block.
+        m = re.search(r"\{.*\}", cleaned, re.DOTALL)
+        if m:
+            try:
+                data = json.loads(m.group(0))
+                if isinstance(data, dict):
+                    return data
+            except Exception:
+                pass
+        return None
 
     def format_assessment(self, assessment: ProofAssessment) -> str:
         """Format assessment as readable string."""

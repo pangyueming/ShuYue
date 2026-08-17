@@ -49,12 +49,15 @@ SYSTEM_PROMPT_VERIFIER = (
     "Be strict but constructive. Identify any errors and explain why they are wrong."
 )
 
-# Proof verifier prompt (structured)
-SYSTEM_PROMOF_VERIFIER = (
-    "You are a UK university mathematics examiner grading a mathematical proof. "
-    "Evaluate the proof against standard structural criteria for its proof type. "
-    "Grade each element as STRONG, PARTIAL, or MISSING. "
-    "Provide constructive feedback."
+# Proof verifier prompt (structured + semantic grading)
+SYSTEM_PROMPT_PROOF_VERIFIER = (
+    "You are a rigorous UK university mathematics examiner grading a mathematical proof. "
+    "Evaluate the proof for MATHEMATICAL CORRECTNESS and LOGICAL RIGOUR, "
+    "not merely the presence of expected structural elements. "
+    "A proof can contain all expected keywords yet be mathematically wrong, "
+    "or be correct but tersely written. "
+    "Be strict but constructive; identify the first substantive error if any. "
+    "Respond in JSON only."
 )
 
 # Translation prompt
@@ -78,7 +81,7 @@ def get_system_prompt(mode: str) -> str:
         "tora": SYSTEM_PROMPT_TORA,
         "guide": SYSTEM_PROMPT_GUIDE,
         "verifier": SYSTEM_PROMPT_VERIFIER,
-        "proof_verifier": SYSTEM_PROMOF_VERIFIER,
+        "proof_verifier": SYSTEM_PROMPT_PROOF_VERIFIER,
         "translate": SYSTEM_PROMPT_TRANSLATE,
         "general": SYSTEM_PROMPT_GENERAL,
     }

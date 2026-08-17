@@ -2,7 +2,7 @@
 
 > **用途**：向老师汇报、团队内部学习、新成员上手
 > **面向读者**：初学者（有一定Python基础）
-> **最后更新**：2026年8月12日
+> **最后更新**：2026年8月14日（/api/chat 接入 V3 + ProofVerifier LLM 语义验证 + StepChecker 三态修复）
 
 ---
 
@@ -858,9 +858,11 @@ Feedback: Well-structured proof with all required elements.
 ```
 
 **初学者要点**：
-- 这是**规则引擎**，不是AI判断（但未来可以升级为AI grading）
-- 通过关键词存在性判断结构完整性
-- 对老师汇报的价值：可以自动批改证明题的结构分
+- **两层验证**：先跑结构清单（快、确定性、无网络），可选再用 LLM 做数学正确性语义评分（`verify(use_llm=True)`）
+- 关键词存在性只能判断"结构是否完整"，**不能**判断"数学是否正确"——一个关键词全写全、但推理全错的证明，结构分照样 PASS
+- 因此接入了 LLM grading（`SYSTEM_PROMPT_PROOF_VERIFIER`），让模型判断**数学正确性与逻辑严谨性**，而非只看关键词
+- LLM 失败或未配置 client 时自动回退结构检查，不会崩溃
+- 对老师汇报的价值：既能自动批改结构分，也能给出数学正确性反馈
 
 ---
 
@@ -907,6 +909,8 @@ StepChecker 会报：
 - 这是**过程检查**，不是只看最终答案
 - 可以捕获中间步骤的符号错误（AI 最容易犯的错）
 - 目前只检查显式等式（有 "=" 的行）
+- **三态判定**：每步结果是 `valid=True`（等价）/ `False`（确实不等价）/ `None`（无法验证，如含积分符号、或 RHS 是纯数值的解）。`None` 不会被误报成错误，而是归入 `unverifiable`
+- **已修复两个隐患**：旧版"验证失败就当对"（`except: return valid=True`）会漏掉所有解析错误；旧版 `'0' in diff` 字符串包含判断会把 `x²-10`（含字符 `0`）误判成与 `x²` 等价。现改用 SymPy 符号等价判断（`simplify(lhs-rhs) == 0`），并诚实返回三态
 
 ---
 
@@ -985,6 +989,35 @@ def solve_question(question_text, ..., use_v3=None):
 - 这是**适配器模式**，让调用方不用关心底层是 V2 还是 V3
 - 只需改 `.env` 里的 `HARNESS_VERSION=v3`，不用改代码
 - V3 出问题时，改回 `v2` 立即恢复
+
+---
+
+### 3.15 服务集成：server.py `/api/chat` 接入 V3（2026-08-14 新增）
+
+**背景**：`server.py` 的 `/api/chat`（Math Tutor 聊天主入口）原本用一套**简化词表**（`infer_topic` + `should_use_verifier`，仅 11 个 topic），**没有**调用 Harness V3 的 SmartRouter / ProofVerifier，导致学生聊天时其实走的是阉割版逻辑。
+
+**改造后**：`/api/chat` 现在直接复用 V3 的分析层与验证层：
+
+```python
+# server.py 顶部（带 try/except 回退）
+from core.topic_detector import TopicDetector
+from core.question_classifier import QuestionClassifier
+from core.router import SmartRouter
+from verification.proof_verifier import ProofVerifier
+
+# chat 内：用 V3 分析层替代简化 infer_topic
+analysis = _analyze_question_v3(question)  # → topic / qtype / lane / is_proof
+```
+
+**流式结束后**按路由结果做后处理：
+
+| 情形 | 行为 |
+|------|------|
+| 证明题（`is_proof`） | 调 `ProofVerifier(use_llm=True)` 做 **LLM 语义验证**，输出 verdict + score + feedback |
+| 弱项知识点（`is_weak`） | 保留原 LLM 交叉验证器（`run_verifier`）兜底 |
+| 其他 | 无后处理，保持流式速度 |
+
+**关键取舍**：流式对话**没有**接入 Lane B 的"5 次采样投票 + ToRA 多轮工具调用"——那需要非流式，会破坏前端的打字机体验。需要完整投票/ToRA 时走 `/api/solve` 端点（`solve_question()` 完整 pipeline）。
 
 ---
 
