@@ -619,9 +619,9 @@
 </div>
 
 <!-- AI Chat Dialog -->
-<div id="ai-chat-modal" style="display:none;position:fixed;bottom:0;right:24px;z-index:100;width:440px;max-width:calc(100vw - 48px);height:600px;max-height:calc(100vh - 100px);flex-direction:column;border-radius:16px 16px 0 0;box-shadow:0 -4px 24px rgba(0,0,0,.2);background:var(--bg-card);border:1px solid var(--border);overflow:hidden;">
-    <!-- Header -->
-    <div style="display:flex;align-items:center;justify-content:space-between;padding:12px 16px;border-bottom:1px solid var(--border);background:var(--bg-card);">
+<div id="ai-chat-modal" style="display:none;position:fixed;z-index:100;width:440px;max-width:calc(100vw - 48px);height:600px;max-height:calc(100vh - 100px);flex-direction:column;border-radius:16px;box-shadow:0 -4px 24px rgba(0,0,0,.2);background:var(--bg-card);border:1px solid var(--border);overflow:hidden;">
+    <!-- Header (drag handle) -->
+    <div id="ai-chat-header" style="display:flex;align-items:center;justify-content:space-between;padding:12px 16px;border-bottom:1px solid var(--border);background:var(--bg-card);cursor:grab;user-select:none;">
         <div style="display:flex;align-items:center;gap:8px;">
             <div style="width:32px;height:32px;border-radius:8px;background:var(--accent);display:flex;align-items:center;justify-content:center;color:#fff;"><i data-lucide="sparkles" style="width:16px;height:16px;"></i></div>
             <div>
@@ -2100,6 +2100,12 @@ function openAIChat(quotedText){
     msgArea.innerHTML='';
     aiChatMessages=[];
 
+    // Reset position to bottom-right (default)
+    modal.style.left = 'auto';
+    modal.style.top = 'auto';
+    modal.style.right = '24px';
+    modal.style.bottom = '0px';
+
     // Show modal
     modal.style.display='flex';
 
@@ -2119,6 +2125,51 @@ function openAIChat(quotedText){
 function closeAIChat(){
     document.getElementById('ai-chat-modal').style.display='none';
 }
+
+// ===== AI Chat Modal Drag =====
+(function initAIChatDrag(){
+    const modal = document.getElementById('ai-chat-modal');
+    const header = document.getElementById('ai-chat-header');
+    if(!modal || !header) return;
+
+    let isDragging = false;
+    let offsetX = 0;
+    let offsetY = 0;
+
+    header.addEventListener('mousedown', (e) => {
+        // Ignore if clicking close button
+        if(e.target.closest('button')) return;
+        isDragging = true;
+        const rect = modal.getBoundingClientRect();
+        offsetX = e.clientX - rect.left;
+        offsetY = e.clientY - rect.top;
+        header.style.cursor = 'grabbing';
+        modal.style.transition = 'none';
+    });
+
+    document.addEventListener('mousemove', (e) => {
+        if(!isDragging) return;
+        let x = e.clientX - offsetX;
+        let y = e.clientY - offsetY;
+        // Boundary checks
+        const maxX = window.innerWidth - modal.offsetWidth;
+        const maxY = window.innerHeight - modal.offsetHeight;
+        x = Math.max(0, Math.min(x, maxX));
+        y = Math.max(0, Math.min(y, maxY));
+        modal.style.left = x + 'px';
+        modal.style.top = y + 'px';
+        modal.style.right = 'auto';
+        modal.style.bottom = 'auto';
+    });
+
+    document.addEventListener('mouseup', () => {
+        if(isDragging) {
+            isDragging = false;
+            header.style.cursor = 'grab';
+            modal.style.transition = '';
+        }
+    });
+})();
 
 function aiChatSend(text){
     text=text||document.getElementById('ai-chat-input').value.trim();
