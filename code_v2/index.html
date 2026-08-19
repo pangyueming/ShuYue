@@ -2683,6 +2683,10 @@ document.addEventListener('DOMContentLoaded',async()=>{
     // Check if logged in
     const token=localStorage.getItem('cb_token');
     if(token){
+        // Pre-update dashboard welcome message before any async ops
+        const user=JSON.parse(localStorage.getItem('cb_user')||'{}');
+        const welcomeEl=document.querySelector('#page-dashboard h1');
+        if(welcomeEl)welcomeEl.textContent='Hello, '+(user.name||'User')+' 👋';
         await bsPageInit();
         await notesInit();
     }else{
