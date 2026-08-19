@@ -2,7 +2,7 @@
 # Project Progress & Technical Roadmap
 
 > **用途**：新窗口/新协作者快速了解项目全貌
-> **最后更新**：2026年8月17日（deepseek UI 重构合并 + Profile 页面上线）
+> **最后更新**：2026年8月17日（Dashboard 真实统计上线 + UI 重构完成）
 
 ---
 
@@ -31,7 +31,7 @@
 | 4 | **Reader 文档阅读器** | ✅ 完整 | PDF.js Canvas+TextLayer(透明文字精确对齐) + PPTX解析(JSZip+图片提取) + 翻译(专用端点+语言检测)/高亮(4色+笔记+持久化)/笔记 + AI引用问答弹窗(引用修复) + 笔记面板收起/展开 + PDF自适应缩放 + 高亮自动恢复 |
 | 5 | **Notes 笔记管理** | ✅ 完整 | 全屏编辑器 + 标签筛选 + localStorage持久化 + Reader笔记自动同步到Notes页面 |
 | 6 | **Bookshelf 书架** | ✅ 完整 | 5分类(Slides/Textbooks/Exercises/Exam Papers/Research Papers) + PDF/PPTX上传 + 分类选择弹窗 + Dashboard/Bookshelf/Reader三处同步 |
-| 7 | **Dashboard 仪表板** | ✅ 部分 | 统计卡片✅ + 书架动态✅ + Math Skill Breakdown(前测后填充✅) + Study Plan(前测后填充✅) + Recent Activity(占位) |
+| 7 | **Dashboard 仪表板** | ✅ 部分 | 统计卡片(真实数据: Math Proficiency←assessments, Documents Read←documents)✅ + 书架动态✅ + Math Skill Breakdown(前测后填充✅) + Study Plan(前测后填充✅) + Recent Activity(占位) |
 | 8 | **AI Chat弹窗** | ✅ 完整 | 文档引用→自动分析→多轮对话 + Explain/Example/HS Link快捷按钮 + KaTeX渲染 |
 | 9 | **导航系统** | ✅ 完整 | 侧边栏折叠(Notion风格) + 深色/浅色模式 + 面包屑 + 10个页面 |
 
@@ -499,6 +499,9 @@ passlib[bcrypt]             # 密码哈希（bcrypt）
 | 3 | **密码强度检测** | 注册页实时显示密码强度（Weak/Medium/Strong），要求 ≥6 位 + 至少 1 字母 + 1 数字 |
 | 4 | **页面访问控制** | `LOGIN_REQUIRED_PAGES` / `LOGIN_RECOMMENDED_PAGES` 机制，未登录用户访问受限页面时提示登录 |
 | 5 | **游客数据迁移** | `migrateGuestData()` 函数：登录后自动将 `localStorage` 中的游客笔记迁移到后端数据库 |
+| 6 | **Dashboard 真实统计** | 后端新增 `GET /api/stats` 端点；Math Proficiency 读取 `assessments.avg_score`，Documents Read 读取 `documents` 表计数；前端 `loadUserStats()` 初始化时拉取并触发动画 |
+| 7 | **AI Chat 弹窗拖拽** | Reader AI Chat 弹窗 Header 区域支持拖拽移动，实现边读边问 |
+| 8 | **品牌统一** | Math Tutor / Reader AI Chat 中移除 Qwen 模型名显示，统一为 "CogniBridge AI" |
 
 ### 2026-08-13 ~ 2026-08-14：修复迭代
 
@@ -532,20 +535,32 @@ passlib[bcrypt]             # 密码哈希（bcrypt）
 
 ## 十、后续开发优先级
 
-| 优先级 | 功能 | 状态 | 预估工作量 |
-|--------|------|------|-----------|
-| 🔴 **P0** | **用户认证(JWT) + 游客模式** | ✅ 已完成 | — |
-| 🔴 **P0** | **前端连接后端** | ✅ 已完成 | — |
-| 🔴 **P0** | **Harness V3（ToRA+Proof Verifier）** | ✅ 已上线 | — |
-| 🟡 **P1** | **Knowledge Graph** | ❌ 占位 | 3-5天 |
-| 🟡 **P1** | **Student Forum** | ❌ 占位 | 3-5天 |
-| 🟡 **P1** | **Recent Activity** | ❌ 占位 | 2天 |
-| 🟢 **P2** | **前测结果存数据库** | ❌ 未做 | 1天 |
-| 🟢 **P2** | **忘记密码（方案B真实邮件）** | ❌ 未做 | 1天 |
-| 🟢 **P2** | **Google OAuth登录** | ❌ 未做 | 半天 |
-| 🟢 **P2** | **Harness V3 持续优化** | 🔄 迭代中 | 持续 |
-| 🔵 **P3** | **自适应学习画像** | ❌ 未做 | 1周 |
-| 🔵 **P3** | **AI联动画板** | ❌ 未做 | 2天 |
+### 已完成（本次迭代）
+
+| 优先级 | 功能 | 状态 |
+|--------|------|------|
+| 🔴 **P0** | **用户认证(JWT) + 游客模式** | ✅ 已完成 |
+| 🔴 **P0** | **前端连接后端** | ✅ 已完成 |
+| 🔴 **P0** | **Harness V3（ToRA+Proof Verifier）** | ✅ 已上线 |
+| 🔴 **P0** | **Dashboard 统计卡片真实数据** | ✅ 已完成（Math Proficiency + Documents Read） |
+| 🟡 **P1** | **UI 重构（deepseek 分支）** | ✅ 已完成（Lucide/Profile/密码强度/拖拽） |
+
+### 待完成
+
+| 优先级 | 功能 | 状态 | 预估工作量 | 阻塞/说明 |
+|--------|------|------|-----------|----------|
+| 🟡 **P1** | **Knowledge Graph** | ❌ 占位 | 3-5天 | 纯 placeholder，需设计节点关系 + D3.js/vis.js 渲染 |
+| 🟡 **P1** | **Student Forum** | ❌ 占位 | 3-5天 | 分类侧栏有 HTML，帖子列表是 placeholder，需后端帖子/评论/点赞表 |
+| 🟡 **P1** | **Recent Activity** | ❌ 占位 | 2天 | Dashboard 中 placeholder，需记录用户行为日志 |
+| 🟢 **P2** | **Problems Solved 计数** | ❌ 未做 | 2天 | Math Tutor 每次完成对话时 +1，需新增 `user_stats` 表或扩展 users 表 |
+| 🟢 **P2** | **Day Streak 连续登录** | ❌ 未做 | 2天 | 需记录每日登录日期，计算连续天数 |
+| 🟢 **P2** | **前测结果存数据库** | ❌ 未做 | 1天 | 前测完成后 POST /api/assessments，当前仅 localStorage |
+| 🟢 **P2** | **忘记密码（真实邮件）** | ❌ 未做 | 1天 | 当前仅打印 token 到控制台，需接入 SendGrid/Resend |
+| 🟢 **P2** | **Google OAuth登录** | ❌ 未做 | 半天 | 需注册 Google Cloud OAuth 应用 |
+| 🟢 **P2** | **Harness V3 持续优化** | 🔄 迭代中 | 持续 | 证明题准确率已达 87.5%，可继续优化其他 topic |
+| 🔵 **P3** | **自适应学习画像** | ❌ 未做 | 1周 | 基于学生行为数据（阅读/解题/高亮）动态调整学习路径 |
+| 🔵 **P3** | **AI 联动画板** | ❌ 未做 | 2天 | Math Tutor 输入函数公式，自动调用 Plotter 渲染 |
+| 🔵 **P3** | **Harness 扩展多学科** | ❌ 未做 | 2周 | 当前仅数学，需重写 TopicDetector/Prompt/Verifier 以支持物理/CS |
 
 ### 已完成里程碑
 
@@ -610,7 +625,7 @@ PPT文件：    D:\study\智学桥\智学桥_*.pptx
 ### 5. 模型配置
 ```
 主力模型：Qwen3.6-35B-A3B（阿里云百炼）
-翻译模型：Qwen-7B-Instruct（成本减半）
+翻译模型：Qwen-Turbo（成本更低）
 思考模式：enable_thinking=True（已开启）
 Harness版本：V3（默认）/ V2（回退）
 API密钥：.env文件中 DASHSCOPE_API_KEY
