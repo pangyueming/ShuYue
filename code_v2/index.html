@@ -227,7 +227,7 @@
         <div id="page-dashboard" class="page-view active" style="max-width:900px;margin:0 auto;padding:40px 48px;">
             <div style="margin-bottom:32px;">
                 <div style="font-size:13px;color:var(--text-muted);margin-bottom:4px;">Dashboard</div>
-                <h1 style="font-size:28px;font-weight:700;">Good afternoon, Yueming</h1>
+                <h1 style="font-size:28px;font-weight:700;">Hello, Yueming</h1>
             </div>
             <div class="stats-grid" style="display:grid;grid-template-columns:repeat(4,1fr);gap:16px;margin-bottom:32px;">
                 <div class="card"><div style="margin-bottom:6px;color:var(--text-secondary);"><i data-lucide="sigma" style="width:20px;height:20px;"></i></div><div class="count-up" data-count="87" data-suffix="%" style="font-size:24px;font-weight:700;">0%</div><div style="font-size:12px;color:var(--text-muted);">Math Proficiency</div></div>
@@ -878,7 +878,7 @@ function showPage(id){
         // Update welcome message with user name
         const user=token?JSON.parse(localStorage.getItem('cb_user')||'{}'):null;
         const welcomeEl=document.querySelector('#page-dashboard h1');
-        if(welcomeEl)welcomeEl.textContent='Good afternoon, '+(user?user.name:'Guest')+' 👋';
+        if(welcomeEl)welcomeEl.textContent='Hello, '+(user?user.name:'Guest')+' 👋';
         bsRenderDashboard(bsPageCat);
     }
     if(id==='profile'){
