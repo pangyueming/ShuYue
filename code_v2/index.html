@@ -703,6 +703,9 @@ async function authLogin(){
         localStorage.setItem('cb_user',JSON.stringify(data.user));
         await migrateGuestData();
         renderSidebarUser();
+        // Reload backend data after login
+        await bsPageInit();
+        await notesInit();
         showNotification('✅ Welcome back, '+data.user.name);
         showPage('dashboard');
     }catch(e){showNotification('❌ '+e.message);}
@@ -880,6 +883,11 @@ function showPage(id){
     }
     if(id==='profile'){
         renderProfile();
+    }
+    if(id==='bookshelf'){
+        // Reload documents if not loaded yet
+        const hasData=BS_CATS.some(c=>bsData[c.key]&&bsData[c.key].length>0);
+        if(!hasData)bsPageInit();
     }
 }
 function toggleSidebar(){
