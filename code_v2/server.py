@@ -1176,6 +1176,46 @@ async def delete_highlight(
     return {"deleted": hl_id}
 
 # ============================================================================
+# STATS API (Dashboard statistics)
+# ============================================================================
+
+@app.get("/api/stats")
+async def get_stats(current_user: Optional[dict] = Depends(get_current_user)):
+    """Get user statistics for Dashboard (math proficiency, docs read, etc)."""
+    if not current_user:
+        return {
+            "math_proficiency": 0,
+            "documents_read": 0,
+            "problems_solved": 0,
+            "day_streak": 0,
+        }
+    conn = get_db()
+    user_id = current_user["id"]
+
+    # Math Proficiency: from latest assessment avg_score
+    assessment = conn.execute(
+        "SELECT avg_score FROM assessments WHERE user_id=? ORDER BY created_at DESC LIMIT 1",
+        (user_id,)
+    ).fetchone()
+    math_proficiency = assessment["avg_score"] if assessment else 0
+
+    # Documents Read: count of user's documents
+    doc_count = conn.execute(
+        "SELECT COUNT(*) as cnt FROM documents WHERE user_id=?",
+        (user_id,)
+    ).fetchone()["cnt"]
+
+    # Problems Solved & Day Streak: placeholder (future implementation)
+    # For now, return 0 to indicate "not yet tracked"
+    conn.close()
+    return {
+        "math_proficiency": math_proficiency,
+        "documents_read": doc_count,
+        "problems_solved": 0,
+        "day_streak": 0,
+    }
+
+# ============================================================================
 # MAIN
 # ============================================================================
 
@@ -1218,5 +1258,7 @@ if __name__ == "__main__":
     print("    POST /api/highlights          — Create highlight")
     print("    PUT  /api/highlights/:id      — Update color/note")
     print("    DEL  /api/highlights/:id      — Delete highlight")
+    print("  STATS:")
+    print("    GET  /api/stats               — Dashboard stats (proficiency/docs/solved/streak)")
     print("=" * 50)
     uvicorn.run(app, host=HOST, port=PORT)

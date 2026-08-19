@@ -2609,6 +2609,32 @@ function animateCountUp(){
         requestAnimationFrame(frame);
     });
 }
+
+async function loadUserStats(){
+    const token=localStorage.getItem('cb_token');
+    if(!token)return;
+    try{
+        const res=await apiFetch('/api/stats');
+        if(!res.ok)return;
+        const data=await res.json();
+        // Update each stat card
+        const cards=document.querySelectorAll('.stats-grid .card');
+        if(cards.length>=4){
+            // Math Proficiency
+            const mpEl=cards[0].querySelector('.count-up');
+            if(mpEl){mpEl.dataset.count=data.math_proficiency||0;mpEl.textContent=(data.math_proficiency||0)+'%';}
+            // Documents Read
+            const drEl=cards[1].querySelector('.count-up');
+            if(drEl){drEl.dataset.count=data.documents_read||0;drEl.textContent=(data.documents_read||0)+'';}
+            // Problems Solved (placeholder)
+            const psEl=cards[2].querySelector('.count-up');
+            if(psEl){psEl.dataset.count=data.problems_solved||0;psEl.textContent=(data.problems_solved||0)+'';}
+            // Day Streak (placeholder)
+            const dsEl=cards[3].querySelector('.count-up');
+            if(dsEl){dsEl.dataset.count=data.day_streak||0;dsEl.textContent=(data.day_streak||0)+'';}
+        }
+    }catch(e){console.error('Failed to load stats:',e);}
+}
 function ripple(e){
     const btn=e.currentTarget;
     const rect=btn.getBoundingClientRect();
@@ -2662,6 +2688,7 @@ document.addEventListener('DOMContentLoaded',async()=>{
     if(window.lucide)lucide.createIcons();
     renderSidebarUser();
     plotInit();
+    await loadUserStats();
     animateCountUp();
     document.addEventListener('click',function(e){
         const btn=e.target.closest('.btn-primary,.btn-secondary');
