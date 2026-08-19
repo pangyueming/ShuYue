@@ -1311,10 +1311,12 @@ function ptGenerateReport(){const al=document.getElementById('pt-alevel').value|
         .catch(e=>console.error('Failed to save assessment:',e));
     }
     // Auto-navigate to dashboard after 3 seconds and render
-    setTimeout(()=>{
+    setTimeout(async ()=>{
         showPage('dashboard');
         renderMathSkill(window.pretestResult);
         renderStudyPlan(window.pretestResult);
+        await loadUserStats();
+        animateCountUp();
     },3000);
 }
 
