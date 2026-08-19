@@ -1290,6 +1290,26 @@ function ptGenerateReport(){const al=document.getElementById('pt-alevel').value|
     };
     // Persist to localStorage
     try{localStorage.setItem('cb_pretest',JSON.stringify(window.pretestResult));}catch(e){}
+    // Save to backend (if logged in)
+    const token=localStorage.getItem('cb_token');
+    if(token){
+        apiFetch('/api/assessments',{
+            method:'POST',
+            body:JSON.stringify({
+                alevel:al,
+                major:majorLabel,
+                knowledge_json:JSON.stringify(ptState.knowledge),
+                transition_json:JSON.stringify(ptState.transition),
+                quiz_correct:qc,
+                quiz_total:10,
+                avg_score:avg,
+                weak_topics:weak.join(','),
+                strong_topics:strong.join(','),
+                danger_topics:danger.map(t=>t.n).join(','),
+            })
+        }).then(r=>{if(r.ok)showNotification('✅ Assessment saved to cloud');})
+        .catch(e=>console.error('Failed to save assessment:',e));
+    }
     // Auto-navigate to dashboard after 3 seconds and render
     setTimeout(()=>{
         showPage('dashboard');

@@ -1176,6 +1176,73 @@ async def delete_highlight(
     return {"deleted": hl_id}
 
 # ============================================================================
+# ASSESSMENTS API (Pre-test results)
+# ============================================================================
+
+class AssessmentCreate(BaseModel):
+    alevel: str = ""
+    major: str = ""
+    knowledge_json: str = "{}"
+    transition_json: str = "{}"
+    quiz_correct: int = 0
+    quiz_total: int = 0
+    avg_score: int = 0
+    weak_topics: str = ""
+    strong_topics: str = ""
+    danger_topics: str = ""
+
+@app.post("/api/assessments")
+async def create_assessment(
+    req: AssessmentCreate,
+    current_user: Optional[dict] = Depends(get_current_user)
+):
+    """Save pre-assessment results (requires login)."""
+    if not current_user:
+        raise HTTPException(401, "Please log in to save assessment results")
+    
+    assessment_id = f"asm_{int(time.time()*1000)}"
+    conn = get_db()
+    conn.execute(
+        """INSERT INTO assessments 
+           (id, user_id, knowledge_json, transition_json, quiz_correct, quiz_total, 
+            avg_score, weak_topics, strong_topics, danger_topics)
+           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
+        (assessment_id, current_user["id"], req.knowledge_json, req.transition_json,
+         req.quiz_correct, req.quiz_total, req.avg_score, req.weak_topics, 
+         req.strong_topics, req.danger_topics)
+    )
+    conn.commit(); conn.close()
+    return {"id": assessment_id, "saved": True}
+
+@app.get("/api/assessments/latest")
+async def get_latest_assessment(
+    current_user: Optional[dict] = Depends(get_current_user)
+):
+    """Get the user's most recent assessment."""
+    if not current_user:
+        return {}
+    conn = get_db()
+    row = conn.execute(
+        "SELECT * FROM assessments WHERE user_id=? ORDER BY created_at DESC LIMIT 1",
+        (current_user["id"],)
+    ).fetchone()
+    conn.close()
+    if not row:
+        return {}
+    return {
+        "id": row["id"],
+        "knowledge_json": row["knowledge_json"],
+        "transition_json": row["transition_json"],
+        "quiz_correct": row["quiz_correct"],
+        "quiz_total": row["quiz_total"],
+        "avg_score": row["avg_score"],
+        "weak_topics": row["weak_topics"],
+        "strong_topics": row["strong_topics"],
+        "danger_topics": row["danger_topics"],
+        "created_at": row["created_at"]
+    }
+
+# ============================================================================
 # STATS API (Dashboard statistics)
 # ============================================================================
 

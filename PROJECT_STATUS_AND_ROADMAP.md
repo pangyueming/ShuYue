@@ -25,7 +25,7 @@
 
 | # | 功能 | 状态 | 技术要点 |
 |---|------|------|---------|
-| 1 | **Pre-Assessment 前测** | ✅ 完整 | 4步流程(基本信息→知识自评→衔接预警→10题评测)→诊断报告→3秒后自动跳转Dashboard填充Math Skill + Study Plan |
+| 1 | **Pre-Assessment 前测** | ✅ 完整 | 4步流程→诊断报告→自动跳转Dashboard + 结果保存到后端数据库(assessments表) + 支持查看最新结果 |
 | 2 | **Math Tutor AI辅导** | ✅ 完整 | General/Deep双模式 + Qwen3.6流式回复(Harness路由) + 上传资料引用 + 快捷示例 + 练习题生成 + A-Level知识联系按钮 + KaTeX公式渲染 + System Prompt冲突修复 + Socratic引导增强(5级脚手架) |
 | 3 | **Function Plotter 函数画板** | ✅ 完整 | 2D多函数叠加 + 3D曲面 + 圆锥曲线(圆/椭圆/抛物线/双曲线) + 参数可调 |
 | 4 | **Reader 文档阅读器** | ✅ 完整 | PDF.js Canvas+TextLayer(透明文字精确对齐) + PPTX解析(JSZip+图片提取) + 翻译(专用端点+语言检测)/高亮(4色+笔记+持久化)/笔记 + AI引用问答弹窗(引用修复) + 笔记面板收起/展开 + PDF自适应缩放 + 高亮自动恢复 |
@@ -543,6 +543,7 @@ passlib[bcrypt]             # 密码哈希（bcrypt）
 | 🔴 **P0** | **前端连接后端** | ✅ 已完成 |
 | 🔴 **P0** | **Harness V3（ToRA+Proof Verifier）** | ✅ 已上线 |
 | 🔴 **P0** | **Dashboard 统计卡片真实数据** | ✅ 已完成（Math Proficiency + Documents Read） |
+| 🔴 **P0** | **前测结果存数据库** | ✅ 已完成（POST /api/assessments + GET /api/assessments/latest） |
 | 🟡 **P1** | **UI 重构（deepseek 分支）** | ✅ 已完成（Lucide/Profile/密码强度/拖拽） |
 
 ### 待完成
@@ -554,7 +555,6 @@ passlib[bcrypt]             # 密码哈希（bcrypt）
 | 🟡 **P1** | **Recent Activity** | ❌ 占位 | 2天 | Dashboard 中 placeholder，需记录用户行为日志 |
 | 🟢 **P2** | **Problems Solved 计数** | ❌ 未做 | 2天 | Math Tutor 每次完成对话时 +1，需新增 `user_stats` 表或扩展 users 表 |
 | 🟢 **P2** | **Day Streak 连续登录** | ❌ 未做 | 2天 | 需记录每日登录日期，计算连续天数 |
-| 🟢 **P2** | **前测结果存数据库** | ❌ 未做 | 1天 | 前测完成后 POST /api/assessments，当前仅 localStorage |
 | 🟢 **P2** | **忘记密码（真实邮件）** | ❌ 未做 | 1天 | 当前仅打印 token 到控制台，需接入 SendGrid/Resend |
 | 🟢 **P2** | **Google OAuth登录** | ❌ 未做 | 半天 | 需注册 Google Cloud OAuth 应用 |
 | 🟢 **P2** | **Harness V3 持续优化** | 🔄 迭代中 | 持续 | 证明题准确率已达 87.5%，可继续优化其他 topic |
