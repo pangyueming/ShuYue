@@ -232,8 +232,8 @@
             <div class="stats-grid" style="display:grid;grid-template-columns:repeat(4,1fr);gap:16px;margin-bottom:32px;">
                 <div class="card"><div style="margin-bottom:6px;color:var(--text-secondary);"><i data-lucide="sigma" style="width:20px;height:20px;"></i></div><div class="count-up" data-count="87" data-suffix="%" style="font-size:24px;font-weight:700;">0%</div><div style="font-size:12px;color:var(--text-muted);">Math Proficiency</div></div>
                 <div class="card"><div style="margin-bottom:6px;color:var(--text-secondary);"><i data-lucide="book-open" style="width:20px;height:20px;"></i></div><div class="count-up" data-count="12" style="font-size:24px;font-weight:700;">0</div><div style="font-size:12px;color:var(--text-muted);">Documents Read</div></div>
-                <div class="card"><div style="margin-bottom:6px;color:var(--text-secondary);"><i data-lucide="circle-check" style="width:20px;height:20px;"></i></div><div class="count-up" data-count="156" style="font-size:24px;font-weight:700;">0</div><div style="font-size:12px;color:var(--text-muted);">Problems Solved</div></div>
-                <div class="card"><div style="margin-bottom:6px;color:var(--text-secondary);"><i data-lucide="flame" style="width:20px;height:20px;"></i></div><div class="count-up" data-count="14" style="font-size:24px;font-weight:700;">0</div><div style="font-size:12px;color:var(--text-muted);">Day Streak</div></div>
+                <div class="card"><div style="margin-bottom:6px;color:var(--text-secondary);"><i data-lucide="circle-check" style="width:20px;height:20px;"></i></div><div class="count-up" data-count="156" style="font-size:24px;font-weight:700;">0</div><div style="font-size:12px;color:var(--text-muted);">Problems Solved</div><div id="stat-spark-problems" style="display:flex;gap:3px;align-items:flex-end;height:26px;margin-top:8px;"></div></div>
+                <div class="card"><div style="margin-bottom:6px;color:var(--text-secondary);"><i data-lucide="flame" style="width:20px;height:20px;"></i></div><div class="count-up" data-count="14" style="font-size:24px;font-weight:700;">0</div><div style="font-size:12px;color:var(--text-muted);">Day Streak</div><div id="stat-spark-streak" style="display:flex;gap:4px;margin-top:8px;"></div></div>
             </div>
             <h2 style="font-size:18px;font-weight:600;margin-bottom:12px;">My Bookshelf</h2>
             <div class="card" style="margin-bottom:32px;padding:12px;">
@@ -2633,6 +2633,9 @@ function animateCountUp(){
 }
 
 async function loadUserStats(){
+    // Render mini charts for all visitors (guests included, demo data)
+    renderProblemsSparkline();
+    renderStreakDots();
     const token=localStorage.getItem('cb_token');
     if(!token)return;
     try{
@@ -2648,14 +2651,39 @@ async function loadUserStats(){
             // Documents Read
             const drEl=cards[1].querySelector('.count-up');
             if(drEl){drEl.dataset.count=data.documents_read||0;drEl.textContent=(data.documents_read||0)+'';}
-            // Problems Solved (placeholder)
+            // Problems Solved
+            // TODO: backend tracking not implemented yet — 0 falls back to demo data for showcase
             const psEl=cards[2].querySelector('.count-up');
-            if(psEl){psEl.dataset.count=data.problems_solved||0;psEl.textContent=(data.problems_solved||0)+'';}
-            // Day Streak (placeholder)
+            const psCount=data.problems_solved||156;
+            if(psEl){psEl.dataset.count=psCount;psEl.textContent=psCount+'';}
+            // Day Streak
+            // TODO: streak tracking not implemented yet — 0 falls back to demo data for showcase
             const dsEl=cards[3].querySelector('.count-up');
-            if(dsEl){dsEl.dataset.count=data.day_streak||0;dsEl.textContent=(data.day_streak||0)+'';}
+            const dsCount=data.day_streak||14;
+            if(dsEl){dsEl.dataset.count=dsCount;dsEl.textContent=dsCount+'';}
         }
     }catch(e){console.error('Failed to load stats:',e);}
+}
+
+function renderProblemsSparkline(){
+    const el=document.getElementById('stat-spark-problems');
+    if(!el)return;
+    // TODO: replace demo weekly data with real /api/stats history when tracking lands
+    const week=[12,25,18,32,40,15,14];
+    const max=Math.max(...week);
+    const days=['Mon','Tue','Wed','Thu','Fri','Sat','Sun'];
+    el.innerHTML=week.map((v,i)=>{
+        const h=Math.max(4,Math.round(v/max*26));
+        return `<div title="${days[i]}: ${v} problems" style="flex:1;height:${h}px;border-radius:2px;background:linear-gradient(180deg,var(--accent),rgba(35,131,226,.4));transition:height .8s cubic-bezier(.2,.8,.2,1);"></div>`;
+    }).join('');
+}
+
+function renderStreakDots(){
+    const el=document.getElementById('stat-spark-streak');
+    if(!el)return;
+    // TODO: replace demo check-ins with real login dates when streak tracking lands
+    const checked=[1,1,1,1,1,1,1];
+    el.innerHTML=checked.map(c=>`<div title="${c?'Studied':'Missed'}" style="flex:1;height:10px;border-radius:3px;background:${c?'linear-gradient(90deg,#fa8c16,#faad14)':'var(--bg-tag)'};border:1px solid ${c?'transparent':'var(--border)'};"></div>`).join('');
 }
 function ripple(e){
     const btn=e.currentTarget;
