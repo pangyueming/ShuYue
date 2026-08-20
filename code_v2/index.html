@@ -1027,6 +1027,11 @@ function mdToHtmlTutor(md){
     text=text.replace(/\*\*(.+?)\*\*/g,'<strong>$1</strong>');
     text=text.replace(/\*(.+?)\*/g,'<em>$1</em>');
     text=text.replace(/`(.+?)`/g,'<code style="background:rgba(0,0,0,.1);padding:1px 4px;border-radius:3px;font-size:12px;">$1</code>');
+    // Headings (H4→H1 order so ### is not eaten by #)
+    text=text.replace(/^#### (.+)$/gm,'<div style="font-size:13px;font-weight:700;margin:10px 0 3px;">$1</div>');
+    text=text.replace(/^### (.+)$/gm,'<div style="font-size:14px;font-weight:700;margin:10px 0 4px;">$1</div>');
+    text=text.replace(/^## (.+)$/gm,'<div style="font-size:15px;font-weight:700;margin:12px 0 4px;">$1</div>');
+    text=text.replace(/^# (.+)$/gm,'<div style="font-size:16px;font-weight:700;margin:12px 0 4px;">$1</div>');
     text=text.replace(/^\- (.+)$/gm,'<li style="margin-left:16px;">$1</li>');
     text=text.replace(/^\d+\. (.+)$/gm,'<li style="margin-left:16px;">$1</li>');
     text=text.replace(/\n/g,'<br>');
@@ -2419,7 +2424,13 @@ function markdownToHtml(md){
     h=h.replace(/\*\*(.+?)\*\*/g,'<strong>$1</strong>');
     h=h.replace(/\*(.+?)\*/g,'<em>$1</em>');
     h=h.replace(/`(.+?)`/g,'<code style="background:rgba(0,0,0,.1);padding:1px 4px;border-radius:3px;font-size:12px;">$1</code>');
+    // Headings (H4→H1 order so ### is not eaten by #)
+    h=h.replace(/^#### (.+)$/gm,'<div style="font-size:13px;font-weight:700;margin:10px 0 3px;">$1</div>');
+    h=h.replace(/^### (.+)$/gm,'<div style="font-size:14px;font-weight:700;margin:10px 0 4px;">$1</div>');
+    h=h.replace(/^## (.+)$/gm,'<div style="font-size:15px;font-weight:700;margin:12px 0 4px;">$1</div>');
+    h=h.replace(/^# (.+)$/gm,'<div style="font-size:16px;font-weight:700;margin:12px 0 4px;">$1</div>');
     h=h.replace(/^\- (.+)$/gm,'<li style="margin-left:16px;">$1</li>');
+    h=h.replace(/^\d+\. (.+)$/gm,'<li style="margin-left:16px;">$1</li>');
     h=h.replace(/\n/g,'<br>');
     // Render math
     if(typeof katex!=='undefined'){
