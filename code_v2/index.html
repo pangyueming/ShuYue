@@ -462,7 +462,7 @@
                     </div>
                 </aside>
                 <div style="flex:1;display:flex;flex-direction:column;overflow:hidden;">
-                    <div style="padding:8px 24px;border-bottom:1px solid var(--border);background:var(--bg-card);"><span style="font-size:14px;font-weight:500;" id="reader-toolbar">Select text to translate, annotate or ask AI</span></div>
+                    <div style="padding:8px 16px 8px 24px;border-bottom:1px solid var(--border);background:var(--bg-card);display:flex;align-items:center;gap:8px;"><span style="font-size:14px;font-weight:500;flex:1;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;" id="reader-toolbar">Select text to translate, annotate or ask AI</span><button onclick="openAIChatFree()" onmouseenter="this.style.background='#5b21b6'" onmouseleave="this.style.background='#722ed1'" style="flex-shrink:0;display:flex;align-items:center;gap:6px;padding:6px 14px;border-radius:8px;border:none;background:#722ed1;color:#fff;font-size:12px;font-weight:600;cursor:pointer;transition:background .15s;"><i data-lucide="sparkles" style="width:14px;height:14px;"></i>Chat AI</button></div>
                     <div id="reader-content-area" style="flex:1;overflow-y:auto;padding:32px 16px;background:var(--bg-tag);" class="scrollbar">
                         <div class="placeholder-box" style="max-width:600px;margin:0 auto;min-height:calc(100vh - 250px);background:var(--bg-card);">
                             <div style="margin-bottom:14px;display:flex;justify-content:center;"><i data-lucide="book-open" style="width:40px;height:40px;color:var(--text-muted);stroke-width:1.4;"></i></div>
@@ -2197,13 +2197,62 @@ function readerAction(action){const menu=document.getElementById('reader-float-m
 // ===== AI CHAT DIALOG =====
 let aiChatMessages=[];
 
-function openAIChat(quotedText){
+// ===== AI Chat (Free mode): chat about the current page without selecting text =====
+function openAIChatFree(){
     aiChatMessages=[];
+    window.aiChatPageContext=null;   // reset before capturing
     const modal=document.getElementById('ai-chat-modal');
     const quoteEl=document.getElementById('ai-chat-quote');
     const msgArea=document.getElementById('ai-chat-messages');
 
-    // Show quoted text
+    // Capture the page the student is currently reading (from toolbar "Page N of M")
+    let ctxLabel='';
+    try{
+        const tb=document.getElementById('reader-toolbar');
+        const m=tb&&tb.textContent.match(/Page (\d+) of/);
+        if(m){
+            const pageDiv=document.getElementById('pdf-page-'+m[1]);
+            const pageText=(pageDiv&&pageDiv.dataset.text||'').trim();
+            if(pageText){
+                window.aiChatPageContext=pageText.substring(0,2000);
+                ctxLabel='📄 Page '+m[1]+' — ask anything about this page';
+            }
+        }
+    }catch(e){}
+
+    // Show context strip (blue) or nothing in plain chat mode
+    if(ctxLabel){
+        quoteEl.style.display='block';
+        quoteEl.textContent=ctxLabel;
+        quoteEl.style.background='rgba(35,131,226,.06)';
+        quoteEl.style.borderLeft='3px solid #2383e2';
+    }else{
+        quoteEl.style.display='none';
+        quoteEl.style.background='rgba(114,46,209,.04)';
+        quoteEl.style.borderLeft='3px solid #722ed1';
+    }
+
+    msgArea.innerHTML='';
+    aiChatMessages=[];
+
+    // Reset position to bottom-right (default)
+    modal.style.left='auto';modal.style.top='auto';modal.style.right='24px';modal.style.bottom='0px';
+    modal.style.display='flex';
+
+    // Focus input — no auto-send, let the student ask freely
+    setTimeout(()=>{const inp=document.getElementById('ai-chat-input');if(inp)inp.focus();},150);
+}
+
+function openAIChat(quotedText){
+    aiChatMessages=[];
+    window.aiChatPageContext=null;   // quote mode takes priority over page context
+    const modal=document.getElementById('ai-chat-modal');
+    const quoteEl=document.getElementById('ai-chat-quote');
+    const msgArea=document.getElementById('ai-chat-messages');
+
+    // Show quoted text (restore purple quote styling)
+    quoteEl.style.background='rgba(114,46,209,.04)';
+    quoteEl.style.borderLeft='3px solid #722ed1';
     if(quotedText){
         quoteEl.style.display='block';
         quoteEl.textContent='"'+quotedText.substring(0,200)+(quotedText.length>200?'...':'')+'"';
@@ -2238,6 +2287,7 @@ function openAIChat(quotedText){
 }
 
 function closeAIChat(){
+    window.aiChatPageContext=null;
     document.getElementById('ai-chat-modal').style.display='none';
 }
 
@@ -2320,7 +2370,16 @@ function aiChatSend(text){
     const quote=quoteEl.style.display!=='none'?quoteEl.textContent:'';
     const sysContent='You are CogniBridge, an AI maths tutor for university students. Be clear, concise and helpful. Use markdown formatting (bold, lists). If asked in Chinese, reply in Chinese. If English, reply in English.'+(quote?'\n\nThe student selected this text from their document:\n'+quote:'');
 
-    const apiMessages=[{role:'system',content:sysContent},...aiChatMessages];
+    const apiMessages=[{role:'system',content:sysContent},...(
+        // Inject page context into the FIRST user message only (backend filters
+        // system messages, so context must travel inside a user message)
+        window.aiChatPageContext?aiChatMessages.map((m,i)=>{
+            const firstUser=i===aiChatMessages.findIndex(x=>x.role==='user');
+            return (firstUser&&m.role==='user')
+                ?{...m,content:m.content+'\n\n[Context: the page the student is currently reading]\n'+window.aiChatPageContext}
+                :m;
+        }):aiChatMessages
+    )];
 
     // Call Kimi
     kimiCall(apiMessages,
