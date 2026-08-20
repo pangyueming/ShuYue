@@ -29,8 +29,8 @@
 | 2 | **Math Tutor AI辅导** | ✅ 完整 | General/Deep双模式 + Qwen3.6流式回复(Harness路由) + 上传资料引用 + 快捷示例 + 练习题生成 + A-Level知识联系按钮 + KaTeX公式渲染 + System Prompt冲突修复 + Socratic引导增强(5级脚手架) |
 | 3 | **Function Plotter 函数画板** | ✅ 完整 | 2D多函数叠加 + 3D曲面 + 圆锥曲线(圆/椭圆/抛物线/双曲线) + 参数可调 |
 | 4 | **Reader 文档阅读器** | ✅ 完整 | PDF.js Canvas+TextLayer(透明文字精确对齐) + PPTX解析(JSZip+图片提取) + 翻译(专用端点+语言检测)/高亮(4色+笔记+持久化)/笔记 + AI引用问答弹窗(引用修复) + 笔记面板收起/展开 + PDF自适应缩放 + 高亮自动恢复 |
-| 5 | **Notes 笔记管理** | ✅ 完整 | 全屏编辑器 + 标签筛选 + localStorage持久化 + Reader笔记自动同步到Notes页面 |
-| 6 | **Bookshelf 书架** | ✅ 完整 | 5分类(Slides/Textbooks/Exercises/Exam Papers/Research Papers) + PDF/PPTX上传 + 分类选择弹窗 + Dashboard/Bookshelf/Reader三处同步 |
+| 5 | **Notes 笔记管理** | ✅ 完整 | 全屏编辑器 + 标签筛选 + localStorage持久化 + Reader笔记自动同步到Notes页面 + PDF笔记(书架Notes分类上传的PDF在笔记页显示，点击跳Reader打开，双向删除同步) |
+| 6 | **Bookshelf 书架** | ✅ 完整 | 6分类(Slides/Textbooks/Exercises/Exam Papers/Research Papers/Notes) + PDF/PPTX上传 + 分类选择弹窗 + Dashboard/Bookshelf/Reader三处同步 + Notes分类与笔记页联动 |
 | 7 | **Dashboard 仪表板** | ✅ 部分 | 统计卡片(真实数据: Math Proficiency←assessments, Documents Read←documents)✅ + 书架动态✅ + Math Skill Breakdown(前测后填充✅) + Study Plan(前测后填充✅) + Recent Activity(占位) |
 | 8 | **AI Chat弹窗** | ✅ 完整 | 文档引用→自动分析→多轮对话 + Explain/Example/HS Link快捷按钮 + KaTeX渲染 |
 | 9 | **导航系统** | ✅ 完整 | 侧边栏折叠(Notion风格) + 深色/浅色模式 + 面包屑 + 10个页面 |
@@ -502,6 +502,7 @@ passlib[bcrypt]             # 密码哈希（bcrypt）
 | 6 | **Dashboard 真实统计** | 后端新增 `GET /api/stats` 端点；Math Proficiency 读取 `assessments.avg_score`，Documents Read 读取 `documents` 表计数；前端 `loadUserStats()` 初始化时拉取并触发动画 |
 | 7 | **AI Chat 弹窗拖拽** | Reader AI Chat 弹窗 Header 区域支持拖拽移动，实现边读边问 |
 | 8 | **品牌统一** | Math Tutor / Reader AI Chat 中移除 Qwen 模型名显示，统一为 "CogniBridge AI" |
+| 9 | **书架 Notes 分类 + PDF 笔记同步** | 书架新增第6分类 Notes；上传到该分类的 PDF 自动出现在笔记页（PDF 徽章卡片，点击跳 Reader 打开）；删除双向同步（笔记页硬删除→书架同步消失；书架回收站/恢复/永久删除→笔记页实时联动） |
 
 ### 2026-08-13 ~ 2026-08-14：修复迭代
 

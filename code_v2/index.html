@@ -1076,6 +1076,31 @@ async function notesLoad(){
         showNotification('⚠️ Could not load notes from server');
         notesData=[];
     }
+    // Merge PDF notes uploaded to the "notes" category in Bookshelf
+    try{
+        const res2=await apiFetch('/api/documents?category=notes');
+        if(res2.ok){
+            const pdfDocs=await res2.json();
+            pdfDocs.forEach(d=>{
+                // Skip if already merged (avoid duplicates on re-load)
+                if(notesData.some(n=>n.id==='pdf_'+d.id))return;
+                notesData.push({
+                    id:'pdf_'+d.id,
+                    documentId:d.id,
+                    title:d.title||'Untitled PDF',
+                    tag:'PDF',
+                    isPdf:true,
+                    source:'pdf',
+                    desc:d.desc||'',
+                    fileType:d.fileType||'pdf',
+                    createdAt:d.createdAt,
+                    updatedAt:d.createdAt,
+                    isDeleted:false,
+                    deletedAt:null
+                });
+            });
+        }
+    }catch(e){console.error('Failed to load PDF notes:',e);}
     // Merge recycle-bin state from localStorage (soft-delete not yet in backend)
     try{
         const s=localStorage.getItem('cb_notes_recycle');
@@ -1150,6 +1175,22 @@ function notesRender(){
                 </div>
             </div>`;
         }
+        if(n.isPdf){
+            return `<div class="card" style="cursor:pointer;position:relative;" onmouseenter="this.querySelector('.note-del-btn').style.opacity='1'" onmouseleave="this.querySelector('.note-del-btn').style.opacity='0'">
+                <button class="note-del-btn" onclick="event.stopPropagation();notesDeletePdfNote('${n.id}')" style="position:absolute;top:8px;right:8px;width:22px;height:22px;border-radius:6px;border:none;background:rgba(255,107,107,.9);color:#fff;font-size:11px;cursor:pointer;opacity:0;transition:opacity .15s;display:flex;align-items:center;justify-content:center;z-index:2;">×</button>
+                <div onclick="notesOpenPdf('${n.id}')" style="width:100%;">
+                <div style="display:flex;align-items:center;gap:8px;margin-bottom:6px;">
+                    <span style="color:#722ed1;display:flex;align-items:center;">${iconHtml('file-text',18)}</span>
+                    <span style="font-size:14px;font-weight:600;color:var(--text-primary);">${escapeHtml(n.title||'Untitled PDF')}</span>
+                    <span style="font-size:10px;padding:1px 6px;border-radius:4px;background:rgba(114,46,209,.1);color:#722ed1;font-weight:600;">PDF</span>
+                    <span style="margin-left:auto;font-size:11px;color:var(--text-muted);">${dateStr}</span>
+                </div>
+                <div style="font-size:12px;color:var(--text-muted);display:flex;align-items:center;gap:6px;">
+                    <span>${escapeHtml(n.desc||'')}</span>
+                    <span style="margin-left:auto;font-size:11px;color:var(--accent);display:flex;align-items:center;gap:4px;">${iconHtml('book-open',12)} Open in Reader</span>
+                </div></div>
+            </div>`;
+        }
         return `<div class="card" style="cursor:pointer;position:relative;" onmouseenter="this.querySelector('.note-del-btn').style.opacity='1'" onmouseleave="this.querySelector('.note-del-btn').style.opacity='0'">
             <button class="note-del-btn" onclick="event.stopPropagation();notesDeleteNote('${n.id}')" style="position:absolute;top:8px;right:8px;width:22px;height:22px;border-radius:6px;border:none;background:rgba(255,107,107,.9);color:#fff;font-size:11px;cursor:pointer;opacity:0;transition:opacity .15s;display:flex;align-items:center;justify-content:center;z-index:2;">×</button>
             <div onclick="notesEdit('${n.id}')" style="width:100%;">
@@ -1161,6 +1202,40 @@ function notesRender(){
             <p style="font-size:13px;color:var(--text-secondary);white-space:pre-wrap;">${escapeHtml(preview)}</p></div>
         </div>`;
     }).join('');
+}
+
+function notesOpenPdf(id){
+    const n=notesData.find(x=>x.id===id);
+    if(!n||!n.isPdf)return;
+    // Locate the doc index inside bookshelf "notes" category, then open in Reader
+    const arr=bsData['notes']||[];
+    const idx=arr.findIndex(d=>d.id===n.documentId);
+    if(idx===-1){showNotification('⚠️ PDF not found in bookshelf. Reloading…');bsPageInit();return;}
+    showPage('reader');
+    setTimeout(()=>readerOpenDoc('notes',idx),100);
+}
+
+function notesDeletePdfNote(id){
+    const n=notesData.find(x=>x.id===id);
+    if(!n||!n.isPdf)return;
+    showConfirmDialog({
+        title:'Delete PDF Note?',
+        message:`"${n.title}" will be permanently removed from both Notes and Bookshelf.`,
+        confirmText:'Delete',
+        confirmColor:'#ff6b6b',
+        onConfirm:async()=>{
+            try{
+                const res=await apiFetch('/api/documents/'+n.documentId,{method:'DELETE'});
+                if(!res.ok)throw new Error('HTTP '+res.status);
+                await notesInit();      // refresh Notes page
+                await bsPageInit();     // refresh Bookshelf (Dashboard/page/Reader modal)
+                showNotification('✅ Deleted from Notes & Bookshelf');
+            }catch(e){
+                console.error('Failed to delete PDF note:',e);
+                showNotification('❌ Delete failed: '+e.message);
+            }
+        }
+    });
 }
 
 function notesNewNote(){
@@ -1176,6 +1251,7 @@ function notesNewNote(){
 
 function notesEdit(id){
     const n=notesData.find(x=>x.id===id);if(!n)return;
+    if(n.isPdf){notesOpenPdf(id);return;}
     notesEditingId=id;
     document.getElementById('notes-editor-title').value=n.title||'';
     document.getElementById('notes-editor-tag').value=n.tag||'';
@@ -1558,12 +1634,13 @@ const BS_CATS=[
     {key:'textbooks',icon:'book-open',label:'Textbooks'},
     {key:'exercises',icon:'pen-line',label:'Exercises'},
     {key:'exam-papers',icon:'file-text',label:'Exam Papers'},
-    {key:'research-papers',icon:'scroll-text',label:'Research Papers'}
+    {key:'research-papers',icon:'scroll-text',label:'Research Papers'},
+    {key:'notes',icon:'notebook-pen',label:'Notes'}
 ];
 function iconHtml(name,size){size=size||16;return `<i data-lucide="${name}" style="width:${size}px;height:${size}px;flex-shrink:0;"></i>`;}
 function refreshIcons(){if(window.lucide)lucide.createIcons();}
 function categoryIcon(category){const c=BS_CATS.find(x=>x.key===category);return c?c.icon:'file';}
-let bsData={slides:[],textbooks:[],exercises:[],'exam-papers':[],'research-papers':[]};
+let bsData={slides:[],textbooks:[],exercises:[],'exam-papers':[],'research-papers':[],notes:[]};
 let bsPageCat='slides', bsModalCat='all';
 let bsPendingFile=null, bsPendingCat=null;
 
@@ -1723,6 +1800,7 @@ function bsSelCat(key,el){bsPendingCat=key;el.parentElement.querySelectorAll('di
 function bsCloseUpload(){document.getElementById('bs-upload-modal').style.display='none';bsPendingFile=null;bsPendingCat=null;}
 async function bsConfirmUpload(){if(!bsPendingFile||!bsPendingCat)return;
     const cat=BS_CATS.find(c=>c.key===bsPendingCat);
+    const uploadCat=bsPendingCat;   // remember before bsCloseUpload clears it
     const formData=new FormData();
     formData.append('file',bsPendingFile);
     formData.append('category',bsPendingCat);
@@ -1743,6 +1821,8 @@ async function bsConfirmUpload(){if(!bsPendingFile||!bsPendingCat)return;
         });
         bsCloseUpload();bsPageRenderGrid(bsPageCat);bsRenderDashboard(bsPageCat);
         const rm=document.getElementById('reader-bs-modal');if(rm&&rm.style.display==='flex')readerRenderModalDocs(bsModalCat);
+        // Sync: PDF uploaded to "notes" category should appear on Notes page
+        if(uploadCat==='notes'){notesInit();}
         showNotification('✅ Uploaded to '+cat.label);
     }catch(e){
         console.error('Upload failed:',e);
@@ -2517,6 +2597,9 @@ function bsDeleteDocument(docId){
             bsRenderDashboard(bsPageCat);
             const rm=document.getElementById('reader-bs-modal');
             if(rm&&rm.style.display==='flex')readerRenderModalDocs(bsModalCat);
+            // Sync: hide PDF entry on Notes page when its document goes to Recycle Bin
+            const pdfNote=notesData.find(n=>n.isPdf&&n.documentId===docId);
+            if(pdfNote){pdfNote.isDeleted=true;pdfNote.deletedAt=doc.deletedAt;notesRender();}
             showNotification('✅ Moved to Recycle Bin');
         }
     });
@@ -2528,6 +2611,9 @@ function bsRestoreDocument(docId){
     doc.deletedAt=null;
     bsPageRenderGrid(bsPageCat);
     bsRenderDashboard(bsPageCat);
+    // Sync: restore PDF entry on Notes page
+    const pdfNote=notesData.find(n=>n.isPdf&&n.documentId===docId);
+    if(pdfNote){pdfNote.isDeleted=false;pdfNote.deletedAt=null;notesRender();}
     showNotification('Document restored');
 }
 async function bsPermanentlyDeleteDocument(docId){
@@ -2549,6 +2635,8 @@ async function bsPermanentlyDeleteDocument(docId){
             });
             bsPageRenderGrid(bsPageCat);
             bsRenderDashboard(bsPageCat);
+            // Sync: fully reload Notes page so the deleted PDF disappears everywhere
+            notesInit();
             showNotification('💥 Permanently deleted');
         }
     });
