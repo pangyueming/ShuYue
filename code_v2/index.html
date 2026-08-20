@@ -1011,6 +1011,28 @@ function tutorSend(){
 
 function escapeHtmlTutor(t){return t.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;');}
 
+// ===== Markdown table renderer (shared by Math Tutor + Reader AI Chat) =====
+const MD_TABLE_RE=/(^\|.+\|$)\n(^\|[ :\-|]+\|$)(?:\n((?:^\|.*\|\n?)*))?/gm;
+function mdTableBlock(block){
+    const lines=block.split('\n').filter(l=>l.trim());
+    const cells=row=>row.replace(/^\||\|$/g,'').split('|').map(c=>c.trim());
+    // Column count & alignment come from the separator row (:--- / :---: / ---:)
+    const seps=cells(lines[1]);
+    const aligns=seps.map(s=>{
+        const l=s.startsWith(':'),r=s.endsWith(':');
+        if(l&&r)return 'center';
+        if(r)return 'right';
+        return 'left';
+    });
+    const th=cells(lines[0]).map((c,i)=>`<th style="border:1px solid var(--border);padding:4px 10px;background:var(--bg-tag);font-weight:600;text-align:${aligns[i]||'left'};">${c}</th>`).join('');
+    const rows=lines.slice(2).map(line=>{
+        const cs=cells(line);
+        while(cs.length<seps.length)cs.push('');   // ragged rows: pad, never undefined
+        return '<tr>'+cs.map((c,i)=>`<td style="border:1px solid var(--border);padding:4px 10px;text-align:${aligns[i]||'left'};">${c}</td>`).join('')+'</tr>';
+    }).join('');
+    return `<div style="overflow-x:auto;margin:8px 0;"><table style="border-collapse:collapse;font-size:12px;white-space:nowrap;"><thead><tr>${th}</tr></thead><tbody>${rows}</tbody></table></div>`;
+}
+
 function mdToHtmlTutor(md){
     // 1. Protect LaTeX math before escaping
     const mathBlocks=[];
@@ -1034,6 +1056,8 @@ function mdToHtmlTutor(md){
     text=text.replace(/^# (.+)$/gm,'<div style="font-size:16px;font-weight:700;margin:12px 0 4px;">$1</div>');
     text=text.replace(/^\- (.+)$/gm,'<li style="margin-left:16px;">$1</li>');
     text=text.replace(/^\d+\. (.+)$/gm,'<li style="margin-left:16px;">$1</li>');
+    // Markdown tables (must run before \n→<br>: blocks span multiple lines)
+    text=text.replace(MD_TABLE_RE,mdTableBlock);
     text=text.replace(/\n/g,'<br>');
 
     // 3. Render math with KaTeX
@@ -2431,6 +2455,8 @@ function markdownToHtml(md){
     h=h.replace(/^# (.+)$/gm,'<div style="font-size:16px;font-weight:700;margin:12px 0 4px;">$1</div>');
     h=h.replace(/^\- (.+)$/gm,'<li style="margin-left:16px;">$1</li>');
     h=h.replace(/^\d+\. (.+)$/gm,'<li style="margin-left:16px;">$1</li>');
+    // Markdown tables (must run before \n→<br>: blocks span multiple lines)
+    h=h.replace(MD_TABLE_RE,mdTableBlock);
     h=h.replace(/\n/g,'<br>');
     // Render math
     if(typeof katex!=='undefined'){
