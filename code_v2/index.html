@@ -1095,6 +1095,7 @@ async function notesLoad(){
                     tag:'PDF',
                     isPdf:true,
                     source:'pdf',
+                    content:'',           // required: notesRender calls content.substring()
                     desc:d.desc||'',
                     fileType:d.fileType||'pdf',
                     createdAt:d.createdAt,
@@ -1164,7 +1165,7 @@ function notesRender(){
     list.innerHTML=filtered.map(n=>{
         const date=n.updatedAt||n.createdAt;
         const dateStr=date?new Date(date).toLocaleDateString():'';
-        const preview=n.content.substring(0,200)+(n.content.length>200?'...':'');
+        const preview=(n.content||'').substring(0,200)+((n.content||'').length>200?'...':'');
         if(n.isDeleted){
             return `<div class="card" style="opacity:.6;transition:opacity .15s;" onmouseenter="this.style.opacity='1'" onmouseleave="this.style.opacity='.6'">
                 <div style="display:flex;align-items:center;gap:8px;margin-bottom:6px;">
