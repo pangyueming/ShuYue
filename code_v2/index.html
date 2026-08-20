@@ -889,6 +889,10 @@ function showPage(id){
         const hasData=BS_CATS.some(c=>bsData[c.key]&&bsData[c.key].length>0);
         if(!hasData)bsPageInit();
     }
+    if(id==='notes'){
+        // Always refresh notes (text notes + PDF notes) when entering the page
+        notesInit();
+    }
 }
 function toggleSidebar(){
     const sb=document.getElementById('app-sidebar');
