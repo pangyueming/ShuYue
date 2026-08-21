@@ -417,7 +417,7 @@
                     <div style="margin-bottom:16px;">
                         <div style="font-size:12px;font-weight:600;color:var(--text-secondary);margin-bottom:6px;">Topic</div>
                         <select id="quiz-topic" class="input" style="width:100%;"></select>
-                        <div id="quiz-weak-hint" style="display:none;font-size:11px;color:var(--text-muted);margin-top:4px;">Pre-selected from your weakest diagnostic topic</div>
+                        <div id="quiz-weak-hint" style="display:none;font-size:11px;color:#faad14;margin-top:4px;">💡 Pre-selected from your weakest diagnostic topic</div>
                     </div>
                     <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:16px;">
                         <div>
@@ -444,28 +444,28 @@
                         <div>
                             <div style="font-size:12px;font-weight:600;color:var(--text-secondary);margin-bottom:6px;">Verification</div>
                             <div style="display:flex;align-items:center;gap:8px;padding:6px 0;">
-                                <input type="checkbox" id="quiz-verify" checked style="accent-color:var(--text-primary);width:16px;height:16px;">
-                                <label for="quiz-verify" style="font-size:13px;color:var(--text-secondary);cursor:pointer;">Harness cross-check <span style="font-size:11px;color:var(--text-muted);">(slower, recommended)</span></label>
+                                <input type="checkbox" id="quiz-verify" checked style="accent-color:var(--accent);width:16px;height:16px;">
+                                <label for="quiz-verify" style="font-size:13px;color:var(--text-secondary);cursor:pointer;">🔍 Harness cross-check <span style="font-size:11px;color:var(--text-muted);">(slower, recommended)</span></label>
                             </div>
                         </div>
                     </div>
-                    <button style="width:100%;padding:12px;font-size:15px;border:none;border-radius:6px;background:var(--text-primary);color:var(--bg-app);font-weight:600;cursor:pointer;transition:opacity .15s;" onmouseenter="this.style.opacity=.85" onmouseleave="this.style.opacity=1" onclick="quizGenerate()">Generate Quiz</button>
+                    <button class="btn-primary" style="width:100%;padding:12px;font-size:15px;" onclick="quizGenerate()">✨ Generate Quiz</button>
                 </div>
             </div>
 
             <!-- State 2: Generating -->
             <div id="quiz-generating" style="display:none;text-align:center;padding:80px 20px;">
-                <div style="margin-bottom:16px;display:flex;justify-content:center;"><i data-lucide="target" style="width:44px;height:44px;stroke-width:1.4;color:var(--text-secondary);"></i></div>
+                <div style="font-size:48px;margin-bottom:16px;">🎯</div>
                 <div style="font-size:16px;font-weight:600;margin-bottom:6px;">Writing your questions…</div>
                 <div id="quiz-gen-status" style="font-size:13px;color:var(--text-muted);">Contacting the examiner…</div>
-                <div class="progress-bar" style="margin-top:20px;"><div id="quiz-gen-bar" style="background:var(--text-primary);height:4px;border-radius:2px;width:10%;transition:width .6s ease;"></div></div>
+                <div class="progress-bar" style="margin-top:20px;"><div id="quiz-gen-bar" style="background:var(--accent);height:4px;border-radius:2px;width:10%;transition:width .6s ease;"></div></div>
             </div>
 
             <!-- State 3: Active quiz -->
             <div id="quiz-active" style="display:none;">
                 <div style="display:flex;align-items:center;gap:12px;margin-bottom:20px;">
                     <span id="quiz-progress-label" style="font-size:13px;font-weight:600;color:var(--text-secondary);">Q1/5</span>
-                    <div class="progress-bar" style="flex:1;"><div id="quiz-progress-bar" style="background:var(--text-primary);height:4px;border-radius:2px;width:0%;transition:width .3s ease;"></div></div>
+                    <div class="progress-bar" style="flex:1;"><div id="quiz-progress-bar" style="background:var(--accent);height:4px;border-radius:2px;width:0%;transition:width .3s ease;"></div></div>
                     <span id="quiz-topic-label" style="font-size:11px;padding:2px 10px;border-radius:999px;background:var(--bg-tag);color:var(--text-secondary);"></span>
                 </div>
                 <div class="card" style="padding:24px;" id="quiz-question-card"></div>
@@ -474,13 +474,13 @@
 
             <!-- State 4: Results -->
             <div id="quiz-results" style="display:none;text-align:center;">
-                <div id="quiz-score-ring" style="width:120px;height:120px;border-radius:50%;margin:12px auto 16px;display:flex;align-items:center;justify-content:center;font-size:32px;font-weight:700;border:6px solid var(--text-primary);color:var(--text-primary);"></div>
+                <div id="quiz-score-ring" style="width:120px;height:120px;border-radius:50%;margin:12px auto 16px;display:flex;align-items:center;justify-content:center;font-size:32px;font-weight:700;border:6px solid var(--accent);"></div>
                 <div style="font-size:18px;font-weight:700;margin-bottom:4px;" id="quiz-score-title"></div>
                 <div style="font-size:12px;color:var(--text-muted);margin-bottom:24px;" id="quiz-score-sub"></div>
                 <div style="text-align:left;margin-bottom:24px;" id="quiz-review-list"></div>
                 <div style="display:flex;gap:8px;justify-content:center;">
-                    <button id="quiz-retry-btn" style="padding:10px 18px;border:none;border-radius:6px;background:var(--text-primary);color:var(--bg-app);font-size:14px;font-weight:600;cursor:pointer;" onclick="quizRetryWrong()">Retry wrong ones</button>
-                    <button class="btn-secondary" style="padding:10px 18px;" onclick="quizReset()">New quiz</button>
+                    <button id="quiz-retry-btn" class="btn-primary" style="padding:10px 18px;" onclick="quizRetryWrong()">🔁 Retry wrong ones</button>
+                    <button class="btn-secondary" style="padding:10px 18px;" onclick="quizReset()">🎲 New quiz</button>
                 </div>
             </div>
         </div>
@@ -1801,15 +1801,15 @@ function quizSetCount(v){
         const t=b.textContent.trim();
         if(['5','10','15'].includes(t)&&b.onclick){
             const on=(parseInt(t)===n);
-            b.style.borderColor=on?'var(--text-primary)':'var(--border)';
-            b.style.background=on?'var(--text-primary)':'var(--bg-input)';
-            b.style.color=on?'var(--bg-app)':'var(--text-secondary)';
+            b.style.borderColor=on?'var(--accent)':'var(--border)';
+            b.style.background=on?'var(--accent)':'var(--bg-input)';
+            b.style.color=on?'#fff':'var(--text-secondary)';
         }
     });
 }
 
 function quizRenderChips(){
-    const chip=(on,label)=>`padding:6px 14px;border-radius:999px;font-size:12px;cursor:pointer;border:1px solid ${on?'var(--text-primary)':'var(--border)'};background:${on?'var(--text-primary)':'var(--bg-input)'};color:${on?'var(--bg-app)':'var(--text-secondary)'};`;
+    const chip=(on,label)=>`padding:6px 14px;border-radius:999px;font-size:12px;cursor:pointer;border:1px solid ${on?'var(--accent)':'var(--border)'};background:${on?'var(--accent)':'var(--bg-input)'};color:${on?'#fff':'var(--text-secondary)'};`;
     const c2=document.getElementById('quiz-diff-chips');
     if(c2)c2.innerHTML=['Easy','Medium','Hard','Mixed'].map(d=>`<button style="${chip(quizState.diff===d,d)}" onclick="quizState.diff='${d}';quizRenderChips()">${d}</button>`).join('');
     const c3=document.getElementById('quiz-qtype-chips');
@@ -1833,7 +1833,7 @@ async function quizGenerate(){
     const eta=verifyEl&&verifyEl.checked?'1-3 minutes':'~1 minute';
     st.textContent=`Contacting the examiner… (this usually takes ${eta})`;
     const tick=setInterval(()=>{bar.style.width=(Math.min(85,parseFloat(bar.style.width)+7))+'%';
-        st.textContent=verifyEl&&verifyEl.checked&&parseFloat(bar.style.width)>50?'Cross-checking answers with the solving engine…':'The examiner is writing questions…';},900);
+        st.textContent=verifyEl&&verifyEl.checked&&parseFloat(bar.style.width)>50?'Cross-checking answers with the solving engine… ⏳':'The examiner is writing questions…';},900);
     try{
         const res=await apiFetch('/api/quiz/generate',{method:'POST',body:JSON.stringify({
             topic,count:quizState.count,difficulty:quizState.diff,qtype:quizState.qtype,verify})});
@@ -1862,7 +1862,7 @@ function quizRenderQuestion(){
     const card=document.getElementById('quiz-question-card');
     const fb=document.getElementById('quiz-feedback');
     fb.style.display='none';
-    const badge=q.verified?'<span style="font-size:10px;padding:2px 8px;border-radius:999px;border:1px solid var(--text-primary);color:var(--text-primary);font-weight:600;">✓ Verified</span>':'';
+    const badge=q.verified?'<span style="font-size:10px;padding:2px 8px;border-radius:999px;background:rgba(82,196,26,.12);color:#52c41a;font-weight:600;">✅ Verified</span>':'';
     if(q.qtype==='MCQ'){
         card.innerHTML=`
             <div style="display:flex;justify-content:space-between;margin-bottom:10px;">
@@ -1874,7 +1874,7 @@ function quizRenderQuestion(){
                     <span style="width:22px;height:22px;border-radius:50%;border:1.5px solid var(--border);display:flex;align-items:center;justify-content:center;font-size:11px;flex-shrink:0;">${String.fromCharCode(65+i)}</span>
                     <span style="font-size:13px;">${escapeHtml(o)}</span>
                 </label>`).join('')}</div>
-            <button style="width:100%;margin-top:8px;padding:8px 16px;border:none;border-radius:6px;background:var(--text-primary);color:var(--bg-app);font-size:14px;font-weight:600;cursor:pointer;" id="quiz-submit-btn" disabled onclick="quizSubmitAnswer()">Submit</button>`;
+            <button class="btn-primary" style="width:100%;margin-top:8px;" id="quiz-submit-btn" disabled onclick="quizSubmitAnswer()">Submit</button>`;
     }else{
         card.innerHTML=`
             <div style="display:flex;justify-content:space-between;margin-bottom:10px;">
@@ -1882,7 +1882,7 @@ function quizRenderQuestion(){
             </div>
             <div style="font-size:15px;font-weight:500;margin-bottom:16px;white-space:pre-wrap;">${escapeHtml(q.q)}</div>
             <input id="quiz-short-input" class="input" style="width:100%;" placeholder="Type your answer, e.g. n(n+1)/2 or 42" onkeypress="if(event.key==='Enter')quizSubmitAnswer()">
-            <button style="width:100%;margin-top:8px;padding:8px 16px;border:none;border-radius:6px;background:var(--text-primary);color:var(--bg-app);font-size:14px;font-weight:600;cursor:pointer;" onclick="quizSubmitAnswer()">Submit</button>`;
+            <button class="btn-primary" style="width:100%;margin-top:8px;" onclick="quizSubmitAnswer()">Submit</button>`;
     }
 }
 
@@ -1890,8 +1890,8 @@ let quizPicked=-1;
 function quizPick(i){
     quizPicked=i;
     document.querySelectorAll('#quiz-opts label').forEach((el,idx)=>{
-        el.style.borderColor=idx===i?'var(--text-primary)':'var(--border)';
-        el.style.background=idx===i?'var(--bg-hover)':'transparent';
+        el.style.borderColor=idx===i?'var(--accent)':'var(--border)';
+        el.style.background=idx===i?'rgba(35,131,226,.06)':'transparent';
     });
     document.getElementById('quiz-submit-btn').disabled=false;
 }
@@ -1922,16 +1922,16 @@ async function quizSubmitAnswer(){
             const ci="ABCD".indexOf(g.correct_answer.trim().toUpperCase());
             if(ci>=0&&ci<4){
                 const el=document.getElementById('quiz-opt-'+ci);
-                if(el){el.style.borderColor='var(--text-primary)';el.style.borderWidth='2px';el.style.background='var(--bg-hover)';}
+                if(el){el.style.borderColor='#52c41a';el.style.background='rgba(82,196,26,.08)';}
             }
         }
         const fb=document.getElementById('quiz-feedback');
         fb.style.display='block';
-        fb.innerHTML=`<div class="card" style="border-left:4px solid ${g.correct?'var(--text-primary)':'var(--border)'};background:${g.correct?'transparent':'var(--bg-hover)'};">
-            <div style="font-size:14px;font-weight:700;color:var(--text-primary);margin-bottom:4px;">${g.correct?'✓ Correct!':'✗ Not quite'}</div>
+        fb.innerHTML=`<div class="card" style="border-left:4px solid ${g.correct?'#52c41a':'#ff6b6b'};background:${g.correct?'rgba(82,196,26,.05)':'rgba(255,107,107,.05)'};">
+            <div style="font-size:14px;font-weight:700;color:${g.correct?'#52c41a':'#ff6b6b'};margin-bottom:4px;">${g.correct?'✅ Correct!':'❌ Not quite'}</div>
             ${g.correct?'':`<div style="font-size:13px;margin-bottom:4px;">Correct answer: <strong>${escapeHtml(g.correct_answer)}</strong></div>`}
             <div style="font-size:13px;color:var(--text-secondary);">${markdownToHtml(g.explanation||'')}</div>
-            <button style="margin-top:12px;padding:8px 16px;border:none;border-radius:6px;background:var(--text-primary);color:var(--bg-app);font-size:13px;font-weight:600;cursor:pointer;" onclick="quizNext()">${quizState.current+1<quizState.questions.length?'Next question →':'See results →'}</button>
+            <button class="btn-primary" style="margin-top:12px;" onclick="quizNext()">${quizState.current+1<quizState.questions.length?'Next question →':'See results →'}</button>
         </div>`;
         window.scrollTo(0,0);
     }catch(e){
@@ -1954,14 +1954,15 @@ async function quizFinish(){
     const total=quizState.questions.length;
     const pct=Math.round(quizState.score/total*100);
     const ring=document.getElementById('quiz-score-ring');
-    ring.style.borderColor='var(--text-primary)';ring.style.color='var(--text-primary)';
+    const col=pct>=80?'#52c41a':pct>=50?'#faad14':'#ff6b6b';
+    ring.style.borderColor=col;ring.style.color=col;
     ring.textContent=quizState.score+'/'+total;
-    document.getElementById('quiz-score-title').textContent=pct>=80?'Excellent!':pct>=50?'Good effort!':'Keep practising';
+    document.getElementById('quiz-score-title').textContent=pct>=80?'Excellent! 🎉':pct>=50?'Good effort!':'Keep practising 💪';
     document.getElementById('quiz-score-sub').textContent=quizState.score+'/'+total+' correct · '+(document.getElementById('quiz-topic')?document.getElementById('quiz-topic').value.replace(/_/g,' '):'');
     document.getElementById('quiz-review-list').innerHTML=quizState.detail.map((d,i)=>`
-        <div class="card" style="padding:12px;margin-bottom:8px;border-left:3px solid ${d.correct?'var(--text-primary)':'var(--border)'};${d.correct?'':'background:var(--bg-hover);'}">
+        <div class="card" style="padding:12px;margin-bottom:8px;border-left:3px solid ${d.correct?'#52c41a':'#ff6b6b'};">
             <div style="display:flex;gap:8px;align-items:center;margin-bottom:4px;">
-                <span style="font-size:12px;font-weight:600;color:var(--text-primary);">${d.correct?'✓':'✗'} Q${i+1}</span>
+                <span style="font-size:12px;font-weight:600;color:${d.correct?'#52c41a':'#ff6b6b'};">${d.correct?'✅':'❌'} Q${i+1}</span>
                 <span style="font-size:11px;color:var(--text-muted);">Your answer: ${escapeHtml(d.student_answer)}</span>
                 ${d.correct?'':`<span style="font-size:11px;color:var(--text-muted);">· Correct: <strong>${escapeHtml(d.correct_answer)}</strong></span>`}
             </div>
