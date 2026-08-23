@@ -1868,11 +1868,11 @@ function quizRenderQuestion(){
             <div style="display:flex;justify-content:space-between;margin-bottom:10px;">
                 <span style="font-size:11px;color:var(--text-muted);">Multiple choice</span>${badge}
             </div>
-            <div style="font-size:15px;font-weight:500;margin-bottom:16px;white-space:pre-wrap;">${escapeHtml(q.q)}</div>
+            <div style="font-size:15px;font-weight:500;margin-bottom:16px;">${markdownToHtml(q.q)}</div>
             <div id="quiz-opts">${q.options.map((o,i)=>`
                 <label id="quiz-opt-${i}" onclick="quizPick(${i})" style="display:flex;align-items:center;gap:10px;padding:10px 12px;border:1px solid var(--border);border-radius:8px;cursor:pointer;margin-bottom:8px;color:var(--text-secondary);transition:all .12s;">
                     <span style="width:22px;height:22px;border-radius:50%;border:1.5px solid var(--border);display:flex;align-items:center;justify-content:center;font-size:11px;flex-shrink:0;">${String.fromCharCode(65+i)}</span>
-                    <span style="font-size:13px;">${escapeHtml(o)}</span>
+                    <span style="font-size:13px;">${markdownToHtml(o)}</span>
                 </label>`).join('')}</div>
             <button class="btn-primary" style="width:100%;margin-top:8px;" id="quiz-submit-btn" disabled onclick="quizSubmitAnswer()">Submit</button>`;
     }else{
@@ -1880,7 +1880,7 @@ function quizRenderQuestion(){
             <div style="display:flex;justify-content:space-between;margin-bottom:10px;">
                 <span style="font-size:11px;color:var(--text-muted);">Fill in the answer</span>${badge}
             </div>
-            <div style="font-size:15px;font-weight:500;margin-bottom:16px;white-space:pre-wrap;">${escapeHtml(q.q)}</div>
+            <div style="font-size:15px;font-weight:500;margin-bottom:16px;">${markdownToHtml(q.q)}</div>
             <input id="quiz-short-input" class="input" style="width:100%;" placeholder="Type your answer, e.g. n(n+1)/2 or 42" onkeypress="if(event.key==='Enter')quizSubmitAnswer()">
             <button class="btn-primary" style="width:100%;margin-top:8px;" onclick="quizSubmitAnswer()">Submit</button>`;
     }
@@ -1929,7 +1929,7 @@ async function quizSubmitAnswer(){
         fb.style.display='block';
         fb.innerHTML=`<div class="card" style="border-left:4px solid ${g.correct?'#52c41a':'#ff6b6b'};background:${g.correct?'rgba(82,196,26,.05)':'rgba(255,107,107,.05)'};">
             <div style="font-size:14px;font-weight:700;color:${g.correct?'#52c41a':'#ff6b6b'};margin-bottom:4px;">${g.correct?'✅ Correct!':'❌ Not quite'}</div>
-            ${g.correct?'':`<div style="font-size:13px;margin-bottom:4px;">Correct answer: <strong>${escapeHtml(g.correct_answer)}</strong></div>`}
+            ${g.correct?'':`<div style="font-size:13px;margin-bottom:4px;">Correct answer: <strong>${markdownToHtml(g.correct_answer)}</strong></div>`}
             <div style="font-size:13px;color:var(--text-secondary);">${markdownToHtml(g.explanation||'')}</div>
             <button class="btn-primary" style="margin-top:12px;" onclick="quizNext()">${quizState.current+1<quizState.questions.length?'Next question →':'See results →'}</button>
         </div>`;
@@ -1961,12 +1961,12 @@ async function quizFinish(){
     document.getElementById('quiz-score-sub').textContent=quizState.score+'/'+total+' correct · '+(document.getElementById('quiz-topic')?document.getElementById('quiz-topic').value.replace(/_/g,' '):'');
     document.getElementById('quiz-review-list').innerHTML=quizState.detail.map((d,i)=>`
         <div class="card" style="padding:12px;margin-bottom:8px;border-left:3px solid ${d.correct?'#52c41a':'#ff6b6b'};">
-            <div style="display:flex;gap:8px;align-items:center;margin-bottom:4px;">
+            <div style="display:flex;gap:8px;align-items:center;margin-bottom:4px;flex-wrap:wrap;">
                 <span style="font-size:12px;font-weight:600;color:${d.correct?'#52c41a':'#ff6b6b'};">${d.correct?'✅':'❌'} Q${i+1}</span>
-                <span style="font-size:11px;color:var(--text-muted);">Your answer: ${escapeHtml(d.student_answer)}</span>
-                ${d.correct?'':`<span style="font-size:11px;color:var(--text-muted);">· Correct: <strong>${escapeHtml(d.correct_answer)}</strong></span>`}
+                <span style="font-size:11px;color:var(--text-muted);">Your answer: ${markdownToHtml(d.student_answer)}</span>
+                ${d.correct?'':`<span style="font-size:11px;color:var(--text-muted);">· Correct: <strong>${markdownToHtml(d.correct_answer)}</strong></span>`}
             </div>
-            <div style="font-size:13px;color:var(--text-secondary);">${escapeHtml(d.q)}</div>
+            <div style="font-size:13px;color:var(--text-secondary);">${markdownToHtml(d.q)}</div>
         </div>`).join('');
     const retryBtn=document.getElementById('quiz-retry-btn');
     retryBtn.style.display=quizState.detail.some(d=>!d.correct)?'':'none';

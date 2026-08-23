@@ -16,6 +16,7 @@ import sys
 import json
 import re
 import time
+import random
 import sqlite3
 import uuid
 import asyncio
@@ -43,6 +44,7 @@ try:
     from core.question_classifier import QuestionClassifier
     from core.router import SmartRouter
     from verification.proof_verifier import ProofVerifier
+    from verification.answer_verifier import AnswerVerifier
     from models.api_client import APIClient as HarnessAPIClient
     _V3_ANALYSIS_AVAILABLE = True
 except ImportError:
@@ -51,6 +53,7 @@ except ImportError:
     QuestionClassifier = None
     SmartRouter = None
     ProofVerifier = None
+    AnswerVerifier = None
     HarnessAPIClient = None
 
 from fastapi import FastAPI, UploadFile, File, Form, HTTPException, Depends, Header
@@ -200,6 +203,17 @@ def init_db():
         text TEXT NOT NULL,
         color TEXT DEFAULT '#faad14',
         note TEXT DEFAULT '',
+        created_at TEXT DEFAULT (datetime('now'))
+    );
+
+    -- Quiz results (AI Quiz attempts)
+    CREATE TABLE IF NOT EXISTS quiz_results (
+        id TEXT PRIMARY KEY,
+        user_id TEXT NOT NULL REFERENCES users(id),
+        topic TEXT NOT NULL,
+        score INTEGER NOT NULL,
+        total INTEGER NOT NULL,
+        detail_json TEXT DEFAULT '{}',
         created_at TEXT DEFAULT (datetime('now'))
     );
     """)
@@ -1176,6 +1190,328 @@ async def delete_highlight(
     return {"deleted": hl_id}
 
 # ============================================================================
+# AI QUIZ API (generative quizzing with Harness cross-verification)
+# ============================================================================
+
+QUIZ_CACHE: dict = {}   # quiz_id -> {"user_id", "topic", "questions": [...]}
+
+class QuizGenerateRequest(BaseModel):
+    topic: str = "Mixed"
+    count: int = 5
+    difficulty: str = "Medium"      # Easy / Medium / Hard / Mixed
+    qtype: str = "MCQ"              # MCQ / short / mixed
+    verify: bool = True             # Harness cross-verification
+
+class QuizGradeRequest(BaseModel):
+    quiz_id: str
+    q_index: int
+    student_answer: str
+
+class QuizSubmitRequest(BaseModel):
+    quiz_id: str
+    score: int
+    total: int
+    detail_json: str = "{}"
+
+QUIZ_PROMPT_TEMPLATE = (
+    "You are an examiner writing UK university first-year mathematics quiz questions.\n"
+    "Requirements:\n"
+    "- Topic: {topic}\n"
+    "- Number of questions: {count}\n"
+    "- Difficulty: {difficulty}\n"
+    "- Question types: {qtype_desc}\n"
+    "- Write ALL questions and options in English.\n"
+    "{weak_context}"
+    "Rules:\n"
+    "- For MCQ: exactly 4 options, exactly one correct; distractors must be plausible.\n"
+    "- Distribute the correct answers evenly across A, B, C and D.\n"
+    "- In explanations, refer to the option's mathematical content, never its letter "
+    "(option order is randomised afterwards).\n"
+    "- For short-answer: the answer must be a single short mathematical expression or number.\n"
+    "- Write EVERY mathematical expression in LaTeX, wrapped in $...$ (inline) or $$...$$ (display). "
+    "Never output bare LaTeX commands like \\lim or \\frac without dollar delimiters.\n"
+    "- Each question must include a concise step-by-step explanation (also LaTeX via $...$).\n"
+    "- Output STRICT JSON only, no markdown fences, no commentary:\n"
+    '{{"questions":[{{"qtype":"MCQ","q":"...","options":["...","...","...","..."],'
+    '"answer":"C","explanation":"..."}},'
+    '{{"qtype":"short","q":"...","answer":"n(n+1)/2","explanation":"..."}}]}}\n'
+    "- \"answer\" for MCQ is the letter A/B/C/D; for short it is the exact answer string."
+)
+
+def _strip_math_delims(s: str) -> str:
+    """Strip $...$ / $$...$$ wrappers so stored answers stay verifier-friendly."""
+    s = str(s).strip()
+    s = re.sub(r"^\$\$(.+)\$\$$", r"\1", s, flags=re.DOTALL)
+    s = re.sub(r"^\$(.+)\$$", r"\1", s, flags=re.DOTALL)
+    return s.strip()
+
+def _extract_json(text: str) -> Optional[dict]:
+    """Extract the first JSON object from a model response (tolerates fences/noise)."""
+    text = re.sub(r"```(?:json)?", "", text)
+    start = text.find("{")
+    end = text.rfind("}")
+    if start == -1 or end == -1 or end <= start:
+        return None
+    try:
+        return json.loads(text[start:end + 1])
+    except json.JSONDecodeError:
+        return None
+
+def _quiz_generate_batch(topic: str, count: int, difficulty: str, qtype: str,
+                         weak_context: str) -> list:
+    """One model call that returns up to `count` parsed question dicts."""
+    qtype_desc = {
+        "MCQ": "multiple-choice only",
+        "short": "short-answer (fill-in-the-blank) only",
+        "mixed": "a mix of multiple-choice and short-answer",
+    }.get(qtype, "multiple-choice only")
+    prompt = QUIZ_PROMPT_TEMPLATE.format(
+        topic=topic, count=count, difficulty=difficulty,
+        qtype_desc=qtype_desc, weak_context=weak_context,
+    )
+    try:
+        resp = requests.post(BASE_URL, headers={
+            "Authorization": f"Bearer {DASHSCOPE_API_KEY}",
+            "Content-Type": "application/json",
+        }, json={
+            "model": MODEL,
+            "messages": [
+                {"role": "system", "content": "You output strict JSON only."},
+                {"role": "user", "content": prompt},
+            ],
+            "temperature": 0.7,
+            "max_tokens": 3000,
+        }, timeout=90)
+        resp.raise_for_status()
+        choices = resp.json().get("choices", [])
+        if not choices:
+            return []
+        data = _extract_json(choices[0]["message"]["content"])
+        qs = (data or {}).get("questions", [])
+        # Basic field validation
+        out = []
+        for qd in qs:
+            if not isinstance(qd, dict) or not qd.get("q") or not qd.get("answer"):
+                continue
+            if qd.get("qtype") == "MCQ":
+                opts = qd.get("options")
+                if not isinstance(opts, list) or len(opts) != 4:
+                    continue
+                if not ("A" <= str(qd["answer"]).strip().upper() <= "D"):
+                    continue
+                # Break LLM position bias: shuffle options, recompute the answer letter.
+                correct_idx = ord(str(qd["answer"]).strip().upper()) - ord("A")
+                correct_text = opts[correct_idx]
+                movable = [o for o in opts if not re.search(r"none of (the above|these)", str(o), re.I)]
+                tail = [o for o in opts if o not in movable]   # keep "None of the above" last
+                random.shuffle(movable)
+                opts[:] = movable + tail
+                qd["answer"] = chr(ord("A") + opts.index(correct_text))
+            else:
+                qd["qtype"] = "short"
+            qd.setdefault("explanation", "")
+            # Normalize: stored answers must be bare (no $ wrappers) so both the
+            # Harness verifier and AnswerVerifier compare apples to apples.
+            qd["answer"] = _strip_math_delims(qd["answer"])
+            out.append(qd)
+        return out
+    except Exception as e:
+        print(f"[quiz] generation error: {e}")
+        return []
+
+def _quiz_verify_question(qd: dict) -> bool:
+    """Cross-verify a generated question by solving it with the Harness (Lane A).
+    Runs with a hard 45s timeout so one slow question can never stall a batch."""
+    import concurrent.futures
+    def _solve_and_compare() -> bool:
+        if AnswerVerifier is None:
+            raise RuntimeError("AnswerVerifier unavailable (harness import failed)")
+        options = qd.get("options") if qd.get("qtype") == "MCQ" else None
+        result = solve_question(
+            question_text=qd["q"],
+            options=options,
+            api_key=DASHSCOPE_API_KEY,
+            model=MODEL,
+            base_url=BASE_URL.replace("/chat/completions", ""),
+            force_lane="A",
+        )
+        pred = str(result.get("answer", "")).strip()
+        gold = str(qd["answer"]).strip()
+        if not pred:
+            return False
+        verifier = AnswerVerifier()
+        if qd.get("qtype") == "MCQ":
+            idx = ord(gold.upper()) - ord("A")
+            gold_text = str(qd["options"][idx]) if 0 <= idx < 4 else gold
+            # Accept match against the letter OR the option text
+            ok1, _ = verifier.verify(pred, gold)
+            ok2, _ = verifier.verify(pred, gold_text)
+            return ok1 or ok2
+        ok, _ = verifier.verify(pred, gold)
+        return ok
+    try:
+        with concurrent.futures.ThreadPoolExecutor(max_workers=1) as ex:
+            return ex.submit(_solve_and_compare).result(timeout=45)
+    except Exception as e:
+        print(f"[quiz] verify error/timeout: {e}")
+        return False
+
+# NOTE: intentionally a SYNC endpoint (def, not async def). It makes long blocking
+# calls (DashScope generation + Harness verification); FastAPI runs sync endpoints
+# in its threadpool, so the event loop (and every other request) stays responsive.
+@app.post("/api/quiz/generate")
+def quiz_generate(req: QuizGenerateRequest):
+    """Generate a quiz. Answers stay server-side (never sent to the client)."""
+    count = max(1, min(15, req.count))
+    # Weak-topic context from the latest assessment (stronger guidance)
+    weak_context = ""
+    if req.topic != "Mixed":
+        try:
+            conn = get_db()
+            row = conn.execute(
+                "SELECT weak_topics FROM assessments WHERE user_id IS NOT NULL "
+                "ORDER BY created_at DESC LIMIT 1"
+            ).fetchone()
+            conn.close()
+            if row and row["weak_topics"] and req.topic in row["weak_topics"]:
+                weak_context = ("- The student flagged this topic as weak in their diagnostic; "
+                                "favour fundamental concepts.\n")
+        except Exception:
+            pass
+
+    # 1) Generate count+2 candidates in SMALL CONCURRENT BATCHES of ≤6.
+    #    (One giant call for 17 questions overflows max_tokens and breaks JSON.)
+    import concurrent.futures as _cf
+    target_spare = count + 2
+    batch_sizes = []
+    remaining = target_spare
+    while remaining > 0:
+        batch_sizes.append(min(6, remaining))
+        remaining -= 6
+    with _cf.ThreadPoolExecutor(max_workers=3) as ex:
+        futures = [ex.submit(_quiz_generate_batch, req.topic, n, req.difficulty,
+                             req.qtype, weak_context) for n in batch_sizes]
+        questions = []
+        for f in _cf.as_completed(futures):
+            questions.extend(f.result())
+    if not questions:
+        raise HTTPException(502, "Quiz generation failed, please retry")
+
+    # 2) Optional Harness cross-verification — PARALLEL (each question already
+    #    carries its own 45s solve timeout inside _quiz_verify_question).
+    if req.verify:
+        with _cf.ThreadPoolExecutor(max_workers=6) as ex:
+            verdicts = list(ex.map(_quiz_verify_question, questions))
+        kept = [qd for qd, ok in zip(questions, verdicts) if ok]
+        for qd in kept:
+            qd["verified"] = True
+        # One concurrent retry batch if verification dropped too many
+        if len(kept) < count:
+            extra = _quiz_generate_batch(req.topic, min(6, count), req.difficulty,
+                                         req.qtype, weak_context)
+            with _cf.ThreadPoolExecutor(max_workers=6) as ex:
+                verdicts2 = list(ex.map(_quiz_verify_question, extra))
+            for qd, ok in zip(extra, verdicts2):
+                if len(kept) >= count:
+                    break
+                if ok:
+                    qd["verified"] = True
+                    kept.append(qd)
+        questions = kept[:count]
+    else:
+        questions = questions[:count]
+
+    if not questions:
+        raise HTTPException(502, "Generated questions failed verification, please retry")
+
+    quiz_id = f"quiz_{int(time.time()*1000)}"
+    QUIZ_CACHE[quiz_id] = {
+        "user_id": None,   # filled on first grade call if logged in
+        "topic": req.topic,
+        "questions": questions,
+    }
+    # Strip answers before returning (answers live only in QUIZ_CACHE)
+    public = [{"qtype": q.get("qtype", "MCQ"), "q": q["q"],
+               "options": q.get("options"), "verified": bool(q.get("verified"))}
+              for q in questions]
+    return {"quiz_id": quiz_id, "topic": req.topic, "questions": public}
+
+# NOTE: sync endpoint — the short-answer soft-grading fallback calls the cheap
+# model synchronously; keeping this off the event loop avoids request stalls.
+@app.post("/api/quiz/grade")
+def quiz_grade(req: QuizGradeRequest, current_user: Optional[dict] = Depends(get_current_user)):
+    """Grade one answer against the server-held correct answer."""
+    quiz = QUIZ_CACHE.get(req.quiz_id)
+    if not quiz:
+        raise HTTPException(404, "Quiz not found or expired, please regenerate")
+    if not (0 <= req.q_index < len(quiz["questions"])):
+        raise HTTPException(400, "Question index out of range")
+    if current_user:
+        quiz["user_id"] = current_user["id"]
+
+    qd = quiz["questions"][req.q_index]
+    gold = str(qd["answer"]).strip()
+    student = _strip_math_delims(req.student_answer)
+
+    if qd.get("qtype") == "MCQ":
+        correct = student.upper() == gold.upper()
+        correct_answer = gold
+    else:
+        if AnswerVerifier is not None:
+            verifier = AnswerVerifier()
+            correct, _ = verifier.verify(student, gold)
+        else:
+            correct = False
+        correct_answer = gold
+        if not correct:
+            # Soft fallback: cheap model judges equivalence (free local check failed)
+            try:
+                resp = requests.post(BASE_URL, headers={
+                    "Authorization": f"Bearer {DASHSCOPE_API_KEY}",
+                    "Content-Type": "application/json",
+                }, json={
+                    "model": TRANSLATE_MODEL,   # cheap model is enough for judging
+                    "messages": [
+                        {"role": "system", "content": "Answer strictly YES or NO."},
+                        {"role": "user", "content":
+                            f"Question: {qd['q']}\nStudent answer: {student}\n"
+                            f"Reference answer: {gold}\n"
+                            "Are they mathematically equivalent? YES or NO."},
+                    ],
+                    "temperature": 0.0,
+                    "max_tokens": 2000,
+                }, timeout=30)
+                choices = resp.json().get("choices", [])
+                if choices:
+                    correct = "YES" in choices[0]["message"]["content"].upper()
+            except Exception:
+                pass
+
+    return {
+        "correct": bool(correct),
+        "correct_answer": correct_answer,
+        "explanation": qd.get("explanation", ""),
+        "student_answer": student,
+    }
+
+@app.post("/api/quiz/submit")
+async def quiz_submit(req: QuizSubmitRequest, current_user: Optional[dict] = Depends(get_current_user)):
+    """Persist a finished attempt (guests skipped)."""
+    if not current_user:
+        return {"saved": False, "reason": "guest"}
+    result_id = f"qr_{int(time.time()*1000)}"
+    conn = get_db()
+    conn.execute(
+        "INSERT INTO quiz_results (id,user_id,topic,score,total,detail_json) VALUES (?,?,?,?,?,?)",
+        (result_id, current_user["id"], QUIZ_CACHE.get(req.quiz_id, {}).get("topic", req.quiz_id),
+         req.score, req.total, req.detail_json)
+    )
+    conn.commit(); conn.close()
+    return {"saved": True, "id": result_id}
+
+
+
+# ============================================================================
 # ASSESSMENTS API (Pre-test results)
 # ============================================================================
 
@@ -1272,13 +1608,18 @@ async def get_stats(current_user: Optional[dict] = Depends(get_current_user)):
         (user_id,)
     ).fetchone()["cnt"]
 
-    # Problems Solved & Day Streak: placeholder (future implementation)
-    # For now, return 0 to indicate "not yet tracked"
+    # Problems Solved: total questions answered across submitted AI Quiz attempts
+    solved = conn.execute(
+        "SELECT COALESCE(SUM(total),0) as s FROM quiz_results WHERE user_id=?",
+        (user_id,)
+    ).fetchone()["s"]
+
+    # Day Streak: placeholder (future implementation)
     conn.close()
     return {
         "math_proficiency": math_proficiency,
         "documents_read": doc_count,
-        "problems_solved": 0,
+        "problems_solved": solved,
         "day_streak": 0,
     }
 
@@ -1309,6 +1650,10 @@ if __name__ == "__main__":
     print("  AI:")
     print("    POST /api/chat                — Streaming chat (Harness)")
     print("    POST /api/solve               — Full solve (Harness + Verifier)")
+    print("  QUIZ:")
+    print("    POST /api/quiz/generate       — Generate quiz (Harness-verified, EN only)")
+    print("    POST /api/quiz/grade          — Grade one answer (answers stay server-side)")
+    print("    POST /api/quiz/submit         — Persist attempt (feeds Problems Solved)")
     print("    POST /api/translate           — Translation (cheap model)")
     print("  DOCUMENTS:")
     print("    POST /api/documents/upload    — Upload PDF/PPTX")
