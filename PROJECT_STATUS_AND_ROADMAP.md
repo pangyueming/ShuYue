@@ -27,6 +27,7 @@
 |---|------|------|---------|
 | 1 | **Pre-Assessment 前测** | ✅ 完整 | 4步流程→诊断报告→自动跳转Dashboard + 结果保存到后端数据库(assessments表) + 支持查看最新结果 |
 | 2 | **Math Tutor AI辅导** | ✅ 完整 | General/Deep双模式 + Qwen3.6流式回复(Harness路由) + 上传资料引用 + 快捷示例 + 练习题生成 + A-Level知识联系按钮 + KaTeX公式渲染 + System Prompt冲突修复 + Socratic引导增强(5级脚手架) |
+| 2b | **AI Quiz 智能出题** | ✅ 完整 | 可验证出题流水线：服务端Prompt模板(强制JSON+LaTeX包裹+均匀答案分布) → **Harness交叉验证**(Lane A 并行解题+AnswerVerifier比对，单题45s超时) → **选项随机打乱**(破除LLM位置偏差，保护None-of-above) → 答题判分(MCQ比对/填空SymPy本地判分+turbo兜底，$定界符自动剥离) → 结果入库。题型MCQ+填空，题数1-15自定义，弱项自动预选(💡)，答案不下发前端(QUIZ_CACHE暂存)，题目/选项/解析KaTeX渲染。联动Problems Solved统计 |
 | 3 | **Function Plotter 函数画板** | ✅ 完整 | 2D多函数叠加 + 3D曲面 + 圆锥曲线(圆/椭圆/抛物线/双曲线) + 参数可调 |
 | 4 | **Reader 文档阅读器** | ✅ 完整 | PDF.js Canvas+TextLayer(透明文字精确对齐) + PPTX解析(JSZip+图片提取) + 翻译(专用端点+语言检测)/高亮(4色+笔记+持久化)/笔记 + AI引用问答弹窗(引用修复) + 笔记面板收起/展开 + PDF自适应缩放 + 高亮自动恢复 |
 | 5 | **Notes 笔记管理** | ✅ 完整 | 全屏编辑器 + 标签筛选 + localStorage持久化 + Reader笔记自动同步到Notes页面 + PDF笔记(书架Notes分类上传的PDF在笔记页显示，点击跳Reader打开，双向删除同步) |
@@ -503,6 +504,9 @@ passlib[bcrypt]             # 密码哈希（bcrypt）
 | 7 | **AI Chat 弹窗拖拽** | Reader AI Chat 弹窗 Header 区域支持拖拽移动，实现边读边问 |
 | 8 | **品牌统一** | Math Tutor / Reader AI Chat 中移除 Qwen 模型名显示，统一为 "CogniBridge AI" |
 | 9 | **书架 Notes 分类 + PDF 笔记同步** | 书架新增第6分类 Notes；上传到该分类的 PDF 自动出现在笔记页（PDF 徽章卡片，点击跳 Reader 打开）；删除双向同步（笔记页硬删除→书架同步消失；书架回收站/恢复/永久删除→笔记页实时联动） |
+| 10 | **Reader Chat AI（页面上下文自由问答）** | Reader 工具栏新增 ✨Chat AI 按钮；自动捕获当前页文本(≤2000字符)注入首条用户消息；蓝色上下文条标识；无文档时降级普通聊天；与引用模式互不干扰 |
+| 11 | **AI 回复渲染增强** | 聊天气泡 markdown 渲染补齐：#~#### 标题、有序列表、**表格**(对齐解析/自适应深浅色/超宽横向滚动/流式安全)，Math Tutor 与 AI Chat 双端同步生效 |
+| 12 | **AI Quiz 智能出题（实施中）** | 三段式可验证出题流水线 GENERATE→VERIFY→GRADE；Harness 交叉验证确保题目答案正确；填空题本地 SymPy 判分零 token；quiz_results 入库 + Problems Solved 统计联动 |
 
 ### 2026-08-13 ~ 2026-08-14：修复迭代
 
