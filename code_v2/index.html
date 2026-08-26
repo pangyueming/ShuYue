@@ -458,6 +458,7 @@
                 <div style="font-size:48px;margin-bottom:16px;">🎯</div>
                 <div style="font-size:16px;font-weight:600;margin-bottom:6px;">Writing your questions…</div>
                 <div id="quiz-gen-status" style="font-size:13px;color:var(--text-muted);">Contacting the examiner…</div>
+                <div id="quiz-gen-eta" style="display:none;font-size:14px;font-weight:600;color:var(--text-primary);margin-top:8px;"></div>
                 <div class="progress-bar" style="margin-top:20px;"><div id="quiz-gen-bar" style="background:var(--accent);height:4px;border-radius:2px;width:10%;transition:width .6s ease;"></div></div>
             </div>
 
@@ -1828,10 +1829,19 @@ async function quizGenerate(){
     quizShow('quiz-generating');
     const bar=document.getElementById('quiz-gen-bar');
     const st=document.getElementById('quiz-gen-status');
-    bar.style.width='25%';st.textContent='The examiner is writing questions…';
+    bar.style.width='25%';
     const verifyEl=document.getElementById('quiz-verify');
-    const eta=verifyEl&&verifyEl.checked?'1-3 minutes':'~1 minute';
-    st.textContent=`Contacting the examiner… (this usually takes ${eta})`;
+    // Persistent wait-time hint — written once, never overwritten by the status ticker
+    const etaEl=document.getElementById('quiz-gen-eta');
+    if(etaEl){
+        let est;
+        if(!verify)                    est='Please wait · under 1 minute';
+        else if(quizState.count<=6)    est='Please wait · about 1–2 minutes';
+        else                           est='Please wait · about 2–4 minutes';
+        etaEl.textContent=est;
+        etaEl.style.display='block';
+    }
+    st.textContent='Contacting the examiner…';
     const tick=setInterval(()=>{bar.style.width=(Math.min(85,parseFloat(bar.style.width)+7))+'%';
         st.textContent=verifyEl&&verifyEl.checked&&parseFloat(bar.style.width)>50?'Cross-checking answers with the solving engine… ⏳':'The examiner is writing questions…';},900);
     try{
