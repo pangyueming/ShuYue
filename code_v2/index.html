@@ -294,6 +294,8 @@
                         <select id="pt-major" class="input" style="width:100%;"><option value="math">Mathematics</option><option value="cs" selected>Computer Science / Info & Computing</option><option value="engineering">Engineering</option><option value="physics">Physics</option><option value="economics">Economics</option></select></div>
                     <div><label style="font-size:14px;font-weight:500;display:block;margin-bottom:8px;">Year</label>
                         <div style="display:flex;gap:12px;"><label><input type="radio" name="pt-year" value="freshman" checked> First Year</label><label><input type="radio" name="pt-year" value="senior"> Second Year+</label></div></div>
+                    <div><label style="font-size:14px;font-weight:500;display:block;margin-bottom:8px;">Current Teaching Week <span style="font-size:12px;color:var(--text-muted);">(drives your curriculum-aligned plan)</span></label>
+                        <select id="pt-week" class="input" style="width:100%;"></select></div>
                 </div>
                 <div style="display:flex;gap:8px;margin-top:16px;"><button class="btn-secondary" style="flex:1;" onclick="ptGo(0)">← Back</button><button class="btn-primary" style="flex:1;" onclick="ptGo(2)">Next →</button></div>
             </div>
@@ -693,6 +695,10 @@
                         <input type="checkbox" id="profile-input-fm" style="accent-color:var(--accent);">
                         <label for="profile-input-fm" style="font-size:13px;color:var(--text-secondary);">I took Further Mathematics</label>
                     </div>
+                    <div>
+                        <div style="font-size:13px;font-weight:500;color:var(--text-secondary);margin-bottom:6px;">Current Teaching Week <span style="font-size:11px;color:var(--text-muted);">(aligns your study plan with lectures)</span></div>
+                        <select id="profile-input-week" class="input" style="width:100%;" onchange="setCurrentWeek(this.value)"></select>
+                    </div>
                 </div>
                 <button class="btn-primary" style="width:100%;margin-top:20px;padding:10px;" onclick="saveProfile()">Save Changes</button>
             </div>
@@ -896,6 +902,9 @@ function renderProfile(){
     document.getElementById('profile-input-year').value=user.year||'freshman';
     document.getElementById('profile-input-alevel').value=user.a_level_grade||'';
     document.getElementById('profile-input-fm').checked=user.further_math===1||user.further_math===true;
+    const pw=document.getElementById('profile-input-week');
+    fillWeekSelect(pw);
+    if(pw)pw.value=getCurrentWeek();
 }
 
 async function saveProfile(){
@@ -1452,6 +1461,53 @@ async function notesSaveFromEditor(){
 // ===== PRE-ASSESSMENT =====
 const hsKnowledge=[{n:'Functions & Graphs'},{n:'Quadratics & Inequalities'},{n:'Trigonometry'},{n:'Exponentials & Logarithms'},{n:'Sequences & Series'},{n:'Differentiation'},{n:'Integration'},{n:'Vectors (Basic)'},{n:'Probability & Statistics'},{n:'Proof Basics'}];
 const transitionTopics=[{n:'Discrete Mathematics',d:'Core module, not taught at A-Level'},{n:'Set Theory',d:'Briefly touched at GCSE'},{n:'Propositional Logic',d:'Completely new thinking'},{n:'Graph Theory',d:'CS compulsory, zero baseline'},{n:'Proof Techniques',d:'ε-δ, contradiction, constructive'}];
+
+// ===== Curriculum-aligned study plan (16-week dual track) =====
+// Textbooks: 工科数学分析基础(上册) + 北大版高等代数. Edit freely to match actual teaching order.
+const CURRICULUM=[
+    {w:[1,2],  an:{n:'Real Numbers & Functions (supremum)',deps:['Functions & Graphs','Quadratics & Inequalities'],prev:['Set Theory']},
+               al:{n:'Polynomials (division/factor theorem)',deps:['Quadratics & Inequalities','Functions & Graphs'],prev:[]}},
+    {w:[3,4],  an:{n:'Limits of Sequences (ε-N)',deps:['Sequences & Series'],prev:['Propositional Logic','Proof Basics']},
+               al:{n:'Determinants (Cramer)',deps:['Quadratics & Inequalities'],prev:[]}},
+    {w:[5,6],  an:{n:'Function Limits & Continuity (ε-δ)',deps:['Trigonometry','Exponentials & Logarithms'],prev:['Proof Techniques']},
+               al:{n:'Linear Systems (elimination/rank)',deps:['Vectors (Basic)'],prev:[]}},
+    {w:[7,8],  an:{n:'Derivatives & Differentials',deps:['Differentiation','Trigonometry','Exponentials & Logarithms'],prev:[]},
+               al:{n:'Matrices (inverse/elementary)',deps:['Vectors (Basic)'],prev:[]}},
+    {w:[9,10], an:{n:'Mean Value Theorems, Taylor, L\'Hôpital',deps:['Differentiation','Sequences & Series'],prev:[]},
+               al:{n:'Matrix Rank & Block Techniques',deps:['Vectors (Basic)'],prev:[]}},
+    {w:[11,12],an:{n:'Indefinite Integrals',deps:['Integration','Trigonometry'],prev:[]},
+               al:{n:'Quadratic Forms (standard/positive)',deps:['Vectors (Basic)','Functions & Graphs'],prev:[]}},
+    {w:[13,14],an:{n:'Definite Integrals & FTC',deps:['Integration','Sequences & Series'],prev:[]},
+               al:{n:'Vector Spaces (basis/dimension)',deps:['Vectors (Basic)','Functions & Graphs'],prev:[]}},
+    {w:[15,16],an:{n:'Applications of Integrals + Revision',deps:[],prev:[]},
+               al:{n:'Final Revision',deps:[],prev:[]}},
+];
+// Map AI-Quiz topics (backend lexicon) → high-school knowledge names for the evidence loop
+const QUIZ_TOPIC_TO_HS={'Differentiation':'Differentiation','Integration':'Integration','Probability':'Probability & Statistics','Series_Convergence':'Sequences & Series','Linear_Algebra':'Vectors (Basic)','Vector_Calculus':'Vectors (Basic)','Proof_Techniques':'Proof Basics'};
+const QUIZ_WEAK_THRESHOLD=0.5, QUIZ_STRONG_THRESHOLD=0.9;
+
+let _quizEvCache=null,_quizEvTs=0;
+async function fetchQuizEvidence(){
+    const token=localStorage.getItem('cb_token');
+    if(!token)return {};
+    const now=Date.now();
+    if(_quizEvCache&&now-_quizEvTs<60000)return _quizEvCache;   // 60s cache
+    const ev={};
+    try{
+        const res=await apiFetch('/api/quiz/history');
+        if(!res.ok)throw new Error('HTTP '+res.status);
+        (await res.json()).forEach(r=>{
+            const hs=QUIZ_TOPIC_TO_HS[r.topic];
+            if(!hs)return;
+            if(!ev[hs])ev[hs]={latest:null,strongCount:0};
+            const ratio=r.total>0?r.score/r.total:0;
+            if(ev[hs].latest===null)ev[hs].latest=ratio;      // first row = most recent
+            if(ratio>=QUIZ_STRONG_THRESHOLD)ev[hs].strongCount++;
+        });
+        _quizEvCache=ev;_quizEvTs=now;
+    }catch(e){/* offline: no evidence */}
+    return ev;
+}
 const quizQs=[
     {q:'Evaluate: lim(x→0) sin(x)/x = ?',opts:['0','1','Does not exist','∞'],ans:1,k:'Limits',diff:'Basic'},
     {q:'Evaluate: ∫ 2x dx = ?',opts:['x² + C','2x² + C','x²/2 + C','2 + C'],ans:0,k:'Basic Integration',diff:'Basic'},
@@ -1467,7 +1523,7 @@ const quizQs=[
 let ptState={knowledge:{},transition:{},quiz:[]};
 function ptGo(s){['pt-welcome','pt-step1','pt-step2','pt-step3','pt-step4','pt-report'].forEach(id=>document.getElementById(id).style.display='none');
     if(s===0)document.getElementById('pt-welcome').style.display='';
-    else if(s===1)document.getElementById('pt-step1').style.display='';
+    else if(s===1){document.getElementById('pt-step1').style.display='';const ws=document.getElementById('pt-week');fillWeekSelect(ws);if(ws)ws.value=getCurrentWeek();}
     else if(s===2){document.getElementById('pt-step2').style.display='';ptRenderKnowledge();}
     else if(s===3){document.getElementById('pt-step3').style.display='';ptRenderTransition();}
     else if(s===4){document.getElementById('pt-step4').style.display='';ptRenderQuiz();}
@@ -1498,13 +1554,18 @@ function ptGenerateReport(){const al=document.getElementById('pt-alevel').value|
     // Store pre-assessment results globally
     const majorSelect=document.getElementById('pt-major');
     const majorLabel=majorSelect?majorSelect.options[majorSelect.selectedIndex].text:'Computer Science';
+    const weekSel=document.getElementById('pt-week');
+    const pickedWeek=weekSel?parseInt(weekSel.value)||1:getCurrentWeek();
     window.pretestResult={
         alevel:al,major:majorLabel,knowledge:ptState.knowledge,transition:ptState.transition,
         quizCorrect:qc,quizTotal:10,avgScore:avg,
         weakTopics:weak,strongTopics:strong,
         dangerTopics:danger,warningTopics:warn,
+        currentWeek:pickedWeek,
         completedAt:new Date().toISOString(),
     };
+    // Persist the teaching week into plan state too (cloud-synced)
+    const ps=loadPlanState();ps.currentWeek=pickedWeek;savePlanState(ps);
     // Persist to localStorage
     try{localStorage.setItem('cb_pretest',JSON.stringify(window.pretestResult));}catch(e){}
     // Save to backend (if logged in)
@@ -1569,55 +1630,82 @@ function renderStudyPlan(result){
     const ct=document.getElementById('study-plan-content');
     if(!ph||!ct)return;
     ph.style.display='none';ct.style.display='block';
+    renderStudyPlanAsync(result).then(()=>{if(window.lucide)lucide.createIcons();});
+}
+
+async function renderStudyPlanAsync(result){
+    const ct=document.getElementById('study-plan-content');
     const ks={master:100,ok:75,fuzzy:40,none:0};
-    let p1Items=[],p2Items=[],p3Items=[];
-    hsKnowledge.forEach((kp,i)=>{
-        const lv=result.knowledge[i]||'none';
-        if(lv==='none'||lv==='fuzzy')p1Items.push({name:kp.n,score:ks[lv],target:75,type:'hs'});
-        else if(lv==='ok')p2Items.push({name:kp.n,score:75,target:90,type:'hs'});
-        else p3Items.push({name:kp.n,score:100,type:'hs'});
-    });
-    if(result.dangerTopics)result.dangerTopics.forEach(t=>p1Items.unshift({name:t.n,score:0,target:60,type:'transition',desc:t.d}));
-    if(result.warningTopics)result.warningTopics.forEach(t=>p2Items.push({name:t.n,score:25,target:60,type:'transition',desc:t.d}));
+    const kIdx={};hsKnowledge.forEach((kp,i)=>kIdx[kp.n]=i);
+    const rating=n=>{const i=kIdx[n];return i===undefined?'master':(result.knowledge[i]||'none');};
     let planState=loadPlanState();
     planState.completed=planState.completed||{};
     planState.deleted=planState.deleted||{};
     planState.order=planState.order||{};
+    const week=Math.min(16,Math.max(1,parseInt(planState.currentWeek||result.currentWeek||1)||1));
+    const evidence=await fetchQuizEvidence();
 
-    const groups=[
-        {key:'p1',items:p1Items,color:'#f5222d',label:'This Week — Fix Critical Gaps'},
-        {key:'p2',items:p2Items,color:'#faad14',label:'Next Week — Strengthen',compact:true},
-        {key:'p3',items:p3Items.slice(0,3),color:'#52c41a',label:'Maintenance — Spaced Repetition',compact:true},
-    ];
-
-    // Trash (top-right)
     let html='<div style="display:flex;justify-content:flex-end;align-items:center;margin-bottom:14px;"><span style="font-size:11px;color:var(--text-muted);margin-right:8px;">Drag a plan here to remove it</span><div id="plan-trash" ondragover="allowDrop(event)" ondrop="dropToTrash(event)" ondragenter="this.style.borderColor=\'#ff6b6b\';this.style.background=\'rgba(255,107,107,.1)\'" ondragleave="this.style.borderColor=\'var(--border)\';this.style.background=\'transparent\'" style="width:38px;height:38px;border-radius:8px;border:1.5px dashed var(--border);display:flex;align-items:center;justify-content:center;color:var(--text-muted);cursor:pointer;transition:all .15s;" title="Drag a plan here to remove it"><i data-lucide="trash-2" style="width:16px;height:16px;"></i></div></div>';
+    html+=`<div style="font-size:12px;color:var(--text-muted);margin-bottom:16px;">Curriculum-aligned transition plan · teaching week <strong style="color:var(--text-primary);">${week}</strong>/16 <span style="font-size:10px;">(change in Profile or Pre-Assessment)</span></div>`;
 
-    groups.forEach((g,gi)=>{
-        const items=g.items.map(item=>({item,key:planKey(g.key,item.name)})).filter(x=>!planState.deleted[x.key]);
-        if(!items.length)return;
-        const order=planState.order[g.key]||[];
-        if(order.length)items.sort((a,b)=>{
-            const ia=order.indexOf(a.key),ib=order.indexOf(b.key);
-            return (ia===-1?999:ia)-(ib===-1?999:ib);
+    let totalTasks=0,doneTasks=0;
+
+    CURRICULUM.forEach(block=>{
+        if(block.w[1]<week)return;   // finished block — skip
+        const ongoing=block.w[0]<=week&&block.w[1]>=week;
+        const until=block.w[0]-week;
+        const status=ongoing?'<span style="font-size:10px;padding:2px 8px;border-radius:999px;background:rgba(82,196,26,.12);color:#52c41a;font-weight:600;">Now</span>'
+            :(until<=2?`<span style="font-size:10px;padding:2px 8px;border-radius:999px;background:rgba(250,173,20,.12);color:#faad14;font-weight:600;">in ${until}w</span>`:'');
+        html+=`<div style="display:flex;align-items:center;gap:8px;margin:18px 0 8px;"><span style="font-size:12px;font-weight:700;color:var(--text-primary);">📅 Week ${block.w[0]}–${block.w[1]}</span>${status}</div>`;
+
+        [['an','📐','245,34,45'],['al','🔢','250,173,20']].forEach(([tr,icon,rgb])=>{
+            const u=block[tr];
+            const gkey='w'+block.w[0]+'_'+tr;
+            const tasks=[];
+            // Gap-fill tasks from HS dependencies
+            (u.deps||[]).forEach(d=>{
+                const r=rating(d);
+                const ev=evidence[d];
+                if(ev&&ev.strongCount>=2)return;   // quiz-verified mastery — exempt even weak self-ratings
+                if(r==='none'||r==='fuzzy'){
+                    tasks.push({name:d,score:ks[r],target:75,
+                        desc:(ev&&ev.latest!==null&&ev.latest<QUIZ_WEAK_THRESHOLD)?('📊 Quiz '+Math.round(ev.latest*100)+'%'):'due before lectures'});
+                }else if(ev&&ev.latest!==null&&ev.latest<QUIZ_WEAK_THRESHOLD){
+                    tasks.push({name:d,score:ks[r],target:90,desc:'📊 Quiz '+Math.round(ev.latest*100)+'% · vs self-rating'});
+                }
+            });
+            // Preview tasks from transition warnings mapped to this block
+            (u.prev||[]).forEach(p=>{
+                const ti=transitionTopics.findIndex(t=>t.n===p);
+                const tr2=result.transition&&result.transition[ti];
+                if(tr2==='unknown'||tr2==='heard'||tr2===undefined){
+                    tasks.push({name:p,score:0,target:60,desc:'📖 preview before lectures'});
+                }
+            });
+            const items=tasks.map(item=>({item,key:planKey(gkey,item.name)})).filter(x=>!planState.deleted[x.key]);
+            if(!items.length)return;
+            const order=planState.order[gkey]||[];
+            if(order.length)items.sort((a,b)=>{
+                const ia=order.indexOf(a.key),ib=order.indexOf(b.key);
+                return (ia===-1?999:ia)-(ib===-1?999:ib);
+            });
+            html+=`<div style="margin-bottom:8px;"><div style="font-size:12px;font-weight:600;color:var(--text-primary);margin-bottom:4px;">${icon} ${u.n}</div><div class="plan-group" data-group="${gkey}">`;
+            items.forEach(x=>{
+                const prog=planState.progress[x.key]||0;
+                const completed=!!planState.completed[x.key]||prog>=100;
+                totalTasks++;if(completed)doneTasks++;
+                html+=renderPlanCard(x.key,x.item,prog,tr==='an'?'#f5222d':'#faad14',tr==='al',completed);
+            });
+            html+='</div></div>';
         });
-        html+=`<div style="font-size:11px;font-weight:600;color:${g.color};text-transform:uppercase;margin:${gi===0?'0':'16px 0 8px'};letter-spacing:.05em;">${g.label}</div>`;
-        html+=`<div class="plan-group" data-group="${g.key}">`;
-        items.forEach(x=>{
-            const prog=planState.progress[x.key]||0;
-            const completed=!!planState.completed[x.key]||prog>=100;
-            html+=renderPlanCard(x.key,x.item,prog,g.color,g.compact||false,completed);
-        });
-        html+='</div>';
     });
 
-    // Weekly summary
-    const totalKeys=p1Items.map(i=>planKey('p1',i.name));
-    const total=totalKeys.filter(k=>!planState.deleted[k]).length;
-    const done=totalKeys.filter(k=>!planState.deleted[k]&&(planState.completed[k]||(planState.progress[k]||0)>=100)).length;
-    html+=`<div style="margin-top:16px;padding-top:12px;border-top:1px solid var(--border);"><div style="display:flex;justify-content:space-between;font-size:12px;margin-bottom:6px;"><span style="color:var(--text-muted);">Weekly Goal: ${total} topics</span><span style="color:var(--text-secondary);">Completed: ${done}/${total}</span></div><div class="progress-bar"><div style="background:linear-gradient(90deg,#f5222d,#faad14,#52c41a);height:5px;border-radius:3px;width:${total>0?Math.round(done/total*100):0}%;transition:width .3s;"></div></div></div>`;
+    if(totalTasks===0){
+        html+='<div class="placeholder-box" style="min-height:120px;">🎯 No gaps ahead — your prerequisites are covered!<br><span style="font-size:12px;">Complete an AI Quiz to keep feeding evidence into the plan</span></div>';
+    }else{
+        html+=`<div style="margin-top:16px;padding-top:12px;border-top:1px solid var(--border);"><div style="display:flex;justify-content:space-between;font-size:12px;margin-bottom:6px;"><span style="color:var(--text-muted);">Term tasks: ${totalTasks}</span><span style="color:var(--text-secondary);">Completed: ${doneTasks}/${totalTasks}</span></div><div class="progress-bar"><div style="background:linear-gradient(90deg,#f5222d,#faad14,#52c41a);height:5px;border-radius:3px;width:${Math.round(doneTasks/totalTasks*100)}%;transition:width .3s;"></div></div></div>`;
+    }
     ct.innerHTML=html;
-    if(window.lucide)lucide.createIcons();
 }
 
 function planKey(group,name){return group+'_'+String(name).replace(/[^a-zA-Z0-9]/g,'_');}
@@ -1697,6 +1785,26 @@ async function pullPlanFromCloud(){
             }
         }
     }catch(e){/* offline: keep local */}
+}
+
+// ===== Current teaching week (drives the curriculum-aligned plan) =====
+function fillWeekSelect(sel){
+    if(!sel||sel.options.length)return;
+    let html='';
+    for(let w=1;w<=16;w++)html+=`<option value="${w}">Week ${w}${w===16?' (exams)':''}</option>`;
+    sel.innerHTML=html;
+}
+function getCurrentWeek(){
+    const ps=loadPlanState();
+    return Math.min(16,Math.max(1,parseInt(ps.currentWeek||(window.pretestResult&&window.pretestResult.currentWeek)||1)||1));
+}
+function setCurrentWeek(v){
+    let w=Math.min(16,Math.max(1,parseInt(v)||1));
+    const ps=loadPlanState();
+    ps.currentWeek=w;
+    savePlanState(ps);          // local + debounced cloud sync
+    showNotification('📅 Teaching week set to '+w+' — plan re-aligned');
+    if(window.pretestResult)renderStudyPlan(window.pretestResult);
 }
 
 let planDragKey=null;

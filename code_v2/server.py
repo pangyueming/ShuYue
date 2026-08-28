@@ -1531,6 +1531,21 @@ async def quiz_submit(req: QuizSubmitRequest, current_user: Optional[dict] = Dep
     conn.commit(); conn.close()
     return {"saved": True, "id": result_id}
 
+@app.get("/api/quiz/history")
+def quiz_history(current_user: Optional[dict] = Depends(get_current_user)):
+    """Recent quiz attempts (topic/score/total) — feeds study-plan evidence loop."""
+    if not current_user:
+        return []
+    conn = get_db()
+    rows = conn.execute(
+        "SELECT topic, score, total, created_at FROM quiz_results "
+        "WHERE user_id=? ORDER BY created_at DESC LIMIT 50",
+        (current_user["id"],)
+    ).fetchall()
+    conn.close()
+    return [{"topic": r["topic"], "score": r["score"], "total": r["total"],
+             "created_at": r["created_at"]} for r in rows]
+
 
 
 # ============================================================================
