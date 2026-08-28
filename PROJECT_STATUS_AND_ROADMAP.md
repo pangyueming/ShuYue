@@ -44,7 +44,7 @@
 | 2 | **Student Forum 学生论坛** | ❌ 占位 | 分类侧栏有HTML，帖子列表是placeholder |
 | 3 | **Recent Activity 学习动态** | ❌ 占位 | Dashboard中占位 |
 | 4 | **前端→后端数据库连接** | ✅ 已完成 | 书架/笔记/上传/Reader全量调后端API，数据持久化到SQLite |
-| 5 | **用户认证(JWT)** | ✅ 已完成 | 注册/登录/游客模式/数据迁移/忘记密码/密码重置完整闭环 + apiFetch统一封装 + DB列迁移修复 |
+| 5 | **用户认证(JWT)** | ✅ 产品级 | 注册/登录/游客模式/数据迁移/忘记密码/密码重置完整闭环 + apiFetch统一封装 + **全量数据云端同步**(前测result_json整包/学习计划状态/书架/笔记/高亮/答题记录) + **登出内存清零**(换账号零残留) + **SECRET_KEY首次自动生成持久化**(部署唯一) + 换设备登录即恢复 |
 | 6 | **User Profile 用户资料** | ✅ 已完成 | 个人资料页（姓名/大学/专业/年级/A-Level成绩/Further Math）+ 头像首字母 + 侧边栏下拉菜单（Profile/Log Out） |
 | 7 | **UI 增强** | ✅ 已完成 | Lucide 图标库替代 emoji + 密码强度检测 + Dashboard 数字滚动动画 + Study Plan 拖拽删除 |
 
@@ -507,6 +507,8 @@ passlib[bcrypt]             # 密码哈希（bcrypt）
 | 10 | **Reader Chat AI（页面上下文自由问答）** | Reader 工具栏新增 ✨Chat AI 按钮；自动捕获当前页文本(≤2000字符)注入首条用户消息；蓝色上下文条标识；无文档时降级普通聊天；与引用模式互不干扰 |
 | 11 | **AI 回复渲染增强** | 聊天气泡 markdown 渲染补齐：#~#### 标题、有序列表、**表格**(对齐解析/自适应深浅色/超宽横向滚动/流式安全)，Math Tutor 与 AI Chat 双端同步生效 |
 | 12 | **AI Quiz 智能出题（实施中）** | 三段式可验证出题流水线 GENERATE→VERIFY→GRADE；Harness 交叉验证确保题目答案正确；填空题本地 SymPy 判分零 token；quiz_results 入库 + Problems Solved 统计联动 |
+| 13 | **完整用户系统（产品级）** | 前测 result_json 整包云端存取（零失真跨设备恢复）；学习计划状态 GET/PUT /api/plan 云同步（防抖1s）；authLogout 内存全清（换账号零残留）；SECRET_KEY 首次自动生成持久化 .env；登录管线统一（书架→笔记→计划→前测→统计）；双账号隔离实测通过 |
+| 14 | **AI Quiz 完成** | 出题等待时长提示（ETA按配置动态）；KaTeX 公式渲染（题目/选项/解析）；选项随机打乱破除 LLM 位置偏差（NOTA 保护）；题数 1-15 自定义 |
 
 ### 2026-08-13 ~ 2026-08-14：修复迭代
 
@@ -594,7 +596,7 @@ python server.py
 DASHSCOPE_API_KEY=sk-ws-...       # 阿里云百炼API密钥
 MODEL=qwen3.6-35b-a3b              # 主力模型
 TRANSLATE_MODEL=qwen-turbo         # 翻译模型（成本更低）
-SECRET_KEY=your-secret-key         # JWT签名密钥（生产环境必须修改）
+SECRET_KEY=                         # 留空=首次启动自动生成唯一密钥并写回.env（推荐）
 HARNESS_VERSION=v3                 # Harness版本：v3(默认) 或 v2(回退)
 PORT=8000
 HOST=0.0.0.0

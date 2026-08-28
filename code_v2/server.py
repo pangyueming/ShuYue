@@ -99,13 +99,30 @@ PORT = int(os.getenv("PORT", "8000"))
 HOST = os.getenv("HOST", "0.0.0.0")
 UPLOAD_DIR = os.path.join(os.path.dirname(__file__), "uploads")
 DB_PATH = os.path.join(os.path.dirname(__file__), "cognibridge.db")
-SECRET_KEY = os.getenv("SECRET_KEY", "cognibridge-dev-secret-key-change-in-production")
+ENV_PATH = os.path.join(os.path.dirname(__file__), ".env")
+_DEFAULT_SECRET = "cognibridge-dev-secret-key-change-in-production"
+SECRET_KEY = os.getenv("SECRET_KEY", _DEFAULT_SECRET)
 os.makedirs(UPLOAD_DIR, exist_ok=True)
 
 if not DASHSCOPE_API_KEY:
     print("WARNING: DASHSCOPE_API_KEY not set! Check .env file.")
-if SECRET_KEY == "cognibridge-dev-secret-key-change-in-production":
-    print("WARNING: Using default SECRET_KEY. Set a strong key in .env for production.")
+
+# Product-ready auth: every deployment gets its own unique, persistent JWT key.
+# Generated once on first run and written back to .env (or created next to server.py).
+if SECRET_KEY == _DEFAULT_SECRET:
+    SECRET_KEY = secrets.token_hex(32)
+    try:
+        line = f"\n# Auto-generated JWT secret (unique per deployment)\nSECRET_KEY={SECRET_KEY}\n"
+        if os.path.exists(ENV_PATH):
+            with open(ENV_PATH, "a", encoding="utf-8") as f:
+                f.write(line)
+        else:
+            with open(ENV_PATH, "w", encoding="utf-8") as f:
+                f.write(line)
+        print("SECRET_KEY: auto-generated and persisted to .env (tokens survive restarts).")
+    except Exception as e:
+        # Read-only FS etc.: still run with the generated key for this session
+        print(f"SECRET_KEY: generated for this session only (could not persist: {e}).")
 
 # ============================================================================
 # DATABASE (SQLite)
@@ -226,6 +243,8 @@ def init_db():
 
     _ensure_column("notes", "user_id", "TEXT REFERENCES users(id)")
     _ensure_column("documents", "user_id", "TEXT REFERENCES users(id)")
+    _ensure_column("assessments", "result_json", "TEXT DEFAULT '{}'")   # full pretestResult snapshot
+    _ensure_column("study_plans", "state_json", "TEXT DEFAULT '{}'")    # full plan state snapshot
 
     # Backfill orphaned legacy rows to the first existing user
     first_user = conn.execute("SELECT id FROM users ORDER BY created_at ASC LIMIT 1").fetchone()
@@ -1526,6 +1545,7 @@ class AssessmentCreate(BaseModel):
     weak_topics: str = ""
     strong_topics: str = ""
     danger_topics: str = ""
+    result_json: str = "{}"   # complete frontend pretestResult object
 
 @app.post("/api/assessments")
 async def create_assessment(
@@ -1541,11 +1561,11 @@ async def create_assessment(
     conn.execute(
         """INSERT INTO assessments 
            (id, user_id, knowledge_json, transition_json, quiz_correct, quiz_total, 
-            avg_score, weak_topics, strong_topics, danger_topics)
-           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
+            avg_score, weak_topics, strong_topics, danger_topics, result_json)
+           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
         (assessment_id, current_user["id"], req.knowledge_json, req.transition_json,
          req.quiz_correct, req.quiz_total, req.avg_score, req.weak_topics, 
-         req.strong_topics, req.danger_topics)
+         req.strong_topics, req.danger_topics, req.result_json)
     )
     conn.commit(); conn.close()
     return {"id": assessment_id, "saved": True}
@@ -1575,8 +1595,53 @@ async def get_latest_assessment(
         "weak_topics": row["weak_topics"],
         "strong_topics": row["strong_topics"],
         "danger_topics": row["danger_topics"],
+        "result_json": row["result_json"] if "result_json" in row.keys() else "{}",
         "created_at": row["created_at"]
     }
+
+# ============================================================================
+# STUDY PLAN API (per-user plan state sync)
+# ============================================================================
+
+class PlanUpdate(BaseModel):
+    state_json: str = "{}"
+
+@app.get("/api/plan")
+async def get_plan(current_user: Optional[dict] = Depends(get_current_user)):
+    """Get the user's saved study-plan state (progress/completed/deleted/order)."""
+    if not current_user:
+        return {}
+    conn = get_db()
+    row = conn.execute(
+        "SELECT state_json FROM study_plans WHERE user_id=? ORDER BY last_updated DESC LIMIT 1",
+        (current_user["id"],)
+    ).fetchone()
+    conn.close()
+    return {"state_json": row["state_json"]} if row else {}
+
+@app.put("/api/plan")
+async def put_plan(req: PlanUpdate, current_user: Optional[dict] = Depends(get_current_user)):
+    """Upsert the user's study-plan state."""
+    if not current_user:
+        raise HTTPException(401, "Please log in")
+    conn = get_db()
+    existing = conn.execute(
+        "SELECT id FROM study_plans WHERE user_id=? ORDER BY last_updated DESC LIMIT 1",
+        (current_user["id"],)
+    ).fetchone()
+    if existing:
+        conn.execute(
+            "UPDATE study_plans SET state_json=?, last_updated=datetime('now') WHERE id=?",
+            (req.state_json, existing["id"])
+        )
+    else:
+        plan_id = f"plan_{int(time.time()*1000)}"
+        conn.execute(
+            "INSERT INTO study_plans (id,user_id,state_json) VALUES (?,?,?)",
+            (plan_id, current_user["id"], req.state_json)
+        )
+    conn.commit(); conn.close()
+    return {"saved": True}
 
 # ============================================================================
 # STATS API (Dashboard statistics)
