@@ -1465,7 +1465,10 @@ def quiz_grade(req: QuizGradeRequest, current_user: Optional[dict] = Depends(get
         raise HTTPException(404, "Quiz not found or expired, please regenerate")
     if not (0 <= req.q_index < len(quiz["questions"])):
         raise HTTPException(400, "Question index out of range")
+    # Ownership: once a quiz is bound to a user, only that user may grade it
     if current_user:
+        if quiz.get("user_id") and quiz["user_id"] != current_user["id"]:
+            raise HTTPException(403, "This quiz belongs to another session")
         quiz["user_id"] = current_user["id"]
 
     qd = quiz["questions"][req.q_index]
