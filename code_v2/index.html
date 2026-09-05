@@ -7,6 +7,7 @@
     <script src="https://cdn.tailwindcss.com"></script>
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.css">
     <script src="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/contrib/auto-render.min.js"></script>
     <script src="https://cdn.plot.ly/plotly-2.35.2.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/mathjs/12.4.1/math.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
@@ -547,7 +548,7 @@
                     </div>
                 </aside>
                 <div style="flex:1;display:flex;flex-direction:column;overflow:hidden;">
-                    <div style="padding:8px 16px 8px 24px;border-bottom:1px solid var(--border);background:var(--bg-card);display:flex;align-items:center;gap:8px;"><span style="font-size:14px;font-weight:500;flex:1;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;" id="reader-toolbar">Select text to translate, annotate or ask AI</span><button onclick="openAIChatFree()" onmouseenter="this.style.background='#5b21b6'" onmouseleave="this.style.background='#722ed1'" style="flex-shrink:0;display:flex;align-items:center;gap:6px;padding:6px 14px;border-radius:8px;border:none;background:#722ed1;color:#fff;font-size:12px;font-weight:600;cursor:pointer;transition:background .15s;"><i data-lucide="sparkles" style="width:14px;height:14px;"></i>Chat AI</button></div>
+                    <div style="padding:8px 16px 8px 24px;border-bottom:1px solid var(--border);background:var(--bg-card);display:flex;align-items:center;gap:8px;"><span style="font-size:14px;font-weight:500;flex:1;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;" id="reader-toolbar">Select text to translate, annotate or ask AI</span><button id="reader-enable-ai" onclick="mineruGateReopen()" style="flex-shrink:0;display:none;padding:6px 14px;border-radius:8px;border:none;background:#722ed1;color:#fff;font-size:12px;font-weight:600;cursor:pointer;">✨ Enable AI</button><button id="reader-view-toggle" onclick="readerToggleView()" style="flex-shrink:0;display:none;padding:6px 14px;border-radius:8px;border:1px solid var(--border);background:var(--bg-input);color:var(--text-secondary);font-size:12px;font-weight:600;cursor:pointer;">📄 Original Pages</button><button onclick="openAIChatFree()" onmouseenter="this.style.background='#5b21b6'" onmouseleave="this.style.background='#722ed1'" style="flex-shrink:0;display:flex;align-items:center;gap:6px;padding:6px 14px;border-radius:8px;border:none;background:#722ed1;color:#fff;font-size:12px;font-weight:600;cursor:pointer;transition:background .15s;"><i data-lucide="sparkles" style="width:14px;height:14px;"></i>Chat AI</button></div>
                     <div id="reader-content-area" style="flex:1;overflow-y:auto;padding:32px 16px;background:var(--bg-tag);" class="scrollbar">
                         <div class="placeholder-box" style="max-width:600px;margin:0 auto;min-height:calc(100vh - 250px);background:var(--bg-card);">
                             <div style="margin-bottom:14px;display:flex;justify-content:center;"><i data-lucide="book-open" style="width:40px;height:40px;color:var(--text-muted);stroke-width:1.4;"></i></div>
@@ -2261,6 +2262,9 @@ async function loadDocumentsFromBackend(){
                     category:cat,
                     source:d.source,
                     fileType:d.fileType,
+                    parseStatus:d.parseStatus||'',
+                    needsOcr:d.needsOcr||false,
+                    aiDeclined:d.aiDeclined||false,
                     isDeleted:false,
                     deletedAt:null
                 });
@@ -2282,8 +2286,23 @@ function bsRenderDashboard(cat){
     // Render grid
     const docs=(bsData[cat]||[]).filter(d=>!d.isDeleted);
     if(docs.length===0){grid.innerHTML='<div style="grid-column:1/-1;text-align:center;padding:20px;color:var(--text-muted);font-size:12px;">No documents in this category</div>';return;}
-    grid.innerHTML=docs.map((d,i)=>{const origIdx=(bsData[cat]||[]).indexOf(d);return `<div style="border:1px solid var(--border);border-radius:8px;padding:8px;text-align:center;transition:all .15s;background:var(--bg-card);position:relative;" onmouseenter="this.style.borderColor='var(--accent)';this.querySelector('.dash-del-btn').style.opacity='1'" onmouseleave="this.style.borderColor='var(--border)';this.querySelector('.dash-del-btn').style.opacity='0'">
+    grid.innerHTML=docs.map((d,i)=>{const origIdx=(bsData[cat]||[]).indexOf(d);
+        const showMineru=(d.fileType==='pdf'&&d.needsOcr&&d.parseStatus!=='done');
+        const aiBadge=d.parseStatus==='done'?'<span style="position:absolute;top:2px;left:2px;font-size:8px;padding:1px 5px;border-radius:4px;background:rgba(82,196,26,.18);color:#52c41a;font-weight:600;z-index:2;">MinerU</span>':'';
+        const sparkBtn=showMineru?`<button class="dash-spark-btn" onclick="event.stopPropagation();bsMineruById('${d.id}')" style="position:absolute;top:2px;left:2px;width:18px;height:18px;border-radius:4px;border:none;background:#722ed1;color:#fff;font-size:9px;cursor:pointer;opacity:0;transition:opacity .15s;display:flex;align-items:center;justify-content:center;z-index:2;" title="Enable AI re-layout">✨</button>`:'';
+        const isParsing=(d.parseStatus==='queued'||d.parseStatus==='parsing'||d.parseStatus==='indexing');
+        const prog=(isParsing&&mineruTracker.progress&&mineruTracker.progress[d.id])||null;
+        const pct=prog&&prog.total_pages?Math.min(99,Math.round(prog.pages_done*100/prog.total_pages)):0;
+        const progOverlay=isParsing
+            ?'<div data-mineru-progress="'+d.id+'" style="position:absolute;left:0;right:0;bottom:0;z-index:2;">'
+             +(d.parseStatus==='indexing'
+                ?'<div style="height:3px;background:linear-gradient(90deg,#faad14,#f7b955,#faad14);background-size:200% 100%;animation:mineruProgFlow 1.4s linear infinite;"></div>'
+                :'<div style="height:3px;background:var(--bg-input);"><div class="mineru-prog-fill" style="height:100%;width:'+pct+'%;background:#faad14;transition:width .6s ease;"></div></div>')
+             +'<span class="mineru-prog-pct" style="position:absolute;right:2px;bottom:4px;font-size:8px;color:#faad14;font-weight:600;">'+(d.parseStatus==='queued'?'…':(d.parseStatus==='indexing'?'idx':pct+'%'))+'</span></div>'
+            :'';
+        return `<div style="border:1px solid var(--border);border-radius:8px;padding:8px;text-align:center;transition:all .15s;background:var(--bg-card);position:relative;overflow:hidden;" onmouseenter="this.style.borderColor='var(--accent)';this.querySelector('.dash-del-btn').style.opacity='1';var s=this.querySelector('.dash-spark-btn');if(s)s.style.opacity='1'" onmouseleave="this.style.borderColor='var(--border)';this.querySelector('.dash-del-btn').style.opacity='0';var s=this.querySelector('.dash-spark-btn');if(s)s.style.opacity='0'">
         <button class="dash-del-btn" onclick="event.stopPropagation();bsDeleteDocument('${d.id}')" style="position:absolute;top:2px;right:2px;width:18px;height:18px;border-radius:4px;border:none;background:rgba(255,107,107,.9);color:#fff;font-size:11px;cursor:pointer;opacity:0;transition:opacity .15s;display:flex;align-items:center;justify-content:center;z-index:2;">×</button>
+        ${sparkBtn}${aiBadge}${progOverlay}
         <div onclick="bsOpenFromDash('${cat}',${origIdx})" style="cursor:pointer;">
         <div style="margin-bottom:4px;display:flex;justify-content:center;color:var(--text-secondary);">${iconHtml(d.icon,20)}</div>
         <div style="font-size:11px;font-weight:500;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;color:var(--text-primary);">${d.title}</div></div></div>`;}).join('');refreshIcons();
@@ -2318,13 +2337,38 @@ function bsPageRenderGrid(cat){
     const docs=(bsData[cat]||[]).filter(d=>!d.isDeleted);
     if(c)c.textContent=`${docs.length} document(s)`;
     if(docs.length===0){g.innerHTML=`<div class="placeholder-box" style="grid-column:1/-1;">No documents yet<br><button class="btn-secondary" style="margin-top:12px;" onclick="bsUpload()">Upload PDF</button></div>`;return;}
-    g.innerHTML=docs.map((d,i)=>{const origIdx=(bsData[cat]||[]).indexOf(d);return `<div style="border:1px solid var(--border);border-radius:10px;padding:12px;cursor:pointer;transition:all .18s cubic-bezier(.2,.8,.2,1);background:var(--bg-card);position:relative;box-shadow:var(--shadow-xs);" onmouseenter="this.style.borderColor='var(--accent)';this.style.transform='translateY(-3px)';this.style.boxShadow='var(--shadow-md)';this.querySelector('.bs-del-btn').style.opacity='1'" onmouseleave="this.style.borderColor='var(--border)';this.style.transform='translateY(0)';this.style.boxShadow='var(--shadow-xs)';this.querySelector('.bs-del-btn').style.opacity='0'">
+    g.innerHTML=docs.map((d,i)=>{const origIdx=(bsData[cat]||[]).indexOf(d);
+        const showMineru=(d.fileType==='pdf'&&d.needsOcr&&d.parseStatus!=='done');
+        const isParsing=(d.parseStatus==='queued'||d.parseStatus==='parsing'||d.parseStatus==='indexing');
+        const prog=(isParsing&&mineruTracker.progress&&mineruTracker.progress[d.id])||null;
+        let statusLine='';
+        if(d.parseStatus==='done'){
+            statusLine='<div style="font-size:10px;color:#52c41a;text-align:center;margin-top:6px;">✅ MinerU parsed</div>';
+        }else if(isParsing){
+            if(d.parseStatus==='indexing'){
+                statusLine='<div data-mineru-progress="'+d.id+'">'+
+                    '<div style="height:5px;border-radius:3px;background:var(--bg-input);overflow:hidden;margin-top:8px;"><div class="mineru-prog-fill" style="height:100%;width:100%;background:linear-gradient(90deg,#faad14,#f7b955,#faad14);background-size:200% 100%;animation:mineruProgFlow 1.4s linear infinite;border-radius:3px;"></div></div>'+
+                    '<div class="mineru-prog-text" style="font-size:10px;color:#faad14;text-align:center;margin-top:3px;">Building search index…</div></div>';
+            }else{
+                const pct=prog&&prog.total_pages?Math.min(99,Math.round(prog.pages_done*100/prog.total_pages)):0;
+                const label=prog&&prog.total_pages?(prog.pages_done+'/'+prog.total_pages+' pages'):(d.parseStatus==='queued'?'Queued…':'Preparing…');
+                statusLine='<div data-mineru-progress="'+d.id+'">'+
+                    '<div style="height:5px;border-radius:3px;background:var(--bg-input);overflow:hidden;margin-top:8px;"><div class="mineru-prog-fill" style="height:100%;width:'+pct+'%;background:#faad14;border-radius:3px;transition:width .6s ease;"></div></div>'+
+                    '<div class="mineru-prog-text" style="font-size:10px;color:#faad14;text-align:center;margin-top:3px;">'+(d.parseStatus==='queued'?'Queued…':(pct+'% · '+label))+'</div></div>';
+            }
+        }else if(d.parseStatus==='failed'){
+            statusLine='<div style="font-size:10px;color:#ff6b6b;text-align:center;margin-top:6px;">⚠️ Parsing failed</div>';
+        }
+        return `<div style="border:1px solid var(--border);border-radius:10px;padding:12px;cursor:pointer;transition:all .18s cubic-bezier(.2,.8,.2,1);background:var(--bg-card);position:relative;box-shadow:var(--shadow-xs);" onmouseenter="this.style.borderColor='var(--accent)';this.style.transform='translateY(-3px)';this.style.boxShadow='var(--shadow-md)';this.querySelector('.bs-del-btn').style.opacity='1'" onmouseleave="this.style.borderColor='var(--border)';this.style.transform='translateY(0)';this.style.boxShadow='var(--shadow-xs)';this.querySelector('.bs-del-btn').style.opacity='0'">
         <button class="bs-del-btn" onclick="event.stopPropagation();bsDeleteDocument('${d.id}')" style="position:absolute;top:6px;right:6px;width:22px;height:22px;border-radius:6px;border:none;background:rgba(255,107,107,.9);color:#fff;font-size:11px;cursor:pointer;opacity:0;transition:opacity .15s;display:flex;align-items:center;justify-content:center;z-index:2;">×</button>
         <span style="position:absolute;top:6px;left:6px;font-size:9px;padding:1px 6px;border-radius:4px;background:rgba(82,196,26,.15);color:#52c41a;font-weight:500;">Yours</span>
-        <div onclick="bsOpenFromPage('${cat}',${origIdx})" style="width:100%;height:100%;">
+        <div onclick="bsOpenFromPage('${cat}',${origIdx})" style="cursor:pointer;">
         <div style="text-align:center;margin-bottom:8px;"><div style="width:48px;height:56px;border-radius:8px;display:inline-flex;align-items:center;justify-content:center;color:var(--text-secondary);background:var(--bg-tag);">${iconHtml(d.icon,22)}</div></div>
-        <div style="font-size:13px;font-weight:600;text-align:center;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${d.title}</div><div style="font-size:11px;color:var(--text-muted);text-align:center;">${d.desc}</div>
-        <div style="text-align:center;margin-top:8px;"><span style="font-size:11px;padding:2px 8px;border-radius:4px;background:var(--accent);color:#fff;">Read</span></div></div></div>`;}).join('');refreshIcons();}
+        <div style="font-size:13px;font-weight:600;text-align:center;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${d.title}</div><div style="font-size:11px;color:var(--text-muted);text-align:center;">${d.desc}</div></div>
+        <div style="text-align:center;margin-top:8px;display:flex;gap:6px;justify-content:center;align-items:center;">
+            <span onclick="bsOpenFromPage('${cat}',${origIdx})" style="font-size:11px;padding:2px 10px;border-radius:4px;background:var(--accent);color:#fff;cursor:pointer;">Read</span>
+            ${showMineru?`<button onclick="event.stopPropagation();bsMineruById('${d.id}')" style="font-size:11px;padding:2px 10px;border-radius:4px;background:#722ed1;color:#fff;border:none;cursor:pointer;">✨ MinerU</button>`:''}
+        </div>${statusLine}</div>`;}).join('');refreshIcons();}
 function bsOpenFromPage(cat,idx){showPage('reader');setTimeout(()=>readerOpenDoc(cat,idx),100);}
 function bsOpenFromDash(cat,idx){showPage('reader');setTimeout(()=>readerOpenDoc(cat,idx),100);}
 
@@ -2356,6 +2400,9 @@ async function bsConfirmUpload(){if(!bsPendingFile||!bsPendingCat)return;
             category:bsPendingCat,
             source:'upload',
             fileType:doc.fileType,
+            parseStatus:doc.parseStatus||'none',
+            needsOcr:doc.needsOcr||false,
+            aiDeclined:false,
             isDeleted:false,
             deletedAt:null
         });
@@ -2363,7 +2410,14 @@ async function bsConfirmUpload(){if(!bsPendingFile||!bsPendingCat)return;
         const rm=document.getElementById('reader-bs-modal');if(rm&&rm.style.display==='flex')readerRenderModalDocs(bsModalCat);
         // Sync: PDF uploaded to "notes" category should appear on Notes page
         if(uploadCat==='notes'){notesInit();}
-        showNotification('✅ Uploaded to '+cat.label);
+        showNotification(doc.needsOcr
+            ?'📄 Scanned PDF detected — enable AI re-layout now?'
+            :'✅ Uploaded: '+doc.title);
+        // [MinerU] scanned upload -> pop the gate immediately (parse early, not at read time)
+        if(doc.needsOcr&&doc.parseStatus!=='done'){
+            const upCat=uploadCat; const upIdx=bsData[upCat].length-1;
+            setTimeout(()=>{if(bsData[upCat]&&bsData[upCat][upIdx])mineruGateOpen(bsData[upCat][upIdx],upCat,upIdx,false);},350);
+        }
     }catch(e){
         console.error('Upload failed:',e);
         showNotification('❌ Upload failed: '+e.message);
@@ -2399,10 +2453,18 @@ function readerOpenDoc(cat,idx){
     if(doc.isDeleted){showNotification('⚠️ Restore this document first to open it');return;}
     readerCloseBookshelf();
     readerCurrentDocId=doc.id;
+    readerCurrentDocRef={cat,idx};
+    if(readerLastDocId!==doc.id)readerViewMode='doc';   // parsed docs default to reformatted view
+    readerLastDocId=doc.id;
     readerPdfDoc=null;readerPdfTotal=0;readerDocType=null;
     document.getElementById('reader-doc-title').textContent=doc.title;
     document.getElementById('reader-doc-meta').textContent=doc.desc;
     document.getElementById('reader-toolbar').textContent=doc.title;
+    const toggleBtn=document.getElementById('reader-view-toggle');
+    if(toggleBtn)toggleBtn.style.display=(doc.fileType==='pdf'&&doc.parseStatus==='done')?'block':'none';
+    if(toggleBtn)toggleBtn.textContent=readerViewMode==='doc'?'📄 Original Pages':'📝 Reformatted';
+    const aiBtn=document.getElementById('reader-enable-ai');
+    if(aiBtn)aiBtn.style.display=(doc.fileType==='pdf'&&doc.needsOcr&&doc.parseStatus!=='done')?'block':'none';
     readerNotes=[];readerHighlights=[];readerRenderNotes();readerRenderHighlights();
     // Load persisted highlights for this document
     readerLoadHighlights(doc.id);
@@ -2411,6 +2473,18 @@ function readerOpenDoc(cat,idx){
     const area=document.getElementById('reader-content-area');
     if(readerScrollObserver)readerScrollObserver.disconnect();
     readerRenderedPages.clear();
+
+    // ===== [MinerU] parsed PDF -> reformatted document view =====
+    if(doc.fileType==='pdf'&&doc.parseStatus==='done'&&readerViewMode==='doc'){
+        readerOpenDocView(doc,area);
+        return;
+    }
+
+    // ===== [MinerU] un-parsed scanned PDF -> gate (ask, don't force) =====
+    if(doc.fileType==='pdf'&&doc.needsOcr&&doc.parseStatus!=='done'&&!doc.aiDeclined){
+        mineruGateOpen(doc,cat,idx,true);
+        return;
+    }
 
     // Fetch file from backend
     area.innerHTML='<div style="padding:24px 8px;display:flex;flex-direction:column;gap:16px;align-items:center;"><div class="skeleton" style="width:min(600px,92%);height:760px;border-radius:8px;"></div><div class="skeleton" style="width:min(600px,92%);height:760px;border-radius:8px;"></div></div>';
@@ -2666,6 +2740,11 @@ async function readerRenderPdfPageFull(pageNum){
         // Store extracted text for AI context
         pageDiv.dataset.text=textContent.items.map(i=>i.str).join(' ');
 
+        // ===== [MinerU] scanned-page bbox overlay (original-pages mode) =====
+        if(pageDiv.dataset.text.trim().length<20 && readerCurrentDocId){
+            mineruInjectOverlay(pageNum,pageDiv,textLayerDiv,w,h);
+        }
+
         // Apply persisted highlights for this page
         if(readerHighlights.length>0){
             readerHighlights.filter(h=>h.page===pageNum).forEach(h=>{
@@ -2741,6 +2820,8 @@ function openAIChatFree(){
     const msgArea=document.getElementById('ai-chat-messages');
 
     // Capture the page the student is currently reading (from toolbar "Page N of M")
+    // [MinerU] reformatted pages & overlay-injected pages both provide dataset.text,
+    // so page-context chat works for scanned books too
     let ctxLabel='';
     try{
         const tb=document.getElementById('reader-toolbar');
@@ -2903,6 +2984,7 @@ function aiChatSend(text){
     // Build system context with quoted text
     const quoteEl=document.getElementById('ai-chat-quote');
     const quote=quoteEl.style.display!=='none'?quoteEl.textContent:'';
+
     const sysContent='You are CogniBridge, an AI maths tutor for university students. Be clear, concise and helpful. Use markdown formatting (bold, lists). If asked in Chinese, reply in Chinese. If English, reply in English.'+(quote?'\n\nThe student selected this text from their document:\n'+quote:'');
 
     const apiMessages=[{role:'system',content:sysContent},...(
@@ -2925,7 +3007,7 @@ function aiChatSend(text){
         },
         full=>{
             const el=document.getElementById(streamId);
-            if(el)el.innerHTML=markdownToHtml(full);
+            if(el){el.innerHTML=markdownToHtml(full);enhanceCitations(el);}   // [MinerU] clickable [Page N]
             aiChatMessages.push({role:'assistant',content:full});
             msgArea.scrollTop=msgArea.scrollHeight;
         },
@@ -3111,9 +3193,10 @@ async function readerLoadHighlights(docId){
 
 function readerApplyHighlightToPage(pageNum,searchText,color){
     const pageDiv=document.getElementById('pdf-page-'+pageNum);if(!pageDiv)return;
-    const textLayer=pageDiv.querySelector('.textLayer');if(!textLayer)return;
+    const textLayer=pageDiv.querySelector('.textLayer');
+    const root=textLayer||pageDiv;   // [MinerU] reformatted pages have no .textLayer
     // Walk text nodes and wrap matching text
-    const walker=document.createTreeWalker(textLayer,NodeFilter.SHOW_TEXT,null,false);
+    const walker=document.createTreeWalker(root,NodeFilter.SHOW_TEXT,null,false);
     const nodes=[];let n;while((n=walker.nextNode())!==null)nodes.push(n);
     for(let node of nodes){
         const idx=node.textContent.indexOf(searchText);if(idx===-1)continue;
@@ -3450,6 +3533,593 @@ document.addEventListener('DOMContentLoaded',async()=>{
     await restorePretestData();     // logged-in: pretest from cloud snapshot
     checkWeeklyUpdate();
 });
+</script>
+
+<style>
+@keyframes mineruProgFlow{0%{background-position:0% 0}100%{background-position:200% 0}}
+</style>
+
+<!-- ===== [MinerU] gate modal (onboarding / consent / progress) ===== -->
+<div id="mineru-gate" style="display:none;position:fixed;inset:0;z-index:200;background:rgba(0,0,0,.45);align-items:center;justify-content:center;">
+    <div style="width:500px;max-width:92vw;background:var(--bg-card);border:1px solid var(--border);border-radius:16px;padding:24px 26px;box-shadow:0 12px 40px rgba(0,0,0,.25);max-height:88vh;overflow-y:auto;">
+        <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:8px;">
+            <div style="font-size:17px;font-weight:700;color:var(--text-primary);">✨ AI Re-layout <span style="font-weight:400;font-size:12px;color:var(--text-muted);">powered by MinerU</span></div>
+            <button onclick="mineruGateClose()" style="width:28px;height:28px;border-radius:6px;border:none;background:transparent;color:var(--text-muted);cursor:pointer;font-size:16px;">✕</button>
+        </div>
+        <div id="mineru-gate-body"></div>
+    </div>
+</div>
+
+<!-- ===== [MinerU] parse-complete confirmation modal (must click to dismiss) ===== -->
+<div id="mineru-done-modal" style="display:none;position:fixed;inset:0;z-index:300;background:rgba(0,0,0,.5);align-items:center;justify-content:center;">
+    <div style="width:430px;max-width:90vw;background:var(--bg-card);border:1px solid var(--border);border-radius:16px;padding:26px 28px;box-shadow:0 12px 40px rgba(0,0,0,.3);text-align:center;">
+        <div id="mineru-done-icon" style="font-size:42px;margin-bottom:10px;">✅</div>
+        <div id="mineru-done-title" style="font-size:17px;font-weight:700;color:var(--text-primary);margin-bottom:8px;">AI Re-layout Complete</div>
+        <div id="mineru-done-body" style="font-size:13px;color:var(--text-secondary);line-height:1.65;margin-bottom:18px;"></div>
+        <div style="display:flex;gap:10px;justify-content:center;">
+            <button id="mineru-done-open" style="padding:10px 24px;border-radius:8px;border:none;background:#722ed1;color:#fff;font-size:13px;font-weight:600;cursor:pointer;">Open Book</button>
+            <button id="mineru-done-ok" style="padding:10px 24px;border-radius:8px;border:1px solid var(--border);background:var(--bg-input);color:var(--text-secondary);font-size:13px;cursor:pointer;">OK</button>
+        </div>
+    </div>
+</div>
+
+<script>
+// ===== [MinerU] global parse tracker + confirmation modal =====
+const mineruTracker={pending:{},progress:{},queue:[],busy:false};
+
+function mineruTrackerFetch(path){
+    const token=localStorage.getItem('cb_token')||'';
+    return fetch(AI_BACKEND_URL+path,{headers:{'Authorization':'Bearer '+token}});
+}
+
+function mineruUpdateProgressWidgets(){
+    // in-place progress updates — no grid re-render (keeps hover states, no flicker)
+    Object.keys(mineruTracker.progress).forEach(id=>{
+        const p=mineruTracker.progress[id];
+        document.querySelectorAll('[data-mineru-progress="'+id+'"]').forEach(box=>{
+            const fill=box.querySelector('.mineru-prog-fill');
+            const text=box.querySelector('.mineru-prog-text');
+            const pctEl=box.querySelector('.mineru-prog-pct');
+            const pct=p.total_pages?Math.min(99,Math.round(p.pages_done*100/p.total_pages)):0;
+            if(fill&&!fill.style.animation){fill.style.width=pct+'%';}   // animated (indexing) bars keep full width
+            if(text)text.textContent=p.status==='queued'?'Queued…':(p.status==='indexing'?'Building search index…':(pct+'% · '+p.pages_done+'/'+p.total_pages+' pages'));
+            if(pctEl)pctEl.textContent=p.status==='indexing'?'idx':(p.status==='queued'?'…':pct+'%');
+        });
+    });
+}
+
+function mineruTrackerTick(){
+    if(!localStorage.getItem('cb_token'))return;   // no session -> skip (avoid 401 spam)
+    mineruTrackerFetch('/api/documents/parsing')
+    .then(r=>r.ok?r.json():Promise.reject(new Error('HTTP '+r.status)))
+    .then(list=>{
+        const now={};
+        (list||[]).forEach(d=>{now[d.id]=d;});
+        mineruTracker.progress={};
+        (list||[]).forEach(d=>{mineruTracker.progress[d.id]=d;});
+        mineruUpdateProgressWidgets();
+        Object.keys(mineruTracker.pending).forEach(id=>{
+            if(now[id])return;   // still pending
+            mineruTrackerFetch('/api/documents/'+id+'/parse')
+            .then(r=>r.ok?r.json():null)
+            .then(s=>{
+                if(!s)return;
+                if(typeof mineruGateDoc!=='undefined'&&mineruGateDoc&&mineruGateDoc.id===id
+                   &&document.getElementById('mineru-gate').style.display==='flex')return;
+                if(s.status==='done'||s.status==='failed'){
+                    mineruTracker.queue.push({id,title:mineruTracker.pending[id].title,ok:s.status==='done',error:s.error||''});
+                    mineruShowNextDone();
+                }
+            })
+            .catch(()=>{});
+        });
+        mineruTracker.pending=now;
+    })
+    .catch(()=>{});
+}
+
+const MINERU_STATUS_LABELS={done:'MinerU parsed',failed:'Parsing failed',parsing:'MinerU parsing…',indexing:'Building index…',queued:'Queued',none:'Not parsed'};
+
+function mineruSyncDoc(id,status){
+    let changed=false;
+    Object.keys(bsData).forEach(c=>bsData[c].forEach(d=>{
+        if(d.id===id&&d.parseStatus!==status){
+            d.parseStatus=status;
+            if(status==='done')d.aiDeclined=false;
+            const base=(d.desc||'').split('·')[0].trim();
+            d.desc=base+(MINERU_STATUS_LABELS[status]?' · '+MINERU_STATUS_LABELS[status]:'');
+            changed=true;
+        }
+    }));
+    if(changed){
+        try{
+            if(typeof bsPageRenderGrid==='function'&&typeof bsPageCat!=='undefined')bsPageRenderGrid(bsPageCat);
+            if(typeof bsRenderDashboard==='function'&&typeof bsPageCat!=='undefined')bsRenderDashboard(bsPageCat);
+        }catch(e){}
+        if(typeof readerCurrentDocId!=='undefined'&&readerCurrentDocId===id){
+            const aiBtn=document.getElementById('reader-enable-ai');
+            if(aiBtn)aiBtn.style.display=status==='done'?'none':aiBtn.style.display;
+            const tgl=document.getElementById('reader-view-toggle');
+            if(tgl&&status==='done'&&typeof readerDocType!=='undefined'&&readerDocType)tgl.style.display='block';
+        }
+    }
+}
+
+function mineruShowNextDone(){
+    if(mineruTracker.busy||!mineruTracker.queue.length)return;
+    mineruTracker.busy=true;
+    const item=mineruTracker.queue.shift();
+    const icon=document.getElementById('mineru-done-icon');
+    const title=document.getElementById('mineru-done-title');
+    const body=document.getElementById('mineru-done-body');
+    const openBtn=document.getElementById('mineru-done-open');
+    if(item.ok){
+        icon.textContent='✅';
+        title.textContent='AI Re-layout Complete';
+        body.innerHTML='"'+escapeHtml(item.title)+'" is ready — formatted text, rendered formulas and Q&A are now unlocked.';
+        openBtn.style.display='inline-block';
+        openBtn.textContent='Open Book';
+    }else if(mineruIsAuthError(item)){
+        icon.textContent='🔑';
+        title.textContent='MinerU API Key Rejected';
+        body.innerHTML='Your MinerU API key was rejected while parsing "'+escapeHtml(item.title)+'".<br><span style="font-size:11px;color:var(--text-muted);">Update your key to continue — completed parts are cached.</span>';
+        openBtn.style.display='inline-block';
+        openBtn.textContent='Update Key';
+    }else{
+        icon.textContent='⚠️';
+        title.textContent='AI Re-layout Failed';
+        body.innerHTML='"'+escapeHtml(item.title)+'" could not be parsed.<br><span style="font-size:11px;color:var(--text-muted);">'+escapeHtml(item.error||'Unknown error')+'</span>';
+        openBtn.style.display='none';
+    }
+    // keep progress bars at 100% while the modal awaits user confirmation —
+    // cards only flip to the green badge AFTER the user clicks OK / Open Book
+    openBtn.onclick=()=>{
+        mineruCloseDone();
+        if(item.ok){mineruSyncDoc(item.id,'done');mineruOpenBookById(item.id);}
+        else{mineruOpenGateAuthFix(item.id);}
+    };
+    document.getElementById('mineru-done-ok').onclick=()=>{mineruCloseDone();mineruSyncDoc(item.id,item.ok?'done':'failed');};
+    document.getElementById('mineru-done-modal').style.display='flex';
+}
+
+function mineruOpenGateAuthFix(id){
+    let found=null;
+    Object.keys(bsData).forEach(c=>bsData[c].forEach((d,i)=>{if(d.id===id)found={doc:d,cat:c,idx:i};}));
+    if(!found)return;
+    mineruGateDoc=found.doc; mineruGateRef={cat:found.cat,idx:found.idx}; mineruGateOpensReader=true;
+    document.getElementById('mineru-gate').style.display='flex';
+    mineruGateUpdateKey();
+}
+
+function mineruCloseDone(){
+    document.getElementById('mineru-done-modal').style.display='none';
+    mineruTracker.busy=false;
+    mineruShowNextDone();
+}
+
+function mineruOpenBookById(id){
+    let found=null;
+    Object.keys(bsData).forEach(c=>bsData[c].forEach((d,i)=>{if(d.id===id)found={cat:c,idx:i};}));
+    if(!found){if(typeof showPage==='function')showPage('bookshelf');return;}
+    if(typeof showPage==='function')showPage('reader');
+    setTimeout(()=>{readerOpenDoc(found.cat,found.idx);},100);
+}
+
+// start the tracker: runs app-wide regardless of current page
+setInterval(mineruTrackerTick,10000);
+mineruTrackerTick();
+
+// ===== [MinerU] gate: onboarding -> consent -> progress =====
+let mineruGateDoc=null, mineruGateRef=null, mineruGateOpensReader=false;
+
+function mineruGateClose(){document.getElementById('mineru-gate').style.display='none';}
+
+function mineruGateReopen(){
+    if(!readerCurrentDocRef)return;
+    const ref=readerCurrentDocRef;
+    const doc=bsData[ref.cat]&&bsData[ref.cat][ref.idx];
+    if(!doc)return;
+    mineruGateOpen(doc,ref.cat,ref.idx,true);
+}
+
+function bsMineruById(id){
+    let found=null;
+    Object.keys(bsData).forEach(c=>bsData[c].forEach((d,i)=>{if(d.id===id)found={cat:c,idx:i,doc:d};}));
+    if(found)mineruGateOpen(found.doc,found.cat,found.idx,false);
+}
+
+async function mineruGateOpen(doc,cat,idx,opensReader){
+    mineruGateDoc=doc; mineruGateRef={cat,idx};
+    mineruGateOpensReader=opensReader===true;
+    document.getElementById('mineru-gate').style.display='flex';
+    const body=document.getElementById('mineru-gate-body');
+    body.innerHTML='<div style="text-align:center;color:var(--text-muted);padding:20px;font-size:13px;">Checking…</div>';
+    // check current parse state FIRST — an active parse goes straight to progress,
+    // never re-ask consent for a job that's already running
+    let state=null;
+    try{
+        const r=await apiFetch('/api/documents/'+doc.id+'/parse');
+        if(r.ok){const s=await r.json();state=s.status;}
+    }catch(e){}
+    if(state==='queued'||state==='parsing'||state==='indexing'){
+        mineruGateRenderProgress();
+        return;
+    }
+    if(state==='done'){
+        // stale card data — sync and open the reformatted view directly
+        mineruGateClose();
+        if(typeof mineruSyncDoc==='function')mineruSyncDoc(doc.id,'done');
+        if(mineruGateOpensReader&&mineruGateRef)readerOpenDoc(mineruGateRef.cat,mineruGateRef.idx);
+        return;
+    }
+    let cfg={configured:false};
+    try{
+        const r=await apiFetch('/api/user/mineru-token');
+        if(r.ok)cfg=await r.json();
+    }catch(e){}
+    if(cfg.configured){mineruGateRenderConsent();}
+    else{mineruGateRenderOnboarding();}
+}
+
+function mineruGateRenderOnboarding(){
+    const body=document.getElementById('mineru-gate-body');
+    body.innerHTML=`
+    <p style="font-size:13px;color:var(--text-secondary);line-height:1.6;margin:4px 0 14px;">
+        This scanned PDF has no selectable text. AI re-layout unlocks formatted text, rendered formulas
+        and citation-grounded Q&A — using <b>your own free MinerU account</b> (2,000 pages/day free).</p>
+    <div style="background:var(--bg-input);border:1px solid var(--border);border-radius:10px;padding:14px 16px;margin-bottom:12px;font-size:13px;line-height:2;color:var(--text-secondary);">
+        <b style="color:var(--text-primary);">Setup (one time only):</b><br>
+        1. Create a free account at
+        <a href="https://mineru.net" target="_blank" rel="noopener" style="color:var(--accent);font-weight:600;">mineru.net ↗</a><br>
+        2. Open <span style="font-family:monospace;background:var(--bg-tag);padding:1px 6px;border-radius:4px;">Avatar → API Key</span> and create a key<br>
+        3. Paste your API key below — it is stored <b>encrypted</b> and never shown again
+    </div>
+    <input id="mineru-key-input" type="password" placeholder="Paste your API key (starts with sk-)" class="input" style="width:100%;font-size:13px;">
+    <div id="mineru-key-error" style="color:#ff6b6b;font-size:12px;min-height:16px;margin-top:4px;"></div>
+    <button id="mineru-key-save" onclick="mineruGateSaveKey()" style="width:100%;margin-top:8px;padding:10px;border-radius:8px;border:none;background:#722ed1;color:#fff;font-size:13px;font-weight:600;cursor:pointer;">Save Key & Continue</button>
+    <button onclick="mineruGateChooseOriginal()" style="width:100%;margin-top:8px;padding:8px;border-radius:8px;border:none;background:transparent;color:var(--text-muted);font-size:12px;cursor:pointer;">${mineruGateOpensReader?'Skip — show original pages only':'Not now'}</button>`;
+    setTimeout(()=>{const i=document.getElementById('mineru-key-input');if(i)i.focus();},100);
+}
+
+async function mineruGateSaveKey(){
+    const input=document.getElementById('mineru-key-input');
+    const errEl=document.getElementById('mineru-key-error');
+    const btn=document.getElementById('mineru-key-save');
+    const key=(input&&input.value||'').trim();
+    if(!key.startsWith('sk-')||key.length<20){errEl.textContent='Invalid key — it should start with "sk-".';return;}
+    errEl.textContent='';
+    if(btn){btn.disabled=true;btn.textContent='Validating key…';}
+    try{
+        const r=await apiFetch('/api/user/mineru-token',{method:'PUT',body:JSON.stringify({token:key})});
+        if(!r.ok){
+            const e=await r.json().catch(()=>({}));
+            throw new Error(e.detail||('HTTP '+r.status));
+        }
+        if(mineruKeyRetryPending){mineruGateOfferRetry();}
+        else{mineruGateRenderConsent();}
+    }catch(e){
+        errEl.textContent=e.message;
+        if(btn){btn.disabled=false;btn.textContent='Save Key & Continue';}
+        return;
+    }
+}
+
+// ===== [MinerU] auth-error recovery: update key -> one-click retry =====
+let mineruKeyRetryPending=false;
+
+function mineruIsAuthError(s){
+    return s&&(s.error_type==='auth'||/rejected/i.test(s.error||''));
+}
+
+function mineruGateUpdateKey(){
+    mineruKeyRetryPending=true;
+    mineruGateRenderOnboarding();
+    const errEl=document.getElementById('mineru-key-error');
+    if(errEl)errEl.textContent='The previous key was rejected — please paste a different one.';
+}
+
+function mineruGateOfferRetry(){
+    const body=document.getElementById('mineru-gate-body');
+    const title=mineruGateDoc?escapeHtml(mineruGateDoc.title):'this document';
+    body.innerHTML=`
+    <div style="text-align:center;padding:10px 0;">
+        <div style="font-size:34px;margin-bottom:8px;">🔑✅</div>
+        <div style="font-size:15px;font-weight:700;color:var(--text-primary);margin-bottom:6px;">Key Updated</div>
+        <p style="font-size:13px;color:var(--text-secondary);margin:0 0 16px;">Your new MinerU key is saved.<br>Retry parsing "${title}" now?</p>
+        <div style="display:flex;gap:10px;">
+            <button onclick="mineruGateStart()" style="flex:1;padding:10px;border-radius:8px;border:none;background:#722ed1;color:#fff;font-size:13px;font-weight:600;cursor:pointer;">↻ Retry Parse</button>
+            <button onclick="mineruGateChooseOriginal()" style="flex:1;padding:10px;border-radius:8px;border:1px solid var(--border);background:var(--bg-input);color:var(--text-secondary);font-size:13px;cursor:pointer;">Not now</button>
+        </div>
+        <p style="font-size:11px;color:var(--text-muted);margin-top:10px;">Completed parts are cached — retrying won't re-spend those pages.</p>
+    </div>`;
+}
+
+function mineruGateRenderConsent(){
+    const body=document.getElementById('mineru-gate-body');
+    const title=mineruGateDoc?mineruGateDoc.title:'this document';
+    body.innerHTML=`
+    <p style="font-size:13px;color:var(--text-secondary);line-height:1.6;margin:4px 0 14px;">
+        <b style="color:var(--text-primary);">"${escapeHtml(title)}"</b> is a scanned PDF with no selectable text.<br>
+        Enable AI re-layout now? (uses your MinerU key; large books take ~5–20 min)</p>
+    <div style="display:flex;gap:10px;">
+        <button onclick="mineruGateStart()" style="flex:1;padding:10px;border-radius:8px;border:none;background:#722ed1;color:#fff;font-size:13px;font-weight:600;cursor:pointer;">✨ Enable AI Re-layout</button>
+        <button onclick="mineruGateChooseOriginal()" style="flex:1;padding:10px;border-radius:8px;border:1px solid var(--border);background:var(--bg-input);color:var(--text-secondary);font-size:13px;cursor:pointer;">${mineruGateOpensReader?'Original Pages Only':'Not now'}</button>
+    </div>
+    <p style="font-size:11px;color:var(--text-muted);margin-top:10px;">You can change your mind later via the "✨ Enable AI" button in the toolbar.</p>`;
+}
+
+async function mineruGateChooseOriginal(){
+    if(mineruGateDoc&&mineruGateDoc.id){
+        try{await apiFetch('/api/documents/'+mineruGateDoc.id+'/decline-ai',{method:'POST'});}catch(e){}
+        mineruGateDoc.aiDeclined=true;
+    }
+    mineruGateClose();
+    if(mineruGateOpensReader&&mineruGateRef){
+        readerOpenDoc(mineruGateRef.cat,mineruGateRef.idx);
+    }else{
+        try{
+            if(typeof bsPageRenderGrid==='function'&&typeof bsPageCat!=='undefined')bsPageRenderGrid(bsPageCat);
+            if(typeof bsRenderDashboard==='function'&&typeof bsPageCat!=='undefined')bsRenderDashboard(bsPageCat);
+        }catch(e){}
+    }
+}
+
+async function mineruGateStart(){
+    const body=document.getElementById('mineru-gate-body');
+    body.innerHTML='<div style="text-align:center;color:var(--text-muted);padding:20px;font-size:13px;">Starting…</div>';
+    try{
+        const r=await apiFetch('/api/documents/'+mineruGateDoc.id+'/parse',{method:'POST'});
+        if(!r.ok){const e=await r.json().catch(()=>({}));throw new Error(e.detail||('HTTP '+r.status));}
+        mineruGateRenderProgress();
+    }catch(e){
+        body.innerHTML='<div style="color:#ff6b6b;font-size:13px;padding:12px;">❌ '+escapeHtml(e.message)+'</div>'+
+            '<button onclick="mineruGateRenderConsent()" style="width:100%;margin-top:8px;padding:9px;border-radius:8px;border:1px solid var(--border);background:var(--bg-input);color:var(--text-secondary);font-size:13px;cursor:pointer;">Back</button>';
+    }
+}
+
+function mineruGateRenderProgress(){
+    const body=document.getElementById('mineru-gate-body');
+    const title=mineruGateDoc?escapeHtml(mineruGateDoc.title):'';
+    body.innerHTML=`
+    <div style="text-align:center;padding:14px 0;">
+        <div class="spinner" style="margin:0 auto 14px;"></div>
+        <div id="mineru-progress-text" style="font-size:13px;color:var(--text-primary);font-weight:600;">Queued…</div>
+        <div id="mineru-progress-sub" style="font-size:11px;color:var(--text-muted);margin-top:6px;">"${title}" · you can close this dialog, parsing continues in the background</div>
+    </div>`;
+    const poll=async()=>{
+        try{
+            const r=await apiFetch('/api/documents/'+mineruGateDoc.id+'/parse');
+            if(r.ok){
+                const s=await r.json();
+                const t=document.getElementById('mineru-progress-text');
+                if(t){
+                    if(s.status==='done'){
+                        t.textContent='✅ Done!';
+                        setTimeout(()=>{
+                            mineruGateClose();
+                            if(mineruGateRef)readerOpenDoc(mineruGateRef.cat,mineruGateRef.idx);
+                        },600);
+                        return;
+                    }
+                    if(s.status==='failed'){
+                        const auth=mineruIsAuthError(s);
+                        t.innerHTML='<span style="color:#ff6b6b;">❌ '+escapeHtml(s.error||'Parsing failed')+'</span>';
+                        const sub=document.getElementById('mineru-progress-sub');
+                        if(sub&&auth){
+                            sub.innerHTML='<button onclick="mineruGateUpdateKey()" style="margin-top:10px;padding:8px 20px;border-radius:8px;border:none;background:#722ed1;color:#fff;font-size:13px;font-weight:600;cursor:pointer;">🔑 Update MinerU Key & Retry</button>';
+                        }
+                        return;
+                    }
+                    const pages=s.total_pages?(' · '+s.pages_done+'/'+s.total_pages+' pages'):'';
+                    t.textContent=s.status==='indexing'?'Building search index…':'Parsing on MinerU cloud'+pages;
+                }
+            }
+        }catch(e){}
+        setTimeout(poll,3000);
+    };
+    poll();
+}
+
+// ===== [MinerU] reformatted document view (docview) =====
+let readerViewMode='doc';
+let readerLastDocId=null;
+let readerCurrentDocRef=null;
+const MINERU_SKIP_TYPES=new Set(['header','footer','page_number','aside_text','page_footnote']);
+
+function readerToggleView(){
+    if(!readerCurrentDocRef)return;
+    readerViewMode=readerViewMode==='doc'?'pdf':'doc';
+    const btn=document.getElementById('reader-view-toggle');
+    if(btn)btn.textContent=readerViewMode==='doc'?'📄 Original Pages':'📝 Reformatted';
+    const ref=readerCurrentDocRef;
+    readerOpenDoc(ref.cat,ref.idx);
+}
+
+async function readerOpenDocView(doc,area){
+    readerDocType='docview';
+    area.innerHTML='<div style="text-align:center;padding:60px;color:var(--text-muted);display:flex;flex-direction:column;align-items:center;gap:12px;"><div class="spinner"></div><p>Loading reformatted document…</p></div>';
+    area.style.cssText='flex:1;overflow-y:auto;padding:24px 8px;background:var(--bg-tag);';
+    let total=0;
+    try{
+        const r=await apiFetch('/api/documents/'+readerCurrentDocId+'/pages/1');
+        if(!r.ok)throw new Error('HTTP '+r.status);
+        const meta=await r.json();
+        total=meta.total_pages||1;
+    }catch(e){
+        area.innerHTML='<div style="text-align:center;padding:60px;color:#ff6b6b;">Failed to load reformatted document<br><span style="font-size:12px;">'+escapeHtml(e.message)+'</span></div>';
+        return;
+    }
+    readerPdfTotal=total;
+    area.innerHTML='';
+    const container=document.createElement('div');
+    container.id='pdf-pages-container';
+    container.style.cssText='max-width:860px;margin:0 auto;';
+    area.appendChild(container);
+    for(let i=1;i<=total;i++){
+        const pageDiv=document.createElement('div');
+        pageDiv.id='pdf-page-'+i;
+        pageDiv.dataset.pageNum=i;
+        pageDiv.className='docview-page';
+        pageDiv.style.cssText='margin:0 auto 18px;background:var(--bg-card);border:1px solid var(--border);border-radius:8px;padding:6px 34px 20px;min-height:200px;box-shadow:0 1px 4px rgba(0,0,0,.06);';
+        pageDiv.innerHTML='<div style="display:flex;align-items:center;justify-content:center;padding:34px;color:var(--text-muted);font-size:13px;">⏳ Page '+i+'</div>';
+        container.appendChild(pageDiv);
+    }
+    readerScrollObserver=new IntersectionObserver((entries)=>{
+        entries.forEach(entry=>{
+            if(entry.isIntersecting){
+                const pageNum=parseInt(entry.target.dataset.pageNum);
+                if(!readerRenderedPages.has(pageNum)){readerRenderDocViewPage(pageNum);}
+            }
+        });
+    },{root:area,rootMargin:'300px 0px',threshold:0.01});
+    container.querySelectorAll('[data-page-num]').forEach(d=>readerScrollObserver.observe(d));
+    area.onscroll=()=>{
+        const pages=container.querySelectorAll('[data-page-num]');
+        for(let p of pages){
+            const rect=p.getBoundingClientRect();
+            if(rect.top>=0&&rect.top<area.clientHeight/2){
+                document.getElementById('reader-toolbar').textContent='Page '+p.dataset.pageNum+' of '+total+' · '+doc.title;
+                break;
+            }
+        }
+    };
+    showNotification('✅ '+doc.title+' · reformatted view ('+total+' pages) · Select text to translate, highlight or ask AI');
+}
+
+async function readerRenderDocViewPage(pageNum){
+    if(readerRenderedPages.has(pageNum))return;
+    readerRenderedPages.add(pageNum);
+    const pageDiv=document.getElementById('pdf-page-'+pageNum);
+    if(!pageDiv)return;
+    try{
+        const r=await apiFetch('/api/documents/'+readerCurrentDocId+'/pages/'+pageNum);
+        if(!r.ok)throw new Error('HTTP '+r.status);
+        const data=await r.json();
+        pageDiv.innerHTML='';
+        const divider=document.createElement('div');
+        divider.style.cssText='text-align:center;color:var(--text-muted);font-size:11px;letter-spacing:2px;padding:8px 0 14px;border-bottom:1px dashed var(--border);margin-bottom:14px;user-select:none;';
+        divider.textContent='— Page '+pageNum+' —';
+        pageDiv.appendChild(divider);
+        const texts=[];
+        for(const b of (data.blocks||[])){
+            if(MINERU_SKIP_TYPES.has(b.type))continue;
+            const t=(b.text||'').trim();
+            if(b.type==='table'&&b.html){
+                if(b.caption){
+                    const cap=document.createElement('div');
+                    cap.style.cssText='font-size:12px;color:var(--text-muted);text-align:center;margin:8px 0 4px;';
+                    cap.textContent=b.caption;
+                    pageDiv.appendChild(cap);
+                }
+                const wrap=document.createElement('div');
+                wrap.style.cssText='overflow-x:auto;margin:8px 0;';
+                const tbl=document.createElement('div');
+                tbl.innerHTML=b.html;
+                const table=tbl.querySelector('table');
+                if(table)table.style.cssText='border-collapse:collapse;font-size:13px;margin:0 auto;';
+                if(table)[...table.querySelectorAll('td,th')].forEach(c=>{c.style.border='1px solid var(--border)';c.style.padding='4px 10px';});
+                wrap.appendChild(tbl);
+                pageDiv.appendChild(wrap);
+                texts.push(t||b.caption||'[table]');
+                continue;
+            }
+            if(!t)continue;
+            texts.push(t);
+            if(b.type==='title'||b.text_level){
+                const lvl=Math.min(b.text_level||1,4);
+                const h=document.createElement('h'+Math.max(2,lvl+1));
+                h.style.cssText='margin:16px 0 8px;font-weight:700;';
+                h.textContent=t.replace(/^#+\s*/,'');
+                pageDiv.appendChild(h);
+            }else if(b.type==='equation'){
+                const eq=document.createElement('div');
+                eq.style.cssText='text-align:center;margin:10px 0;padding:4px 0;';
+                eq.textContent=t.startsWith('$$')?t:'$$'+t+'$$';
+                pageDiv.appendChild(eq);
+            }else if(b.type==='image'||b.type==='chart'){
+                const cap=document.createElement('div');
+                cap.style.cssText='font-size:12px;color:var(--text-muted);text-align:center;margin:8px 0;font-style:italic;';
+                cap.textContent='[Figure] '+t;
+                pageDiv.appendChild(cap);
+            }else{
+                const p=document.createElement('p');
+                p.style.cssText='margin:8px 0;line-height:1.85;font-size:15px;color:var(--text-primary);';
+                p.textContent=t;
+                pageDiv.appendChild(p);
+            }
+        }
+        pageDiv.dataset.text=texts.join(' ');
+        if(pageDiv.children.length<=1){
+            const empty=document.createElement('div');
+            empty.style.cssText='text-align:center;color:var(--text-muted);font-size:12px;font-style:italic;padding:20px 0;';
+            empty.textContent='No extractable content on this page (figure-only or blank page)';
+            pageDiv.appendChild(empty);
+        }
+        if(window.renderMathInElement){
+            renderMathInElement(pageDiv,{delimiters:[{left:'$$',right:'$$',display:true},{left:'$',right:'$',display:false}],throwOnError:false,strict:false});
+        }
+        if(typeof readerHighlights!=='undefined'&&readerHighlights.length>0){
+            readerHighlights.filter(h=>h.page===pageNum).forEach(h=>{
+                try{readerApplyHighlightToPage(pageNum,h.text,h.color);}catch(e){}
+            });
+        }
+    }catch(e){
+        pageDiv.innerHTML='<div style="padding:30px;text-align:center;color:#ff6b6b;font-size:13px;">Failed to load page '+pageNum+': '+escapeHtml(e.message)+'</div>';
+    }
+}
+
+// ===== [MinerU] bbox overlay injection (original-pages mode) =====
+const mineruPageCache={};
+
+async function mineruInjectOverlay(pageNum,pageDiv,textLayerDiv,w,h){
+    if(textLayerDiv.dataset.mineru==='1')return;
+    textLayerDiv.dataset.mineru='1';
+    try{
+        let blocks=mineruPageCache[pageNum];
+        if(blocks===undefined){
+            const res=await apiFetch('/api/documents/'+readerCurrentDocId+'/pages/'+pageNum);
+            if(!res.ok)throw new Error('HTTP '+res.status);
+            const data=await res.json();
+            blocks=data.blocks||[];
+            mineruPageCache[pageNum]=blocks;
+        }
+        const texts=[];
+        for(const b of blocks){
+            if(MINERU_SKIP_TYPES.has(b.type))continue;
+            const t=(b.text||'').trim();
+            if(!t||!b.bbox)continue;
+            texts.push(t);
+            const [x0,y0,x1,y1]=b.bbox;
+            const span=document.createElement('span');
+            span.style.left=(x0/1000*w)+'px';
+            span.style.top=(y0/1000*h)+'px';
+            span.style.width=Math.max(10,(x1-x0)/1000*w)+'px';
+            span.style.fontSize=Math.max(8,Math.min(18,(y1-y0)/1000*h*0.6))+'px';
+            span.style.lineHeight=1.25;
+            span.style.whiteSpace='pre-wrap';
+            span.style.wordBreak='break-word';
+            span.style.overflow='hidden';
+            span.textContent=t;
+            textLayerDiv.insertBefore(span,textLayerDiv.querySelector('.endOfContent'));
+        }
+        if(texts.length){
+            pageDiv.dataset.text=texts.join(' ');
+            if(typeof readerHighlights!=='undefined'&&readerHighlights.length>0){
+                readerHighlights.filter(hl=>hl.page===pageNum).forEach(hl=>{
+                    try{readerApplyHighlightToPage(pageNum,hl.text,hl.color);}catch(e){}
+                });
+            }
+        }
+    }catch(e){console.warn('[mineru] overlay failed p'+pageNum,e);}
+}
+
+// ===== [MinerU] citation badges for chat answers =====
+function enhanceCitations(el){
+    if(!el)return;
+    el.innerHTML=el.innerHTML
+        .replace(/\[Page (\d+)\]/g,(m,n)=>'<span onclick="readerJumpToPage('+n+')" style="display:inline-block;padding:0 7px;margin:0 2px;border-radius:8px;background:rgba(35,131,226,.12);color:#2383e2;border:1px solid rgba(35,131,226,.3);font-size:11px;font-weight:600;cursor:pointer;">Page '+n+'</span>')
+        .replace(/【第(\d+)页】/g,(m,n)=>'<span onclick="readerJumpToPage('+n+')" style="display:inline-block;padding:0 7px;margin:0 2px;border-radius:8px;background:rgba(35,131,226,.12);color:#2383e2;border:1px solid rgba(35,131,226,.3);font-size:11px;font-weight:600;cursor:pointer;">Page '+n+'</span>');
+}
 </script>
 </body>
 </html>

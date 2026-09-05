@@ -5,3 +5,5 @@ pydantic
 python-dotenv
 python-multipart
 python-jose[cryptography]
+pypdf
+cryptography

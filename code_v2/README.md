@@ -7,8 +7,11 @@ Pure UI framework with no pre-rendered content. Every page shows clean placehold
 ```
 产品UI框架图/
 ├── code_v2/
-│   ├── index.html    ← Single-file UI framework (HTML + CSS + JS)
-│   └── README.md     ← This file
+│   ├── index.html        ← Single-file UI framework (HTML + CSS + JS)
+│   ├── server.py         ← FastAPI backend (auth/docs/notes/quiz/harness + MinerU endpoints)
+│   ├── mineru_client.py  ← MinerU cloud parsing client (split/submit/poll/merge)
+│   ├── rag.py            ← RAG layer (chunks + FTS5 trigram + embeddings + hybrid retrieval)
+│   └── README.md         ← This file
 └── (screenshots/design files can be added here)
 ```
 
@@ -20,7 +23,7 @@ Pure UI framework with no pre-rendered content. Every page shows clean placehold
 | Pre-Assessment | ✅ Framework | Welcome screen with start/skip buttons |
 | Math Tutor | ✅ Framework | General/Deep mode switch + chat area placeholder |
 | Function Plotter | ✅ Framework | 2D/3D mode switch + plot area placeholder |
-| Reader | ✅ Framework | 3-panel layout: Bookshelf sidebar + Reading area + Notes |
+| Reader | ✅ Framework | 3-panel layout: Bookshelf sidebar + Reading area + Notes (MinerU AI re-layout for scanned PDFs integrated: reformatted view, page-context AI chat, live progress bars, API-key 3-layer validation) |
 | Knowledge Graph | ✅ Framework | Graph placeholder + legend |
 | Student Forum | ✅ Framework | Category sidebar + posts list placeholder |
 | Bookshelf | ✅ Framework | 5 category tabs + grid placeholder |

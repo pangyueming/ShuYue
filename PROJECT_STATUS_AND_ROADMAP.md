@@ -2,7 +2,7 @@
 # Project Progress & Technical Roadmap
 
 > **用途**：新窗口/新协作者快速了解项目全貌
-> **最后更新**：2026年8月17日（Dashboard 真实统计上线 + UI 重构完成）
+> **最后更新**：2026年9月5日（Reader × MinerU 扫描教材 AI 重排上线：重排版阅读/整书引用问答/实时进度条/API Key 三层防护）
 
 ---
 
@@ -29,7 +29,7 @@
 | 2 | **Math Tutor AI辅导** | ✅ 完整 | General/Deep双模式 + Qwen3.6流式回复(Harness路由) + 上传资料引用 + 快捷示例 + 练习题生成 + A-Level知识联系按钮 + KaTeX公式渲染 + System Prompt冲突修复 + Socratic引导增强(5级脚手架) |
 | 2b | **AI Quiz 智能出题** | ✅ 完整 | 可验证出题流水线：服务端Prompt模板(强制JSON+LaTeX包裹+均匀答案分布) → **Harness交叉验证**(Lane A 并行解题+AnswerVerifier比对，单题45s超时) → **选项随机打乱**(破除LLM位置偏差，保护None-of-above) → 答题判分(MCQ比对/填空SymPy本地判分+turbo兜底，$定界符自动剥离) → 结果入库。题型MCQ+填空，题数1-15自定义，弱项自动预选(💡)，答案不下发前端(QUIZ_CACHE暂存)，题目/选项/解析KaTeX渲染。联动Problems Solved统计 |
 | 3 | **Function Plotter 函数画板** | ✅ 完整 | 2D多函数叠加 + 3D曲面 + 圆锥曲线(圆/椭圆/抛物线/双曲线) + 参数可调 |
-| 4 | **Reader 文档阅读器** | ✅ 完整 | PDF.js Canvas+TextLayer(透明文字精确对齐) + PPTX解析(JSZip+图片提取) + 翻译(专用端点+语言检测)/高亮(4色+笔记+持久化)/笔记 + AI引用问答弹窗(引用修复) + 笔记面板收起/展开 + PDF自适应缩放 + 高亮自动恢复 |
+| 4 | **Reader 文档阅读器** | ✅ 完整 | PDF.js Canvas+TextLayer(透明文字精确对齐) + PPTX解析(JSZip+图片提取) + 翻译(专用端点+语言检测)/高亮(4色+笔记+持久化)/笔记 + AI引用问答弹窗(引用修复) + 笔记面板收起/展开 + PDF自适应缩放 + 高亮自动恢复 + **MinerU 扫描件AI重排**（详见第2.5节） |
 | 5 | **Notes 笔记管理** | ✅ 完整 | 全屏编辑器 + 标签筛选 + localStorage持久化 + Reader笔记自动同步到Notes页面 + PDF笔记(书架Notes分类上传的PDF在笔记页显示，点击跳Reader打开，双向删除同步) |
 | 6 | **Bookshelf 书架** | ✅ 完整 | 6分类(Slides/Textbooks/Exercises/Exam Papers/Research Papers/Notes) + PDF/PPTX上传 + 分类选择弹窗 + Dashboard/Bookshelf/Reader三处同步 + Notes分类与笔记页联动 |
 | 7 | **Dashboard 仪表板** | ✅ 部分 | 统计卡片(真实数据: Math Proficiency←assessments, Documents Read←documents)✅ + 书架动态✅ + Math Skill Breakdown(前测后填充✅) + Study Plan(前测后填充✅) + Recent Activity(占位) |
@@ -37,6 +37,65 @@
 | 9 | **导航系统** | ✅ 完整 | 侧边栏折叠(Notion风格) + 深色/浅色模式 + 面包屑 + 10个页面 |
 
 ### ❌ 未完成
+
+### 2.5 ✅ MinerU 扫描教材 AI 重排（2026-09-05 上线，code_v2）
+
+**解决的核心问题**：英国大学教材大量为扫描版 PDF（图片无文本层）——划词翻译/高亮/笔记/AI引用问答全部失效。
+
+**架构**（BYOT：用户自带 MinerU Token，平台承担嵌入/问答费用）：
+
+```
+上传 PDF ──判断器(pypdf抽样5页,均值<30字符=扫描件)──┬─ 原生文本PDF → 现有PDF.js路径（MinerU全程隐身）
+                                                    └─ 扫描件 → 弹门户征询（上传时即问，不等阅读时）
+         用户 Enable（首次引导注册 mineru.net + 存API Key）→ 后台队列解析
+         MinerU云端(用户自己的Key,2000页/天) → 分卷≤190页 → content_list(带page_idx)
+         → 分块600字 → SQLite FTS5 trigram + DashScope text-embedding-v4 → RRF混合检索
+         → 阅读器重排版视图（标题分级/KaTeX公式/表格成型/—Page N—分隔）
+         → 划词/翻译/高亮/笔记全部复活
+         → Chat AI 沿用页面上下文模式：重排版每页自带 dataset.text，
+           扫描书的页面级 AI 问答与原生 PDF 体验一致
+         → 完成通知：全局10秒追踪器 + 强制确认弹窗（Open Book/OK），任意页面可达
+```
+
+**新增文件**：`code_v2/mineru_client.py`（云端解析客户端：分卷/提交/轮询/合并，page_idx 偏移）、`code_v2/rag.py`（分块/FTS5/嵌入/RRF检索/引用问答，英文提示词 [Page N] 格式）
+
+**server.py 变更**：
+- `init_db` 增列迁移：documents +needs_ocr/ai_declined/parse_status/parse_error；users +mineru_token_enc；新表 doc_chunks/chunks_fts(trigram)/doc_embeddings（旧库无感升级）
+- 上传：50MB→200MB；内置扫描件判断器
+- 后台单线程解析队列（SystemExit 不再杀死 worker）；逐卷重试×3
+- 新端点×8：PUT/GET `/api/user/mineru-token`（Fernet加密存 `.mineru_secret` 派生密钥，只写不读）、GET `/api/documents/parsing`、POST `/api/documents/{id}/parse`、GET `/parse`、POST `/decline-ai`、GET `/pages/{n}`（结构化块：标题级别/公式LaTeX/表格HTML/bbox）
+
+**前端变更（index.html）**：
+- Reader：解析完成的书默认打开**重排版视图**（docview：惰性渲染/页分隔线/KaTeX），工具栏 `📄 Original Pages ⇄ 📝 Reformatted` 切换；原书页模式对扫描页注入 bbox 透明文本层（划词生态复活）；`✨ Enable AI` 常驻反悔入口
+- Chat AI：沿用原有**页面上下文模式**（不接整书检索）——重排版视图与 bbox 覆盖层都为扫描页提供 dataset.text，页面级问答对扫描书同样可用
+- 书架/Dashboard 卡片：`Read + ✨ MinerU` 双按钮、状态徽章（⏳解析中/✅ MinerU parsed/⚠️ Parsing failed）、悬停✨（Dashboard）、绿色 MinerU 徽章
+- 门户三态弹窗（引导→征询→进度）+ 全局追踪器 + 完成强制确认弹窗
+
+**实时进度（v2 迭代）**：
+- `GET /api/documents/parsing` 返回每个任务的 `phase/pages_done/total_pages` 实时进度
+- 书架卡片：标题下方橙色**进度条**（百分比 + `x/y pages`）；建索引阶段为流动动画条
+- Dashboard 卡片：底部 3px 细进度条 + 右下角百分比角标
+- 全局追踪器每 10 秒按 `data-mineru-progress` 标记**原位更新**进度元素（不整格重渲染，悬停状态不闪）
+- 完成时序：弹窗弹出时进度条停在最后状态 → 用户点 `OK`/`Open Book` 确认后才翻绿徽章（严格"确认后消失"）
+
+**API Key 三层防护（v3 迭代）**：
+1. **保存时活体校验**：`PUT /api/user/mineru-token` 先格式预检，再向 MinerU 发轻量探针（GET 不存在的 batch id：401/403=坏 Key 拒存，其他=有效；网络异常宽松放行）；前端 Save 按钮 "Validating key…" 状态 + 被拒红字提示
+2. **解析中快速失败**：`MineruAuthError` 专用异常（401/403 触发），**不吃 3 次重试**直接 failed，状态返回 `error_type:'auth'` + 人性化文案
+3. **一键修复回路**：auth 失败 UI（进度弹窗/确认弹窗）→「Update MinerU Key」直达换 Key 页（走活体校验）→ 保存成功 →「↻ Retry Parse」一键续解析，**分卷缓存保护已完成的卷不重烧额度**
+
+**容错与恢复（v3 迭代）**：
+- **防重复征询**：门户打开先查当前状态——解析中直接进进度页，已完成直接进重排版（不再反复问"要不要 Enable"）
+- **孤儿恢复**：服务器重启后 `_resume_orphaned_parses()` 自动把中断任务重新入队；`trigger_parse` 检测"DB 显示进行中但 worker 无记录"也会重入队
+- **分卷缓存**：每卷解析结果落盘 `partXX.content_list.json`，重试/重启只补失败卷
+- **content_list 短路**：若最终产物已存在，跳过 MinerU 直接重建索引（quota 零消耗）——曾靠此机制避免了 465 页的重复解析
+
+**依赖**：requirements.txt + `pypdf`、`cryptography`（Anaconda base 已装）
+
+**数据目录**：`code_v2/mineru_data/{doc_id}/`（content_list.json / pages.json / parts/ 及分卷缓存）
+
+**已知边界**：MinerU 单文件 200 页限制（服务端自动分卷）；公式识别质量需人工抽查（推荐 preview 对照法）；FTS5 trigram 需 SQLite≥3.34（现环境 3.51 ✓）；删除文档时同步清理解析数据与索引；同一 PDF 重复上传会各自独立解析（MinerU 云端疑似按文件去重，实测同文件 42 秒返回）。
+
+**备份**：`code_v2/backup_mineru_20260905_2100/`（集成前原始 server.py / index.html / requirements.txt / cognibridge.db）
 
 | # | 功能 | 状态 | 说明 |
 |---|------|------|------|

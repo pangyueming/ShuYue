@@ -32,3 +32,9 @@ desktop.ini
 # 临时文件
 *.tmp
 *.temp
+
+# MinerU integration (local-only artifacts)
+.mineru_secret
+code_v2/uploads/
+code_v2/mineru_data/
+code_v2/backup_mineru_*/

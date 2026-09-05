@@ -22,9 +22,24 @@ import uuid
 import asyncio
 import hashlib
 import secrets
+from pathlib import Path
 from datetime import datetime, timedelta
 import requests
 from dotenv import load_dotenv
+
+# MinerU integration: cloud parsing client + RAG index/retrieval layer
+import threading
+import queue as _queue
+from mineru_client import (
+    MineruAuthError,
+    detect_needs_ocr,
+    normalize_pages,
+    split_pdf,
+    submit_part,
+    count_pages,
+    validate_token,
+)
+import rag
 
 # Add harness_design paths for importing Harness V2 and V3
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..', 'harness_design', 'harness_uk'))
@@ -100,9 +115,15 @@ HOST = os.getenv("HOST", "0.0.0.0")
 UPLOAD_DIR = os.path.join(os.path.dirname(__file__), "uploads")
 DB_PATH = os.path.join(os.path.dirname(__file__), "cognibridge.db")
 ENV_PATH = os.path.join(os.path.dirname(__file__), ".env")
+# --- MinerU integration paths & limits ---
+MINERU_DATA_DIR = os.path.join(os.path.dirname(__file__), "mineru_data")
+FERNET_KEY_PATH = os.path.join(os.path.dirname(__file__), ".mineru_secret")
+MINERU_MAX_UPLOAD = 200 * 1024 * 1024        # textbook-size PDFs
+MINERU_PART_TIMEOUT = 1500                   # per-part cloud parse timeout (s)
 _DEFAULT_SECRET = "cognibridge-dev-secret-key-change-in-production"
 SECRET_KEY = os.getenv("SECRET_KEY", _DEFAULT_SECRET)
 os.makedirs(UPLOAD_DIR, exist_ok=True)
+os.makedirs(MINERU_DATA_DIR, exist_ok=True)
 
 if not DASHSCOPE_API_KEY:
     print("WARNING: DASHSCOPE_API_KEY not set! Check .env file.")
@@ -245,6 +266,14 @@ def init_db():
     _ensure_column("documents", "user_id", "TEXT REFERENCES users(id)")
     _ensure_column("assessments", "result_json", "TEXT DEFAULT '{}'")   # full pretestResult snapshot
     _ensure_column("study_plans", "state_json", "TEXT DEFAULT '{}'")    # full plan state snapshot
+    # --- MinerU integration columns ---
+    _ensure_column("documents", "needs_ocr", "INTEGER DEFAULT 0")  # legacy rows: assume native (no gate)
+    _ensure_column("documents", "ai_declined", "INTEGER DEFAULT 0")
+    _ensure_column("documents", "parse_status", "TEXT DEFAULT 'none'")
+    _ensure_column("documents", "parse_error", "TEXT DEFAULT ''")
+    _ensure_column("users", "mineru_token_enc", "TEXT DEFAULT ''")
+    # RAG tables (doc_chunks / chunks_fts / doc_embeddings)
+    rag.ensure_rag_schema(conn)
 
     # Backfill orphaned legacy rows to the first existing user
     first_user = conn.execute("SELECT id FROM users ORDER BY created_at ASC LIMIT 1").fetchone()
@@ -256,6 +285,169 @@ def init_db():
     print(f"Database: {DB_PATH}")
 
 init_db()
+
+# ============================================================================
+# MINERU: token vault + background parse pipeline
+# ============================================================================
+
+def get_fernet():
+    """Fernet key auto-generated once per deployment (like JWT secret)."""
+    from cryptography.fernet import Fernet
+
+    if not os.path.exists(FERNET_KEY_PATH):
+        with open(FERNET_KEY_PATH, "w", encoding="utf-8") as f:
+            f.write(Fernet.generate_key().decode())
+    with open(FERNET_KEY_PATH, "r", encoding="utf-8") as f:
+        return Fernet(f.read().strip().encode())
+
+
+def get_user_mineru_token(user_id: str) -> Optional[str]:
+    """Decrypt the user's stored MinerU API key; None if not configured."""
+    conn = get_db()
+    row = conn.execute("SELECT mineru_token_enc FROM users WHERE id=?", (user_id,)).fetchone()
+    conn.close()
+    if not row or not row["mineru_token_enc"]:
+        return None
+    try:
+        return get_fernet().decrypt(row["mineru_token_enc"].encode()).decode()
+    except Exception:
+        return None
+
+
+PARSE_QUEUE: "_queue.Queue[str]" = _queue.Queue()
+PARSE_STATUS: dict = {}
+
+
+def set_parse_status(doc_id: str, status: str, error: str = "", error_type: str = "", **extra) -> None:
+    row = PARSE_STATUS.get(doc_id, {})
+    row.update({"status": status, "error": error, "error_type": error_type}, **extra)
+    PARSE_STATUS[doc_id] = row
+    conn = get_db()
+    conn.execute(
+        "UPDATE documents SET parse_status=?, parse_error=? WHERE id=?", (status, error, doc_id)
+    )
+    conn.commit(); conn.close()
+
+
+def run_parse(doc_id: str) -> None:
+    from pathlib import Path
+
+    conn = get_db()
+    row = conn.execute("SELECT * FROM documents WHERE id=?", (doc_id,)).fetchone()
+    conn.close()
+    if not row:
+        return
+    token = get_user_mineru_token(row["user_id"])
+    if not token:
+        set_parse_status(doc_id, "failed", "MinerU API key not configured")
+        return
+
+    pdf_path = Path(os.path.join(UPLOAD_DIR, row["file_path"]))
+    book_dir = Path(os.path.join(MINERU_DATA_DIR, doc_id))
+    parts_dir = book_dir / "parts"
+    parts_dir.mkdir(parents=True, exist_ok=True)
+
+    # Short-circuit: a previous run already produced the full content_list —
+    # skip MinerU entirely (protects quota on resume/retry paths).
+    done_content = book_dir / "content_list.json"
+    done_pages = book_dir / "pages.json"
+    if done_content.exists() and done_pages.exists():
+        try:
+            pages = json.loads(done_pages.read_text(encoding="utf-8"))
+            total_pages = count_pages(pdf_path)
+            set_parse_status(doc_id, "indexing", pages_done=total_pages, total_pages=total_pages)
+            chunks = rag.make_chunks(pages, 600)
+            conn = get_db()
+            chunk_ids = rag.rebuild_doc(conn, doc_id, chunks)
+            vectors = rag.embed_texts([text for _, text in chunks], DASHSCOPE_API_KEY)
+            rag.store_embeddings(conn, doc_id, chunk_ids, vectors)
+            conn.close()
+            set_parse_status(doc_id, "done", pages_done=total_pages, total_pages=total_pages, chunks=len(chunks))
+            return
+        except BaseException as exc:  # noqa: BLE001
+            set_parse_status(doc_id, "failed", f"index rebuild failed: {exc}"[:300])
+            return
+
+    total_pages = count_pages(pdf_path)
+    set_parse_status(doc_id, "parsing", phase="splitting", pages_done=0, total_pages=total_pages)
+
+    jobs = split_pdf(pdf_path, parts_dir)
+    merged: list = []
+    done_pages = 0
+    for part_path, start_page0 in jobs:
+        part_cache = book_dir / f"{part_path.stem}.content_list.json"
+        if part_cache.exists():
+            # part already parsed in a previous run (retry/restart) — don't burn quota again
+            blocks = json.loads(part_cache.read_text(encoding="utf-8"))
+        else:
+            for attempt in range(3):
+                try:
+                    blocks = submit_part(part_path, start_page0, token, "ch", MINERU_PART_TIMEOUT)
+                    break
+                except RuntimeError as exc:
+                    set_parse_status(doc_id, "parsing", phase=f"retry {attempt + 1}/3",
+                                     pages_done=done_pages, total_pages=total_pages)
+                    time.sleep(10 * (attempt + 1))
+            else:
+                raise RuntimeError(f"part failed after 3 retries: {part_path.name}")
+            with open(part_cache, "w", encoding="utf-8") as f:
+                json.dump(blocks, f, ensure_ascii=False)
+        for block in blocks:
+            block["page_idx"] = block.get("page_idx", 0) + start_page0
+        merged.extend(blocks)
+        done_pages += int(part_path.stem.split("-")[-1]) - start_page0
+        set_parse_status(doc_id, "parsing", phase="mineru", pages_done=done_pages, total_pages=total_pages)
+
+    with open(book_dir / "content_list.json", "w", encoding="utf-8") as f:
+        json.dump(merged, f, ensure_ascii=False, indent=1)
+    pages = normalize_pages(merged, total_pages)
+    with open(book_dir / "pages.json", "w", encoding="utf-8") as f:
+        json.dump(pages, f, ensure_ascii=False, indent=1)
+
+    set_parse_status(doc_id, "indexing", pages_done=total_pages, total_pages=total_pages)
+    chunks = rag.make_chunks(pages, 600)
+    conn = get_db()
+    chunk_ids = rag.rebuild_doc(conn, doc_id, chunks)
+    vectors = rag.embed_texts([text for _, text in chunks], DASHSCOPE_API_KEY)
+    rag.store_embeddings(conn, doc_id, chunk_ids, vectors)
+    conn.close()
+    set_parse_status(doc_id, "done", pages_done=total_pages, total_pages=total_pages, chunks=len(chunks))
+
+
+def parse_worker() -> None:
+    while True:
+        doc_id = PARSE_QUEUE.get()
+        try:
+            run_parse(doc_id)
+        except MineruAuthError:
+            # Bad key: retries can't help — fail fast with a specific error type
+            set_parse_status(
+                doc_id, "failed",
+                "Your MinerU API key was rejected. Please update it and retry.",
+                error_type="auth",
+            )
+        except BaseException as exc:  # noqa: BLE001 — SystemExit must not kill the worker
+            set_parse_status(doc_id, "failed", str(exc)[:300])
+
+
+threading.Thread(target=parse_worker, daemon=True).start()
+
+
+def _resume_orphaned_parses() -> None:
+    """After a server restart, re-queue docs whose parse died mid-flight."""
+    conn = get_db()
+    rows = conn.execute(
+        "SELECT id FROM documents WHERE parse_status IN ('queued','parsing','indexing')"
+    ).fetchall()
+    conn.close()
+    for r in rows:
+        PARSE_STATUS[r["id"]] = {"status": "queued", "error": ""}
+        PARSE_QUEUE.put(r["id"])
+    if rows:
+        print(f"[mineru] resumed {len(rows)} interrupted parse job(s)")
+
+
+_resume_orphaned_parses()
 
 # ============================================================================
 # AUTH: JWT utilities & user dependency
@@ -930,23 +1122,30 @@ async def upload_document(
         raise HTTPException(400, "Invalid filename")
     content = await file.read()
     file_size = len(content)
-    # Limit file size to 50MB
-    if file_size > 50 * 1024 * 1024:
-        raise HTTPException(400, "File too large (max 50MB)")
+    # Textbook-size limit (MinerU era: scanned textbooks can be large)
+    if file_size > MINERU_MAX_UPLOAD:
+        raise HTTPException(400, "File too large (max 200MB)")
     with open(file_path, "wb") as f:
         f.write(content)
+    # MinerU detector: sampled text-layer check decides scanned vs native PDF
+    try:
+        needs_ocr = detect_needs_ocr(Path(file_path))
+    except Exception:
+        needs_ocr = False
     title = file.filename.rsplit(".", 1)[0]
     conn = get_db()
     conn.execute(
-        "INSERT INTO documents (id,user_id,title,filename,file_path,category,source,file_size,file_type) VALUES (?,?,?,?,?,?,?,?,?)",
-        (doc_id, current_user["id"], title, file.filename, safe_name, category, "upload", file_size, ext)
+        "INSERT INTO documents (id,user_id,title,filename,file_path,category,source,file_size,file_type,"
+        "needs_ocr,ai_declined,parse_status) VALUES (?,?,?,?,?,?,?,?,'pdf',?,0,'none')",
+        (doc_id, current_user["id"], title, file.filename, safe_name, category, "upload", file_size, int(needs_ocr))
     )
     conn.commit(); conn.close()
     icons = {"pdf": "📄", "pptx": "📊"}
     return {"id": doc_id, "title": title, "filename": file.filename,
             "category": category, "icon": icons.get(ext, "📄"),
             "fileType": ext, "fileSize": file_size,
-            "sizeText": f"{file_size/1024/1024:.1f} MB", "source": "upload"}
+            "sizeText": f"{file_size/1024/1024:.1f} MB", "source": "upload",
+            "needsOcr": bool(needs_ocr), "parseStatus": "none", "aiDeclined": False}
 
 @app.get("/api/documents")
 async def list_documents(
@@ -975,7 +1174,9 @@ async def list_documents(
              "icon": icons.get(r["file_type"], "📄"), "desc": f"{r['file_size']/1024/1024:.1f} MB",
              "source": r["source"], "fileType": r["file_type"],
              "filename": r["filename"], "filePath": r["file_path"],
-             "createdAt": r["created_at"]} for r in rows]
+             "createdAt": r["created_at"],
+             "needsOcr": bool(r["needs_ocr"]), "parseStatus": r["parse_status"],
+             "aiDeclined": bool(r["ai_declined"])} for r in rows]
 
 @app.get("/api/documents/{doc_id}/file")
 async def get_document_file(
@@ -1016,13 +1217,201 @@ async def delete_document(
         conn.close()
         raise HTTPException(403, "Access denied")
     conn.execute("DELETE FROM documents WHERE id=?", (doc_id,))
+    conn.commit()
+    # MinerU: purge parse state alongside the document
+    conn.execute("DELETE FROM doc_chunks WHERE doc_id=?", (doc_id,))
+    conn.execute("DELETE FROM doc_embeddings WHERE doc_id=?", (doc_id,))
     conn.commit(); conn.close()
     file_path = os.path.join(UPLOAD_DIR, row["file_path"])
     # Prevent path traversal from database records
     if os.path.commonpath([os.path.abspath(file_path), os.path.abspath(UPLOAD_DIR)]) == os.path.abspath(UPLOAD_DIR):
         if os.path.exists(file_path):
             os.remove(file_path)
+    import shutil
+    mineru_dir = os.path.join(MINERU_DATA_DIR, doc_id)
+    if os.path.exists(mineru_dir):
+        shutil.rmtree(mineru_dir, ignore_errors=True)
     return {"deleted": doc_id}
+
+# ============================================================================
+# MINERU API (BYOT: bring-your-own-token) + reader RAG
+# ============================================================================
+
+class MineruTokenReq(BaseModel):
+    token: str
+
+
+@app.put("/api/user/mineru-token")
+async def set_mineru_token(req: MineruTokenReq, current_user: dict = Depends(get_current_user)):
+    """Store the user's personal MinerU API key (Fernet-encrypted, write-only)."""
+    if not current_user:
+        raise HTTPException(401, "Please log in")
+    token = req.token.strip()
+    if not token.startswith("sk-") or len(token) < 20:
+        raise HTTPException(400, "Invalid key format — a MinerU API key starts with 'sk-'")
+    if not validate_token(token):
+        raise HTTPException(400, "MinerU rejected this key — please double-check it (Avatar → API Key)")
+    encrypted = get_fernet().encrypt(token.encode()).decode()
+    conn = get_db()
+    conn.execute("UPDATE users SET mineru_token_enc=? WHERE id=?", (encrypted, current_user["id"]))
+    conn.commit(); conn.close()
+    return {"configured": True}
+
+
+@app.get("/api/user/mineru-token")
+async def get_mineru_token_status(current_user: dict = Depends(get_current_user)):
+    """Never returns the key itself — only whether one is stored."""
+    if not current_user:
+        raise HTTPException(401, "Please log in")
+    return {"configured": bool(get_user_mineru_token(current_user["id"]))}
+
+
+@app.get("/api/documents/parsing")
+async def list_parsing_documents(current_user: dict = Depends(get_current_user)):
+    """Pending-parse list with live progress (DB-driven; powers the global tracker)."""
+    if not current_user:
+        raise HTTPException(401, "Please log in")
+    conn = get_db()
+    rows = conn.execute(
+        "SELECT id,title,parse_status FROM documents "
+        "WHERE user_id=? AND parse_status IN ('queued','parsing','indexing')",
+        (current_user["id"],),
+    ).fetchall()
+    conn.close()
+    result = []
+    for r in rows:
+        live = PARSE_STATUS.get(r["id"], {})
+        result.append({
+            "id": r["id"],
+            "title": r["title"],
+            "status": r["parse_status"],
+            "phase": live.get("phase", r["parse_status"]),
+            "pages_done": live.get("pages_done", 0),
+            "total_pages": live.get("total_pages", 0),
+        })
+    return result
+
+
+@app.post("/api/documents/{doc_id}/parse")
+async def trigger_parse(doc_id: str, current_user: dict = Depends(get_current_user)):
+    """Explicitly start MinerU re-layout for a scanned doc (uses the user's own key)."""
+    if not current_user:
+        raise HTTPException(401, "Please log in")
+    conn = get_db()
+    row = conn.execute("SELECT * FROM documents WHERE id=? AND user_id=?", (doc_id, current_user["id"])).fetchone()
+    if not row:
+        conn.close()
+        raise HTTPException(404, "Not found")
+    live = PARSE_STATUS.get(doc_id, {}).get("status")
+    state = live if live in ("queued", "parsing", "indexing") else row["parse_status"]
+    if state in ("queued", "parsing", "indexing"):
+        if live:
+            conn.close()
+            return {"status": state}
+        # Orphan recovery: DB says active but no worker record (server restarted
+        # mid-parse) -> re-queue instead of being stuck in 'parsing' forever.
+        conn.execute("UPDATE documents SET parse_status='queued', parse_error='' WHERE id=?", (doc_id,))
+        conn.commit(); conn.close()
+        PARSE_STATUS[doc_id] = {"status": "queued", "error": ""}
+        PARSE_QUEUE.put(doc_id)
+        return {"status": "queued", "recovered": True}
+    if not row["needs_ocr"]:
+        conn.close()
+        raise HTTPException(400, "This PDF already has selectable text — MinerU is not needed")
+    if not get_user_mineru_token(current_user["id"]):
+        conn.close()
+        raise HTTPException(400, "MinerU API key not configured")
+    conn.execute("UPDATE documents SET parse_status='queued', parse_error='', ai_declined=0 WHERE id=?", (doc_id,))
+    conn.commit(); conn.close()
+    PARSE_STATUS[doc_id] = {"status": "queued", "error": ""}
+    PARSE_QUEUE.put(doc_id)
+    return {"status": "queued"}
+
+
+@app.get("/api/documents/{doc_id}/parse")
+async def parse_status(doc_id: str, current_user: dict = Depends(get_current_user)):
+    if not current_user:
+        raise HTTPException(401, "Please log in")
+    conn = get_db()
+    row = conn.execute(
+        "SELECT parse_status,parse_error,user_id FROM documents WHERE id=?", (doc_id,)
+    ).fetchone()
+    conn.close()
+    if not row:
+        raise HTTPException(404, "Unknown document")
+    if row["user_id"] != current_user["id"]:
+        raise HTTPException(403, "Access denied")
+    info = PARSE_STATUS.get(doc_id)
+    if info:
+        return info
+    err = row["parse_error"] or ""
+    return {
+        "status": row["parse_status"],
+        "error": err,
+        "error_type": "auth" if "rejected" in err.lower() else "",
+    }
+
+
+@app.post("/api/documents/{doc_id}/decline-ai")
+async def decline_ai(doc_id: str, current_user: dict = Depends(get_current_user)):
+    """Remember the user's 'not now' so we stop asking for this document."""
+    if not current_user:
+        raise HTTPException(401, "Please log in")
+    conn = get_db()
+    conn.execute("UPDATE documents SET ai_declined=1 WHERE id=? AND user_id=?", (doc_id, current_user["id"]))
+    conn.commit(); conn.close()
+    return {"ok": True}
+
+
+@app.get("/api/documents/{doc_id}/pages/{page_num}")
+async def get_page_blocks(doc_id: str, page_num: int, current_user: dict = Depends(get_current_user)):
+    """Structured blocks for one page (powers the reformatted reader view)."""
+    if not current_user:
+        raise HTTPException(401, "Please log in")
+    conn = get_db()
+    owner = conn.execute(
+        "SELECT user_id FROM documents WHERE id=?", (doc_id,)
+    ).fetchone()
+    conn.close()
+    if not owner:
+        raise HTTPException(404, "Document not found")
+    if owner["user_id"] != current_user["id"]:
+        raise HTTPException(403, "Access denied")
+    content_path = os.path.join(MINERU_DATA_DIR, doc_id, "content_list.json")
+    if not os.path.exists(content_path):
+        raise HTTPException(404, "Document not parsed yet")
+    with open(content_path, "r", encoding="utf-8") as f:
+        content = json.load(f)
+    skip_types = {"header", "footer", "page_number", "aside_text", "page_footnote"}
+    blocks = []
+    total_pages = 0
+    for block in content:
+        btype = block.get("type", "text")
+        if btype in skip_types:
+            page_idx_for_total = block.get("page_idx", 0)
+            total_pages = max(total_pages, page_idx_for_total + 1)
+            continue
+        page_idx = block.get("page_idx", 0)
+        total_pages = max(total_pages, page_idx + 1)
+        if page_idx != page_num - 1:
+            continue
+        text = (block.get("text") or "").strip()
+        entry = {"type": btype, "text": text, "bbox": block.get("bbox")}
+        if btype in ("text", "title") and block.get("text_level") is not None:
+            entry["text_level"] = block["text_level"]
+        if btype == "table":
+            entry["html"] = (block.get("table_body") or "").strip()
+            caption = " ".join(str(c) for c in (block.get("table_caption") or [])).strip()
+            entry["caption"] = caption
+            entry["text"] = caption or "[table]"
+        elif btype in ("image", "chart"):
+            caption = " ".join(str(c) for c in (block.get("image_caption") or [])).strip()
+            entry["caption"] = caption
+            entry["text"] = caption
+        if not entry["text"] and not entry.get("html") and not entry.get("bbox"):
+            continue
+        blocks.append(entry)
+    return {"page": page_num, "total_pages": total_pages, "blocks": blocks}
 
 # ============================================================================
 # NOTES API (CRUD)
