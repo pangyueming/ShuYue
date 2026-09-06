@@ -3890,8 +3890,20 @@ function mineruGateRenderOnboarding(){
     <input id="mineru-key-input" type="password" placeholder="Paste your API key (starts with sk-)" class="input" style="width:100%;font-size:13px;">
     <div id="mineru-key-error" style="color:#ff6b6b;font-size:12px;min-height:16px;margin-top:4px;"></div>
     <button id="mineru-key-save" onclick="mineruGateSaveKey()" style="width:100%;margin-top:8px;padding:10px;border-radius:8px;border:none;background:#722ed1;color:#fff;font-size:13px;font-weight:600;cursor:pointer;">Save Key & Continue</button>
-    <button onclick="mineruGateChooseOriginal()" style="width:100%;margin-top:8px;padding:8px;border-radius:8px;border:none;background:transparent;color:var(--text-muted);font-size:12px;cursor:pointer;">${mineruGateOpensReader?'Skip — show original pages only':'Not now'}</button>`;
+    <button onclick="mineruGateOpenGuide()" style="width:100%;margin-top:10px;padding:6px;border:none;background:transparent;color:var(--accent);font-size:12px;cursor:pointer;text-decoration:underline;">❓ What is MinerU? — read the 1-minute guide</button>
+    <button onclick="mineruGateChooseOriginal()" style="width:100%;margin-top:4px;padding:8px;border-radius:8px;border:none;background:transparent;color:var(--text-muted);font-size:12px;cursor:pointer;">${mineruGateOpensReader?'Skip — show original pages only':'Not now'}</button>`;
     setTimeout(()=>{const i=document.getElementById('mineru-key-input');if(i)i.focus();},100);
+}
+
+function mineruGateOpenGuide(){
+    mineruGateClose();
+    window.__guideShown=true;   // main guide shouldn't hijack this visit
+    showPage('reader');
+    setTimeout(()=>{
+        ensureGuideInShelf();
+        const i=(bsData.textbooks||[]).findIndex(d=>d.id==='__mineru_guide__');
+        if(i!==-1)readerOpenDoc('textbooks',i);
+    },80);
 }
 
 async function mineruGateSaveKey(){
@@ -4254,9 +4266,55 @@ const GUIDE_DOC={id:'__guide__',icon:'📘',title:'How to Use CogniBridge · 使
   desc:'Built-in bilingual guide',category:'textbooks',source:'builtin',fileType:'guide',
   parseStatus:'',needsOcr:false,aiDeclined:false,isGuide:true,isDeleted:false,deletedAt:null};
 
+// ----- MinerU guide (5 pages, bilingual) -----
+const GUIDE_MINERU_PAGES=[
+{blocks:[
+  {t:'h',lvl:1,en:'What is MinerU?',cn:'什么是 MinerU？'},
+  {t:'p',en:'MinerU is an open-source document-parsing engine made by OpenDataLab. It turns PDFs that are "just pictures" (scanned books) back into real, selectable text.',cn:'MinerU 是 OpenDataLab 开源的文档解析引擎，能把"整页都是图片"的扫描版 PDF 重新变回可选中、可检索的真文字。'},
+  {t:'p',en:'Think of it as a much smarter OCR: it also recovers heading levels, mathematical formulas (as LaTeX), tables and the correct reading order.',cn:'可以把它理解为更强的 OCR：它还能还原标题层级、数学公式（LaTeX）、表格与正确的阅读顺序。'},
+  {t:'link',url:'https://mineru.net',en:'Official website — mineru.net',cn:'官方网站'},
+  {t:'link',url:'https://github.com/opendatalab/MinerU',en:'Open-source repository — GitHub',cn:'开源仓库'}
+]},
+{blocks:[
+  {t:'h',lvl:1,en:'Why does CogniBridge need it?',cn:'智学桥为什么需要它？'},
+  {t:'p',en:'Many university textbooks are scanned PDFs — every page is an image with no text layer. That breaks selecting, translating, highlighting, note-taking and AI chat.',cn:'很多大学教材是扫描版 PDF——每页都是图片、没有文字层，导致划词、翻译、高亮、笔记、AI 问答全部失效。'},
+  {t:'ui',kind:'flow',items:['Scanned PDF 扫描书','MinerU parse 解析','Reformatted view 重排版','All features alive 功能复活']},
+  {t:'p',en:'After parsing, the book opens in a clean reformatted view (proper headings, typeset formulas, real tables) — and 📚 Whole-book AI chat becomes available, with answers that cite page numbers.',cn:'解析后书籍以整洁的重排版视图打开（规范标题、排版公式、成型表格），并解锁 📚 整本书 AI 问答——回答会标注页码。'},
+  {t:'p',en:'Normal text PDFs skip all of this automatically — you never notice MinerU is there.',cn:'原生文字 PDF 会自动跳过以上全部流程——你完全感知不到 MinerU 的存在。'}
+]},
+{blocks:[
+  {t:'h',lvl:1,en:'Get your API key (free)',cn:'获取 API Key（免费）'},
+  {t:'p',en:'Parsing runs on your own free MinerU quota, so CogniBridge asks for your personal key once. Four steps:',cn:'解析消耗的是你自己的 MinerU 免费额度，因此智学桥需要你一次性提供个人 Key。共四步：'},
+  {t:'table',head:['Step 步骤','Action 操作'],rows:[
+    ['1','Visit mineru.net and sign up 访问官网并注册（免费）'],
+    ['2','Open the console → API Keys 打开控制台的 API Keys 页'],
+    ['3','Create and copy your key 创建并复制你的 Key'],
+    ['4','Paste it into CogniBridge 粘贴到智学桥即可']]},
+  {t:'link',url:'https://mineru.net',en:'Go to mineru.net',cn:'点击访问官网（浏览器新窗口打开无效时请手动复制网址）'},
+  {t:'p',en:'The free tier gives 2,000 pages per day — a 465-page textbook costs less than a quarter of one day\'s quota.',cn:'免费额度为每天 2000 页——一本 465 页的教材只消耗一天额度的不到四分之一。'}
+]},
+{blocks:[
+  {t:'h',lvl:1,en:'Using it in CogniBridge',cn:'在智学桥中使用'},
+  {t:'p',en:'Upload a scanned PDF → the app detects it and asks "Enable AI?" → the first time, paste your key → watch the live progress bar → done: the reformatted book opens automatically.',cn:'上传扫描 PDF → 应用自动识别并询问 Enable AI → 首次粘贴 Key → 观看实时进度条 → 完成后自动打开重排版书籍。'},
+  {t:'p',en:'If a key stops working, the progress dialog offers "Update MinerU Key" — fix it and hit "Retry Parse". Parts that already finished are kept and never re-charged.',cn:'Key 失效时，进度弹窗提供 Update MinerU Key——换好后点 Retry Parse 续解析；已完成的分卷会保留，绝不重复扣额度。'}
+]},
+{blocks:[
+  {t:'h',lvl:1,en:'Privacy & FAQ',cn:'隐私与常见问题'},
+  {t:'p',en:'Your key stays yours: it is encrypted (Fernet) on the server, write-only — we never read it back, share it, or spend it for you.',cn:'Key 只属于你：在服务器上以 Fernet 加密存储、只写不读——我们不会回读、不会共享、也不会代你消耗。'},
+  {t:'table',head:['Question 问题','Answer 答案'],rows:[
+    ['Which books need MinerU? 哪些书需要','Only scanned PDFs — text PDFs skip it automatically 仅扫描版需要，文字版自动跳过'],
+    ['Is it free? 免费吗','Yes — 2,000 pages per day on the free tier 是，免费档每天 2000 页'],
+    ['Server restart mid-parse? 解析中重启','Parsing resumes automatically; finished parts are kept 自动恢复，已完成部分保留'],
+    ['Who pays for AI chat? AI 问答谁付费','The platform — parsing is the only BYOT part 平台承担，仅解析使用你自己的额度']]}
+]}];
+const MINERU_DOC={id:'__mineru_guide__',icon:'🔬',title:'MinerU & Scanned Textbooks · 扫描书指南',
+  desc:'What it is · API key · FAQ',category:'textbooks',source:'builtin',fileType:'guide',
+  parseStatus:'',needsOcr:false,aiDeclined:false,isGuide:true,isDeleted:false,deletedAt:null};
+
 function ensureGuideInShelf(){
     const arr=bsData.textbooks||(bsData.textbooks=[]);
-    if(!arr.some(d=>d.isGuide))arr.unshift(GUIDE_DOC);
+    if(!arr.some(d=>d.id==='__guide__'))arr.unshift(GUIDE_DOC);
+    if(!arr.some(d=>d.id==='__mineru_guide__'))arr.splice(1,0,MINERU_DOC);
 }
 
 function renderGuideBlock(b,pageDiv,texts){
@@ -4288,6 +4346,14 @@ function renderGuideBlock(b,pageDiv,texts){
         texts.push(b.head.join(' '),b.rows.map(r=>r.join(' ')).join(' '));
     }else if(b.t==='ui'){
         pageDiv.appendChild(renderGuideUiMock(b.kind,b.items));texts.push('ui-guide');
+    }else if(b.t==='link'){
+        const a=document.createElement('a');
+        a.href=b.url;a.target='_blank';a.rel='noopener noreferrer';
+        a.style.cssText='display:inline-block;margin:4px 0 8px;color:var(--accent);font-size:14px;text-decoration:underline;';
+        a.textContent='🔗 '+b.en;
+        pageDiv.appendChild(a);
+        if(b.cn){const c=document.createElement('div');c.style.cssText='font-size:12px;color:var(--text-muted);margin:-4px 0 8px;';c.textContent=b.cn;pageDiv.appendChild(c);}
+        texts.push(b.en,b.url);
     }else if(b.t==='img'){
         const im=document.createElement('img');
         im.src=b.src;im.style.cssText='max-width:100%;border:1px solid var(--border);border-radius:8px;margin:10px 0;';
@@ -4351,11 +4417,12 @@ function renderGuideUiMock(kind,items){
 }
 
 function readerOpenGuide(doc){
+    const pages=doc.id==='__mineru_guide__'?GUIDE_MINERU_PAGES:GUIDE_PAGES;
     readerCloseBookshelf();
     readerCurrentDocId=doc.id;
-    readerCurrentDocRef={cat:'textbooks',idx:(bsData.textbooks||[]).findIndex(d=>d.isGuide)};
+    readerCurrentDocRef={cat:'textbooks',idx:(bsData.textbooks||[]).findIndex(d=>d.id===doc.id)};
     readerViewMode='doc';readerLastDocId=doc.id;
-    readerPdfDoc=null;readerPdfTotal=GUIDE_PAGES.length;readerDocType='docview';
+    readerPdfDoc=null;readerPdfTotal=pages.length;readerDocType='docview';
     document.getElementById('reader-doc-title').textContent=doc.title;
     document.getElementById('reader-doc-meta').textContent=doc.desc;
     document.getElementById('reader-toolbar').textContent=doc.title;
@@ -4376,8 +4443,8 @@ function readerOpenGuide(doc){
     container.id='pdf-pages-container';
     container.style.cssText='max-width:860px;margin:0 auto;';
     area.appendChild(container);
-    const total=GUIDE_PAGES.length;
-    GUIDE_PAGES.forEach((pg,i)=>{
+    const total=pages.length;
+    pages.forEach((pg,i)=>{
         const pageDiv=document.createElement('div');
         pageDiv.id='pdf-page-'+(i+1);
         pageDiv.dataset.pageNum=i+1;

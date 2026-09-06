@@ -571,6 +571,7 @@ passlib[bcrypt]             # 密码哈希（bcrypt）
 | 15 | **AI Quiz 完成** | 出题等待时长提示（ETA按配置动态）；KaTeX 公式渲染（题目/选项/解析）；选项随机打乱破除 LLM 位置偏差（NOTA 保护）；题数 1-15 自定义 |
 | 16 | **Chat AI 整书问答（Whole Book RAG）** | 输入区上方 📄Page/📚Whole book 模式切换（仅对已 MinerU 解析的书显示，默认页模式）；每条消息独立检索（POST /api/documents/{id}/search：属主校验+RRF混合检索+同页去重取3块）；摘录注入用户消息并要求 [Page N] 引用；检索不可用自动降级页模式+toast；上下文条实时显示命中页码 |
 | 17 | **内置双语使用指南（虚拟文档）** | 前端常量 GUIDE_PAGES **九页**双语手册（EN主文+CN副行）：欢迎导览/前测→能力图/学习计划时间轴/自适应闭环/Math Tutor/AI Quiz 详解/Reader 与 Chat AI/**Function Plotter**/整理同步速查；含侧边栏导览、掌握度条、时间轴、模式chips、浮动菜单、函数示例 6 种 CSS 示意图（另留 img 块支持真截图）；永久钉在书架 Textbooks 首位（游客可见）；复用 docview 渲染+KaTeX+dataset.text；每次会话首次进 Reader 自动打开；零后端改动 |
+| 18 | **MinerU 扫描书双语指南（虚拟文档）** | 第二张钉住卡 🔬（P2 位）：五页——What is MinerU（含 mineru.net + GitHub 链接块）/为何需要/四步获取 API Key（免费 2000页/天）/在应用中使用（进度条/换Key续解析）/隐私与 FAQ（Fernet 只写不读、BYOT 边界）；**征询弹窗新增"❓ What is MinerU?"一键跳转**；readerOpenGuide 参数化支持多指南；零后端改动 |
 
 ### 2026-08-13 ~ 2026-08-14：修复迭代
 
