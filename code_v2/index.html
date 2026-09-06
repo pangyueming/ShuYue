@@ -2677,6 +2677,7 @@ function readerOpenPDF(arrayBuffer,doc,area){
             container.appendChild(pageDiv);
             if(i<readerPdfTotal){const gap=document.createElement('div');gap.className='pdf-page-gap';container.appendChild(gap);}
         }
+        readerApplyPendingScroll();   // cross-view sync: land on the page we left
         readerScrollObserver=new IntersectionObserver((entries)=>{
             entries.forEach(entry=>{
                 if(entry.isIntersecting){
@@ -4049,10 +4050,37 @@ function mineruGateRenderProgress(){
 let readerViewMode='doc';
 let readerLastDocId=null;
 let readerCurrentDocRef=null;
+let readerPendingScrollPage=null;   // cross-view page sync on Original ⇄ Reformatted toggle
+
+function readerDetectCurrentPage(){
+    const area=document.getElementById('reader-content-area');
+    const container=document.getElementById('pdf-pages-container');
+    if(!area||!container)return 1;
+    const pages=container.querySelectorAll('[data-page-num]');
+    for(const p of pages){
+        const r=p.getBoundingClientRect();
+        if(r.top>=0&&r.top<area.clientHeight/2)return parseInt(p.dataset.pageNum)||1;
+    }
+    return 1;
+}
+
+function readerApplyPendingScroll(){
+    if(!readerPendingScrollPage)return;
+    const target=readerPendingScrollPage;
+    readerPendingScrollPage=null;
+    const el=document.getElementById('pdf-page-'+target);
+    if(el){
+        el.scrollIntoView({block:'start'});
+        const tb=document.getElementById('reader-toolbar');
+        const title=document.getElementById('reader-doc-title').textContent||'';
+        if(tb)tb.textContent='Page '+target+' of '+readerPdfTotal+' · '+title;
+    }
+}
 const MINERU_SKIP_TYPES=new Set(['header','footer','page_number','aside_text','page_footnote']);
 
 function readerToggleView(){
     if(!readerCurrentDocRef)return;
+    readerPendingScrollPage=readerDetectCurrentPage();   // keep position across views
     readerViewMode=readerViewMode==='doc'?'pdf':'doc';
     const btn=document.getElementById('reader-view-toggle');
     if(btn)btn.textContent=readerViewMode==='doc'?'📄 Original Pages':'📝 Reformatted';
@@ -4089,6 +4117,7 @@ async function readerOpenDocView(doc,area){
         pageDiv.innerHTML='<div style="display:flex;align-items:center;justify-content:center;padding:34px;color:var(--text-muted);font-size:13px;">⏳ Page '+i+'</div>';
         container.appendChild(pageDiv);
     }
+    readerApplyPendingScroll();   // cross-view sync: land on the page we left
     readerScrollObserver=new IntersectionObserver((entries)=>{
         entries.forEach(entry=>{
             if(entry.isIntersecting){
