@@ -2706,15 +2706,22 @@ function readerOpenPDF(arrayBuffer,doc,area){
             });
         },{root:area,rootMargin:'200px 0px',threshold:0.01});
         container.querySelectorAll('[data-page-num]').forEach(d=>readerScrollObserver.observe(d));
+        // rAF-throttled toolbar updater (same anti-thrash treatment as docview)
+        let _pdfPages=null,_pdfTick=false;
         area.onscroll=()=>{
-            const pages=container.querySelectorAll('[data-page-num]');
-            for(let p of pages){
-                const rect=p.getBoundingClientRect();
-                if(rect.top>=0&&rect.top<area.clientHeight/2){
-                    document.getElementById('reader-toolbar').textContent='Page '+p.dataset.pageNum+' of '+readerPdfTotal+' · '+doc.title;
-                    break;
+            if(_pdfTick)return;
+            _pdfTick=true;
+            requestAnimationFrame(()=>{
+                _pdfTick=false;
+                if(!_pdfPages)_pdfPages=Array.from(container.querySelectorAll('[data-page-num]'));
+                for(let p of _pdfPages){
+                    const rect=p.getBoundingClientRect();
+                    if(rect.top>=0&&rect.top<area.clientHeight/2){
+                        document.getElementById('reader-toolbar').textContent='Page '+p.dataset.pageNum+' of '+readerPdfTotal+' · '+doc.title;
+                        break;
+                    }
                 }
-            }
+            });
         };
         showNotification('✅ '+doc.title+' ('+pdf.numPages+' pages) · Scroll to read');
     }).catch(err=>{
@@ -4312,9 +4319,9 @@ function readerRestoreScroll(target){
 function readerApplyPendingScroll(){
     if(!readerPendingScrollPage)return;
     const target=readerPendingScrollPage;
-    // early landings on placeholders; the render hook below makes the final exact call
+    // early landing on placeholders; the render hook makes the final exact call
+    // (no blanket re-assert — extra scrollTop writes fed the scroll/reflow storm)
     requestAnimationFrame(()=>readerRestoreScroll(target));
-    setTimeout(()=>readerRestoreScroll(target),350);
     setTimeout(()=>{if(readerPendingScrollPage===target)readerPendingScrollPage=null;},2000);  // safety expiry
 }
 
@@ -4383,22 +4390,37 @@ async function readerOpenDocView(doc,area){
     readerApplyPendingScroll();   // cross-view sync: land on the page we left
     readerScrollObserver=new IntersectionObserver((entries)=>{
         entries.forEach(entry=>{
-            if(entry.isIntersecting){
-                const pageNum=parseInt(entry.target.dataset.pageNum);
-                if(!readerRenderedPages.has(pageNum)){readerRenderDocViewPage(pageNum);}
+            if(!entry.isIntersecting)return;
+            const pageNum=parseInt(entry.target.dataset.pageNum);
+            if(readerRenderedPages.has(pageNum))return;
+            // During a jump the target page renders FIRST; band neighbours are
+            // deferred briefly so KaTeX typesetting is staggered, not a burst.
+            if(readerPendingScrollPage&&Math.abs(pageNum-readerPendingScrollPage)>1){
+                setTimeout(()=>{if(!readerRenderedPages.has(pageNum))readerRenderDocViewPage(pageNum);},250);
+            }else{
+                readerRenderDocViewPage(pageNum);
             }
         });
     },{root:area,rootMargin:'300px 0px',threshold:0.01});
     container.querySelectorAll('[data-page-num]').forEach(d=>readerScrollObserver.observe(d));
+    // Toolbar updater: rAF-throttled + cached page list. Without this, every
+    // scroll event re-queried 465 divs and forced a full relayout per gBCR —
+    // a layout-thrash freeze while KaTeX inserts DOM during page renders.
+    let _dvPages=null,_dvTick=false;
     area.onscroll=()=>{
-        const pages=container.querySelectorAll('[data-page-num]');
-        for(let p of pages){
-            const rect=p.getBoundingClientRect();
-            if(rect.top>=0&&rect.top<area.clientHeight/2){
-                document.getElementById('reader-toolbar').textContent='Page '+p.dataset.pageNum+' of '+total+' · '+doc.title;
-                break;
+        if(_dvTick)return;
+        _dvTick=true;
+        requestAnimationFrame(()=>{
+            _dvTick=false;
+            if(!_dvPages)_dvPages=Array.from(container.querySelectorAll('[data-page-num]'));
+            for(let p of _dvPages){
+                const rect=p.getBoundingClientRect();
+                if(rect.top>=0&&rect.top<area.clientHeight/2){
+                    document.getElementById('reader-toolbar').textContent='Page '+p.dataset.pageNum+' of '+total+' · '+doc.title;
+                    break;
+                }
             }
-        }
+        });
     };
     showNotification('✅ '+doc.title+' · reformatted view ('+total+' pages) · Select text to translate, highlight or ask AI');
 }
@@ -4472,8 +4494,12 @@ async function readerRenderDocViewPage(pageNum){
             empty.textContent='No extractable content on this page (figure-only or blank page)';
             pageDiv.appendChild(empty);
         }
+        // KaTeX typeset when idle: text paints first, formulas pop in ~100ms
+        // later — avoids blocking the first paint of a formula-dense page.
         if(window.renderMathInElement){
-            renderMathInElement(pageDiv,{delimiters:[{left:'$$',right:'$$',display:true},{left:'$',right:'$',display:false}],throwOnError:false,strict:false});
+            (window.requestIdleCallback||(function(f){return setTimeout(f,40);}))(function(){
+                if(pageDiv.isConnected)renderMathInElement(pageDiv,{delimiters:[{left:'$$',right:'$$',display:true},{left:'$',right:'$',display:false}],throwOnError:false,strict:false});
+            });
         }
         if(typeof readerHighlights!=='undefined'&&readerHighlights.length>0){
             readerHighlights.filter(h=>h.page===pageNum).forEach(h=>{
