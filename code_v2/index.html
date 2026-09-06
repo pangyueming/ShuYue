@@ -4188,43 +4188,64 @@ const GUIDE_PAGES=[
   {t:'h',lvl:1,en:'Welcome to CogniBridge',cn:'欢迎使用智学桥'},
   {t:'p',en:'CogniBridge is your bridge between school maths and university maths. It finds your knowledge gaps, builds a personal study plan that follows your real lectures, and lets you practise with AI that is checked for correctness.',cn:'智学桥连接中学数学与大学数学：定位知识断层、生成跟随真实课表的个人计划、提供经过校验的 AI 练习。'},
   {t:'ui',kind:'sidebar'},
-  {t:'p',en:'This guide lives permanently in your bookshelf (Textbooks). Open it any time you need a reminder.',cn:'本指南永久保存在书架（Textbooks 分类）中，随时可回来查阅。'}
+  {t:'p',en:'This guide lives permanently in your bookshelf (Textbooks). Open it any time you need a reminder — the next pages walk through every feature, one by one.',cn:'本指南永久保存在书架（Textbooks 分类）中。接下来几页将逐一介绍全部功能。'}
 ]},
 {blocks:[
-  {t:'h',lvl:1,en:'Start Here — Pre-Assessment & Your Plan',cn:'从这里开始 — 前测与个人计划'},
-  {t:'p',en:'Take the 3-minute Pre-Assessment: rate your school topics, check the new university ones, and answer 10 quick questions. You will get a personal profile: what you know, what is weak, what is completely new.',cn:'完成 3 分钟前测：为中学知识点自评、标记大学新内容、回答 10 道快问快答，即可获得个人画像。'},
-  {t:'ui',kind:'flow',items:['Diagnose 诊断','Plan 计划','Practise 练习','Evidence 证据']},
-  {t:'p',en:'Your study plan follows the real teaching schedule — Mathematical Analysis and Higher Algebra, week by week. Set your current teaching week (in the Pre-Assessment or your Profile) so tasks land before the lectures that need them.',cn:'学习计划按真实教学周排列（数学分析 + 高等代数双轨）。在前测或 Profile 中设置当前教学周，补漏任务会排在开课之前。'}
+  {t:'h',lvl:1,en:'Pre-Assessment → Your Math Skill Map',cn:'前测 → 数学能力图'},
+  {t:'p',en:'Take the 3-minute Pre-Assessment: rate each school topic (Mastered / Decent / Fuzzy / No idea), check the university topics you have met, and answer 10 quick questions.',cn:'完成 3 分钟前测：为每个中学知识点自评（掌握/尚可/模糊/不会）、标记接触过的大学内容、回答 10 道快问快答。'},
+  {t:'ui',kind:'bars'},
+  {t:'p',en:'The Math Skill Breakdown then appears on your Dashboard: one bar per topic, coloured by your answers. Red means "fix this before the lectures that need it"; yellow is shaky; green is solid. It is built from YOUR answers — two students see two different maps.',cn:'数学能力图随后出现在 Dashboard 上：每个知识点一条，颜色来自你的作答。红色＝开课前要补；黄色＝不稳；绿色＝扎实。它由你的作答生成——不同学生看到不同的图。'}
 ]},
 {blocks:[
-  {t:'h',lvl:1,en:'Learn — Math Tutor & AI Quiz',cn:'学习 — AI 辅导与智能出题'},
+  {t:'h',lvl:1,en:'Your Study Plan — A Weekly Bridge',cn:'学习计划 — 每周的桥'},
+  {t:'ui',kind:'timeline'},
+  {t:'p',en:'Tasks sit on the real teaching calendar: 📐 Mathematical Analysis and 🔢 Higher Algebra, side by side. A 🔧 gap task is a school skill an upcoming lecture needs — it is due BEFORE that week. A 📖 preview task is a brand-new university idea to meet early.',cn:'任务按真实课表排列：📐数学分析与🔢高等代数双轨并行。🔧补漏任务＝即将开课所需的中学技能，截止于开课周之前；📖预习任务＝提前接触的大学新概念。'},
+  {t:'p',en:'Interactions: tick the checkbox when done, drag cards to re-order, drag to the 🗑 trash to remove. Set your current teaching week (Pre-Assessment step 1, or your Profile) and the timeline re-aligns instantly.',cn:'交互：完成后勾选；拖拽卡片排序；拖入🗑垃圾桶移除。在前测第 1 步或 Profile 设置当前教学周，时间轴立即重新对齐。'}
+]},
+{blocks:[
+  {t:'h',lvl:1,en:'The Adaptive Loop — Evidence Updates Your Plan',cn:'自适应闭环 — 证据更新计划'},
+  {t:'ui',kind:'flow',items:['Diagnose 诊断','Plan 计划','Practise 练习','Evidence 证据','Re-plan 再规划']},
+  {t:'p',en:'Self-ratings are only the starting point. Every AI Quiz you take becomes evidence: score below 50% on a topic — even one you rated as strong — and it goes back into your plan with a 📊 badge that shows the score.',cn:'自评只是起点。每次 AI Quiz 都是证据：某知识点得分低于 50%——即使你自评"掌握"——也会带着 📊 分数徽章回到计划中。'},
+  {t:'p',en:'Score above 90% twice, and a "weak" topic is exempted automatically. The plan keeps matching the real you, not the you from day one.',cn:'连续两次得分高于 90%，自评"薄弱"的知识点会被自动豁免。计划始终匹配当下的你，而不是第一天的你。'}
+]},
+{blocks:[
+  {t:'h',lvl:1,en:'Math Tutor — Two Ways to Learn',cn:'AI 辅导 — 两种学法'},
   {t:'ui',kind:'modes'},
-  {t:'p',en:'General mode gives clear, step-by-step solutions. Deep mode asks Socratic questions and guides you to find the answer yourself.',cn:'General 模式给出分步解答；Deep 模式以苏格拉底式提问引导你自主发现答案。'},
-  {t:'p',en:'AI Quiz writes practice questions for any topic — and every question is solved again by our own engine. If the two answers disagree, the question is thrown away. Low quiz scores push a topic back into your plan automatically.',cn:'AI Quiz 为任意知识点出题，且每道题都由解题引擎二次验证，答案不一致即弃用；低分知识点会自动回到你的学习计划中。'}
+  {t:'p',en:'⚡ General gives full step-by-step solutions with properly typeset formulas. 🧠 Deep asks Socratic questions and waits for YOUR reasoning — stuck? "Need a hint" and "I\'m stuck" buttons appear.',cn:'⚡ General 给出公式排版规整的分步解答；🧠 Deep 以苏格拉底式提问等你推理——卡住时可点"要提示 / 我卡住了"按钮。'},
+  {t:'p',en:'Attach lecture PDFs with the 📎 button and ask about them. One-tap buttons generate similar practice problems or explain the A-Level connection behind any topic.',cn:'用 📎 按钮附上讲义 PDF 后可直接提问；一键按钮可生成同类练习或解释知识点的 A-Level 衔接背景。'}
+]},
+{blocks:[
+  {t:'h',lvl:1,en:'AI Quiz — Questions You Can Trust',cn:'AI 出题 — 可信的题目'},
+  {t:'p',en:'Configure a quiz in seconds: topic (your weakest are pre-suggested 💡), 1–15 questions, difficulty, and MCQ / fill-in / mixed. Every question renders real maths notation.',cn:'几秒配好一份测验：知识点（弱点已预选💡）、1–15 题、难度、选择/填空/混合，题目带完整数学公式排版。'},
+  {t:'p',en:'With 🔍 Harness verification ON (recommended), each generated question is solved again by our own engine — if the two answers disagree, the question is thrown away. Expect 1–3 minutes; a wait-time estimate is shown while it works.',cn:'开启 🔍 Harness 验证（推荐）后，每道题都由解题引擎二次作答，答案不一致即弃用。耗时约 1–3 分钟，等待界面会显示预估时长。'},
+  {t:'p',en:'Answers are graded instantly with full explanations, and wrong ones come back via "🔁 Retry wrong ones". Every finished attempt adds to the Problems Solved counter on your Dashboard.',cn:'即时判分并附完整解析；错题可通过"🔁 重做错题"再战。每次完成都会计入 Dashboard 的 Problems Solved。'}
 ]},
 {blocks:[
   {t:'h',lvl:1,en:'Read — Reader & AI Chat',cn:'阅读 — 文档阅读与 AI 问答'},
   {t:'ui',kind:'floatmenu'},
   {t:'p',en:'Upload PDF/PPTX files to your bookshelf, then select any text to Translate, Highlight, take a Note, or Ask AI.',cn:'上传 PDF/PPTX 到书架后，选中任意文字即可翻译、高亮、记笔记或问 AI。'},
-  {t:'p',en:'Scanned textbooks work too: they are re-typeset automatically. In Chat AI, switch between 📄 Page (ask about the page you are reading) and 📚 Whole book (search the entire textbook — answers cite pages like [Page 45]).',cn:'扫描版教材同样可用（自动重排版）。Chat AI 可切换 📄 当前页 与 📚 整本书 两种问答模式，整书模式的回答会标注页码。'}
+  {t:'p',en:'Scanned textbooks work too — they are re-typeset automatically (MinerU). In Chat AI, switch between 📄 Page (ask about the page you are reading) and 📚 Whole book (search the entire textbook — answers cite pages like [Page 45]).',cn:'扫描版教材同样可用（MinerU 自动重排版）。Chat AI 可切换 📄 当前页 与 📚 整本书 两种问答模式，整书模式的回答会标注页码。'}
 ]},
 {blocks:[
-  {t:'h',lvl:1,en:'Organise — Bookshelf, Notes & Sync',cn:'整理 — 书架、笔记与云同步'},
+  {t:'h',lvl:1,en:'Function Plotter — See the Maths',cn:'函数画板 — 让数学可见'},
+  {t:'ui',kind:'plot'},
+  {t:'p',en:'2D mode overlays up to five functions on one canvas — perfect for comparing sin(x)/x against 1/x, or a function against its derivative. Tap the example chips or type your own.',cn:'2D 模式可在同一画布叠加至多五个函数，便于对比观察（如 sin(x)/x 与 1/x，或函数与其导数）。点示例词条或直接输入皆可。'},
+  {t:'p',en:'3D mode renders surfaces like z = x² − y² — rotate and zoom with the mouse. The Conics tab draws circles, ellipses, parabolas and hyperbolas with adjustable parameters, foci marked.',cn:'3D 模式渲染曲面（如 z = x² − y²），可用鼠标旋转缩放；圆锥曲线页支持圆/椭圆/抛物线/双曲线参数调节，并标注焦点。'}
+]},
+{blocks:[
+  {t:'h',lvl:1,en:'Organise, Sync & Quick Tips',cn:'整理、同步与快速技巧'},
   {t:'p',en:'The bookshelf has six categories (Slides, Textbooks, Exercises, Exam Papers, Research Papers, Notes). Highlights and notes made while reading sync straight to the Notes page; PDFs uploaded under "Notes" appear there too.',cn:'书架含六个分类；阅读时的高亮与笔记自动同步到 Notes 页，上传到 Notes 分类的 PDF 也会显示在那里。'},
   {t:'table',head:['What you keep','Where it lives'],rows:[
     ['Documents, notes, highlights','Bookshelf · Reader 书架与阅读器'],
-    ['Pre-assessment & study plan','Dashboard 仪表板'],
+    ['Math skill map & study plan','Dashboard 仪表板'],
     ['Quiz history & problem count','Dashboard 仪表板'],
     ['Your account','Cloud — sign in on any device 云端，任意设备登录即同步']]},
-  {t:'p',en:'Everything above is saved to your account. Log in on any device and it all comes back.',cn:'以上内容全部保存在你的账号中，换设备登录即可恢复。'}
-]},
-{blocks:[
-  {t:'h',lvl:1,en:'Quick Tips',cn:'快速技巧'},
   {t:'table',head:['Want to…','Go to'],rows:[
     ['Know my weak points 了解薄弱点','Pre-Assessment → report 前测报告'],
     ['Get lecture-aligned tasks 课表对齐任务','Dashboard → Study Plan 学习计划'],
     ['Practise a topic 练习某知识点','AI Quiz (weak topics pre-suggested 弱点已预选)'],
-    ['Read a textbook 读教材','Bookshelf → open → chat with it 书架打开即可问答'],
+    ['Ask about my reading 就所读内容提问','Reader → select text → Ask AI'],
+    ['Visualise a function 可视化函数','Function Plotter 函数画板'],
     ['See my progress 看进度','Dashboard stat cards 仪表板统计卡']]},
   {t:'p',en:'University maths is a bridge, not a wall — and you just crossed the first step by reading this. Good luck!',cn:'大学数学是一座桥，而不是一堵墙——读完本页，你已迈出第一步。祝学习顺利！'},
   {t:'eq',en:'e^{i\\pi}+1=0',cn:''}
@@ -4294,6 +4315,35 @@ function renderGuideUiMock(kind,items){
     }else if(kind==='floatmenu'){
         box.innerHTML='<div style="font-size:11px;color:var(--text-muted);margin-bottom:8px;">Select text to see 选中文字即出现</div>'
             +chip('🌐 Translate')+chip('🖍 Highlight')+chip('📝 Note')+chip('🤖 Ask AI',true);
+    }else if(kind==='bars'){
+        const rows=[
+            ['Functions & Graphs 函数图像',100,'#52c41a','Mastered 掌握'],
+            ['Sequences & Series 数列',75,'#2383e2','Decent 尚可'],
+            ['Differentiation 求导',40,'#fa8c16','Fuzzy 模糊'],
+            ['Trigonometry 三角',10,'#f5222d','No idea 不会']];
+        box.innerHTML='<div style="font-size:11px;color:var(--text-muted);margin-bottom:10px;">Math Skill Breakdown (example) 数学能力图（示例）</div>'
+            +rows.map(r=>'<div style="display:flex;align-items:center;gap:10px;margin:7px 0;">'
+                +'<span style="font-size:12px;width:170px;color:var(--text-secondary);flex-shrink:0;">'+escapeHtml(r[0])+'</span>'
+                +'<div style="flex:1;height:8px;border-radius:4px;background:var(--bg-tag);overflow:hidden;"><div style="height:100%;border-radius:4px;width:'+r[1]+'%;background:'+r[2]+';"></div></div>'
+                +'<span style="font-size:11px;width:86px;color:'+r[2]+';font-weight:600;flex-shrink:0;">'+r[3]+' '+r[1]+'%</span></div>').join('')
+            +'<div style="font-size:10px;color:var(--text-muted);margin-top:8px;">🔴 fix before the lectures that need it 开课前需补 · 🟠 shaky 不稳 · 🟢 solid 扎实</div>';
+    }else if(kind==='timeline'){
+        box.innerHTML='<div style="font-size:11px;color:var(--text-muted);margin-bottom:10px;">Study Plan timeline (example) 学习计划时间轴（示例）</div>'
+            +'<div style="font-size:12px;font-weight:700;margin:6px 0 4px;">📅 Week 3–4</div>'
+            +'<div style="font-size:12px;color:var(--text-secondary);padding-left:10px;border-left:3px solid #f5222d;margin:4px 0;">📐 Sequences & Limits 数列极限（ε-N）</div>'
+            +'<div style="font-size:12px;color:var(--text-secondary);padding-left:10px;border-left:3px solid #f5222d;margin:4px 0;">&nbsp;&nbsp;🔧 Sequences &amp; Series — due BEFORE this week 本周前补：数列</div>'
+            +'<div style="font-size:12px;color:var(--text-secondary);padding-left:10px;border-left:3px solid #faad14;margin:4px 0;">&nbsp;&nbsp;📖 Propositional Logic — preview 预习：命题逻辑</div>'
+            +'<div style="font-size:12px;color:var(--text-secondary);padding-left:10px;border-left:3px solid #faad14;margin:4px 0;">🔢 Determinants 行列式</div>'
+            +'<div style="font-size:12px;font-weight:700;margin:10px 0 4px;">📅 Week 5–6</div>'
+            +'<div style="font-size:12px;color:var(--text-muted);">… function limits, linear systems, and the skills they need …</div>'
+            +'<div style="font-size:10px;color:var(--text-muted);margin-top:8px;">🔧 gap-fill 补漏（红） · 📖 preview 预习（黄） · tick ✔ / drag ⇄ / trash 🗑 交互提示</div>';
+    }else if(kind==='plot'){
+        box.innerHTML='<div style="font-size:11px;color:var(--text-muted);margin-bottom:8px;">Function Plotter 函数画板</div>'
+            +chip('sin(x)/x',true)+chip('e^(-x²)')+chip('x³-3x')+chip('1/x')+chip('tan(x)')
+            +'<div style="display:flex;align-items:center;gap:10px;margin-top:10px;">'
+            +'<div style="flex:1;height:64px;border:1px solid var(--border);border-radius:8px;background:var(--bg-card);position:relative;overflow:hidden;">'
+            +'<svg viewBox="0 0 220 64" style="width:100%;height:100%;"><path d="M0,44 C40,10 60,10 110,32 C160,52 180,52 220,36" fill="none" stroke="#2383e2" stroke-width="2"/></svg></div>'
+            +'<div style="flex:1;height:64px;border:1px solid var(--border);border-radius:8px;background:var(--bg-card);display:flex;align-items:center;justify-content:center;font-size:11px;color:var(--text-muted);">z = x² − y² · rotate 🔄 3D 旋转</div></div>';
     }else{
         box.textContent='';
     }
