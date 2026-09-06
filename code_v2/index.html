@@ -1082,7 +1082,7 @@ function tutorSendQuick(q){
     tutorSend();
 }
 
-function tutorSend(){
+async function tutorSend(){
     const inp=document.getElementById('tutor-input');
     const q=inp.value.trim();if(!q)return;
     inp.value='';
@@ -1117,6 +1117,10 @@ function tutorSend(){
         '<div id="'+bubbleId+'" style="background:var(--bg-hover);color:var(--text-primary);padding:8px 14px;border-radius:12px 12px 12px 4px;font-size:13px;max-width:75%;"><span style="color:var(--text-muted);">⏳ Thinking...</span></div>';
     chat.appendChild(aiDiv);
     chat.scrollTop=chat.scrollHeight;
+
+    // Auto textbook anchoring: NON-BLOCKING — the answer streams immediately;
+    // a citation strip appears above the bubble when retrieval hits
+    tutorAnchorAsync(q,aiDiv);
 
     kimiCall(msgs,
         full=>{const el=document.getElementById(bubbleId);if(el)el.innerHTML=mdToHtmlTutor(full)+'<span style="opacity:.5;">▌</span>';chat.scrollTop=chat.scrollHeight;},
@@ -2354,6 +2358,8 @@ function bsPageRenderGrid(cat){
     if(docs.length===0){g.innerHTML=`<div class="placeholder-box" style="grid-column:1/-1;">No documents yet<br><button class="btn-secondary" style="margin-top:12px;" onclick="bsUpload()">Upload PDF</button></div>`;return;}
     g.innerHTML=docs.map((d,i)=>{const origIdx=(bsData[cat]||[]).indexOf(d);
         const showMineru=(d.fileType==='pdf'&&d.needsOcr&&d.parseStatus!=='done');
+        // [Index] native-textbook only: builds the RAG index via MinerU (guides excluded)
+        const showIndex=(d.fileType==='pdf'&&!d.needsOcr&&!d.isGuide&&d.category==='textbooks'&&d.parseStatus!=='done');
         const isParsing=(d.parseStatus==='queued'||d.parseStatus==='parsing'||d.parseStatus==='indexing');
         const prog=(isParsing&&mineruTracker.progress&&mineruTracker.progress[d.id])||null;
         let statusLine='';
@@ -2383,6 +2389,7 @@ function bsPageRenderGrid(cat){
         <div style="text-align:center;margin-top:8px;display:flex;gap:6px;justify-content:center;align-items:center;">
             <span onclick="bsOpenFromPage('${cat}',${origIdx})" style="font-size:11px;padding:2px 10px;border-radius:4px;background:var(--accent);color:#fff;cursor:pointer;">Read</span>
             ${showMineru?`<button onclick="event.stopPropagation();bsMineruById('${d.id}')" style="font-size:11px;padding:2px 10px;border-radius:4px;background:#722ed1;color:#fff;border:none;cursor:pointer;">✨ MinerU</button>`:''}
+            ${showIndex?`<button onclick="event.stopPropagation();bsMineruById('${d.id}')" title="Build a searchable index so Chat AI can search the whole book" style="font-size:11px;padding:2px 10px;border-radius:4px;background:#722ed1;color:#fff;border:none;cursor:pointer;">✨ Index</button>`:''}
         </div>${statusLine}</div>`;}).join('');refreshIcons();}
 function bsOpenFromPage(cat,idx){showPage('reader');setTimeout(()=>readerOpenDoc(cat,idx),100);}
 function bsOpenFromDash(cat,idx){showPage('reader');setTimeout(()=>readerOpenDoc(cat,idx),100);}
@@ -2471,7 +2478,7 @@ function readerOpenDoc(cat,idx){
     readerCloseBookshelf();
     readerCurrentDocId=doc.id;
     readerCurrentDocRef={cat,idx};
-    if(readerLastDocId!==doc.id)readerViewMode='doc';   // parsed docs default to reformatted view
+    if(readerLastDocId!==doc.id)readerViewMode=doc.needsOcr?'doc':'pdf';   // scanned -> reformatted default; native parsed -> keep original PDF view
     readerLastDocId=doc.id;
     readerPdfDoc=null;readerPdfTotal=0;readerDocType=null;
     document.getElementById('reader-doc-title').textContent=doc.title;
@@ -2877,12 +2884,55 @@ async function aiChatMaybeRetrieveBookCtx(question){
                 quoteEl.textContent='📚 Whole book · '+d.chunks.length+' passages · p.'
                     +d.chunks.map(c=>c.page).join(', p.');
             }
-        }else if(d.reason==='not_parsed'||d.reason==='no_index'||d.reason&&d.reason.startsWith('retrieve_failed')){
+        }else if(d.reason==='not_parsed'||d.reason==='no_index'||d.reason==='not_textbook'||(d.reason&&d.reason.startsWith('retrieve_failed'))){
             // Degrade gracefully: back to page mode for this message
             showNotification('⚠️ Whole-book search unavailable — using page context');
             aiChatSetMode('page');
         }
     }catch(e){/* network hiccup: fall back silently */}
+}
+
+// ===== Automatic textbook anchoring (async, non-blocking) =====
+// The AI answer streams immediately; when retrieval hits, a green citation
+// strip appears ABOVE the answer. No hit -> nothing is shown.
+async function textbookAnchorSearch(question){
+    const token=localStorage.getItem('cb_token');
+    if(!token)return null;
+    try{
+        const r=await apiFetch('/api/textbooks/search',{method:'POST',body:JSON.stringify({query:question})});
+        if(!r.ok)return null;
+        const d=await r.json();
+        return (d.reason==='ok'&&d.chunks&&d.chunks.length)?d.chunks:null;
+    }catch(e){return null}
+}
+
+function tbAnchorStrip(hits,aiDiv){
+    if(!hits||!aiDiv||!aiDiv.parentNode)return;
+    const strip=document.createElement('div');
+    strip.style.cssText='display:flex;gap:6px;align-items:center;flex-wrap:wrap;margin-bottom:6px;';
+    strip.innerHTML='<span style="font-size:11px;">📚</span>'
+        +hits.map(c=>'<span style="font-size:11px;padding:2px 8px;border-radius:999px;background:rgba(82,196,26,.08);border:1px solid rgba(82,196,26,.25);color:#52c41a;">'
+            +escapeHtml(c.book)+' · p.'+c.page+'</span>').join('');
+    aiDiv.parentNode.insertBefore(strip,aiDiv);
+}
+
+async function aiChatAnchorAsync(question,aiDiv){
+    try{
+        if(!localStorage.getItem('cb_token'))return;
+        if(window.aiChatBookMode&&window.aiChatBookDocId)return;              // explicit 📚 mode wins
+        const doc=Object.values(bsData).flat().find(d=>d.id===readerCurrentDocId);
+        if(doc&&doc.category==='textbooks'&&doc.parseStatus==='done')return;  // open textbook: book mode covers it
+        const hits=await textbookAnchorSearch(question);
+        tbAnchorStrip(hits,aiDiv);
+    }catch(e){/* retrieval hiccup: answer is unaffected */}
+}
+
+async function tutorAnchorAsync(question,aiDiv){
+    try{
+        if(!localStorage.getItem('cb_token'))return;
+        const hits=await textbookAnchorSearch(question);
+        tbAnchorStrip(hits,aiDiv);
+    }catch(e){/* answer unaffected */}
 }
 
 function openAIChatFree(){
@@ -2930,11 +2980,13 @@ function openAIChatFree(){
     modal.style.left='auto';modal.style.top='auto';modal.style.right='24px';modal.style.bottom='0px';
     modal.style.display='flex';
 
-    // [Whole-book] show the mode toggle only if the open doc is MinerU-parsed
+    // [Whole-book] show the mode toggle only for MinerU-parsed TEXTBOOKS
+    // (RAG index is textbook-only; guides are fileType 'guide' and never qualify)
     const modeRow=document.getElementById('ai-chat-mode-row');
     if(modeRow)modeRow.style.display='none';
     const _token=localStorage.getItem('cb_token');
-    if(_token&&readerCurrentDocId){
+    const _doc=Object.values(bsData).flat().find(d=>d.id===readerCurrentDocId);
+    if(_token&&readerCurrentDocId&&_doc&&_doc.category==='textbooks'){
         apiFetch('/api/documents/'+readerCurrentDocId+'/parse')
             .then(r=>r.ok?r.json():{}).then(s=>{
                 if(s&&s.status==='done'&&modeRow&&document.getElementById('ai-chat-modal').style.display==='flex'){
@@ -3079,6 +3131,9 @@ async function aiChatSend(text){
 
     // Whole-book mode: retrieve fresh excerpts for THIS question (per-message RAG)
     await aiChatMaybeRetrieveBookCtx(text);
+    // Auto textbook anchoring: NON-BLOCKING — the answer streams immediately;
+    // a citation strip appears above the bubble when retrieval hits
+    aiChatAnchorAsync(text,aiDiv);
 
     // Build system context with quoted text
     const quoteEl=document.getElementById('ai-chat-quote');
@@ -3088,6 +3143,7 @@ async function aiChatSend(text){
 
     // Context injection (backend filters system messages, so context rides in user
     // messages): book excerpts → LAST user message; page context → FIRST user message
+    // (auto textbook anchoring no longer injects — it renders an async strip instead)
     let bodyMsgs=aiChatMessages;
     if(window.aiChatBookCtx){
         const lastIdx=bodyMsgs.map(m=>m.role).lastIndexOf('user');
@@ -3878,10 +3934,12 @@ async function mineruGateOpen(doc,cat,idx,opensReader){
 
 function mineruGateRenderOnboarding(){
     const body=document.getElementById('mineru-gate-body');
+    const scanned=mineruGateDoc&&mineruGateDoc.needsOcr;
     body.innerHTML=`
     <p style="font-size:13px;color:var(--text-secondary);line-height:1.6;margin:4px 0 14px;">
-        This scanned PDF has no selectable text. AI re-layout unlocks formatted text, rendered formulas
-        and citation-grounded Q&A — using <b>your own free MinerU account</b> (2,000 pages/day free).</p>
+        ${scanned
+            ?'This scanned PDF has no selectable text. AI re-layout unlocks formatted text, rendered formulas and citation-grounded Q&A — using <b>your own free MinerU account</b> (2,000 pages/day free).'
+            :'This textbook already reads fine — parsing builds a <b>searchable index</b> so Chat AI can search the whole book (formulas become clean LaTeX) — using <b>your own free MinerU account</b> (2,000 pages/day free).'}</p>
     <div style="background:var(--bg-input);border:1px solid var(--border);border-radius:10px;padding:14px 16px;margin-bottom:12px;font-size:13px;line-height:2;color:var(--text-secondary);">
         <b style="color:var(--text-primary);">Setup (one time only):</b><br>
         1. Create a free account at
@@ -3893,8 +3951,35 @@ function mineruGateRenderOnboarding(){
     <div id="mineru-key-error" style="color:#ff6b6b;font-size:12px;min-height:16px;margin-top:4px;"></div>
     <button id="mineru-key-save" onclick="mineruGateSaveKey()" style="width:100%;margin-top:8px;padding:10px;border-radius:8px;border:none;background:#722ed1;color:#fff;font-size:13px;font-weight:600;cursor:pointer;">Save Key & Continue</button>
     <button onclick="mineruGateOpenGuide()" style="width:100%;margin-top:10px;padding:6px;border:none;background:transparent;color:var(--accent);font-size:12px;cursor:pointer;text-decoration:underline;">❓ What is MinerU? — read the 1-minute guide</button>
-    <button onclick="mineruGateChooseOriginal()" style="width:100%;margin-top:4px;padding:8px;border-radius:8px;border:none;background:transparent;color:var(--text-muted);font-size:12px;cursor:pointer;">${mineruGateOpensReader?'Skip — show original pages only':'Not now'}</button>`;
+    <button onclick="mineruGateChooseOriginal()" style="width:100%;margin-top:4px;padding:8px;border-radius:8px;border:none;background:transparent;color:var(--text-muted);font-size:12px;cursor:pointer;">${mineruGateOpensReader?'Skip — show original pages only':'Not now'}</button>
+    <div id="mineru-quota-line" style="font-size:11px;color:var(--text-muted);text-align:center;margin-top:10px;"></div>`;
+    mineruFillQuota('mineru-quota-line');
     setTimeout(()=>{const i=document.getElementById('mineru-key-input');if(i)i.focus();},100);
+}
+
+async function mineruFillQuota(elId){
+    const el=document.getElementById(elId);
+    if(!el)return;
+    try{
+        const r=await apiFetch('/api/user/mineru-usage');
+        if(!r.ok)return;
+        const u=await r.json();
+        el.textContent='MinerU Today: '+u.used+' / '+u.limit.toLocaleString()+' pages · resets daily';
+    }catch(e){/* offline: leave blank */}
+}
+
+function mineruGateRenderQuota(d){
+    const body=document.getElementById('mineru-gate-body');
+    body.innerHTML=`
+    <div style="text-align:center;padding:10px 0;">
+        <div style="font-size:34px;margin-bottom:10px;">📉</div>
+        <div style="font-size:14px;font-weight:700;color:var(--text-primary);margin-bottom:6px;">Daily MinerU limit reached</div>
+        <p style="font-size:13px;color:var(--text-secondary);line-height:1.6;">
+            This book needs <b>${d.needed}</b> pages, but only <b>${d.remaining}</b> of today's
+            ${d.limit.toLocaleString()} free pages remain.<br>
+            Parsing stopped — <b>finished parts are kept</b>, so continuing tomorrow costs 0 extra pages.</p>
+        <button onclick="mineruGateClose()" style="width:100%;margin-top:12px;padding:10px;border-radius:8px;border:none;background:#722ed1;color:#fff;font-size:13px;font-weight:600;cursor:pointer;">OK — continue tomorrow</button>
+    </div>`;
 }
 
 function mineruGateOpenGuide(){
@@ -3964,15 +4049,19 @@ function mineruGateOfferRetry(){
 function mineruGateRenderConsent(){
     const body=document.getElementById('mineru-gate-body');
     const title=mineruGateDoc?mineruGateDoc.title:'this document';
+    const scanned=mineruGateDoc&&mineruGateDoc.needsOcr;
     body.innerHTML=`
     <p style="font-size:13px;color:var(--text-secondary);line-height:1.6;margin:4px 0 14px;">
-        <b style="color:var(--text-primary);">"${escapeHtml(title)}"</b> is a scanned PDF with no selectable text.<br>
-        Enable AI re-layout now? (uses your MinerU key; large books take ~5–20 min)</p>
+        <b style="color:var(--text-primary);">"${escapeHtml(title)}"</b> ${scanned
+            ?'is a scanned PDF with no selectable text.<br>Enable AI re-layout now? (uses your MinerU key; large books take ~5–20 min)'
+            :'reads fine as-is.<br>Build a whole-book AI index now? Reading stays unchanged — only Chat AI gains book-wide search. (uses your MinerU key)'}</p>
     <div style="display:flex;gap:10px;">
-        <button onclick="mineruGateStart()" style="flex:1;padding:10px;border-radius:8px;border:none;background:#722ed1;color:#fff;font-size:13px;font-weight:600;cursor:pointer;">✨ Enable AI Re-layout</button>
+        <button onclick="mineruGateStart()" style="flex:1;padding:10px;border-radius:8px;border:none;background:#722ed1;color:#fff;font-size:13px;font-weight:600;cursor:pointer;">${scanned?'✨ Enable AI Re-layout':'✨ Build AI Index'}</button>
         <button onclick="mineruGateChooseOriginal()" style="flex:1;padding:10px;border-radius:8px;border:1px solid var(--border);background:var(--bg-input);color:var(--text-secondary);font-size:13px;cursor:pointer;">${mineruGateOpensReader?'Original Pages Only':'Not now'}</button>
     </div>
-    <p style="font-size:11px;color:var(--text-muted);margin-top:10px;">You can change your mind later via the "✨ Enable AI" button in the toolbar.</p>`;
+    <p style="font-size:11px;color:var(--text-muted);margin-top:10px;">You can change your mind later via the "✨ Enable AI" button in the toolbar.</p>
+    <div id="mineru-quota-line" style="font-size:11px;color:var(--text-muted);text-align:center;margin-top:6px;"></div>`;
+    mineruFillQuota('mineru-quota-line');
 }
 
 async function mineruGateChooseOriginal(){
@@ -3996,7 +4085,12 @@ async function mineruGateStart(){
     body.innerHTML='<div style="text-align:center;color:var(--text-muted);padding:20px;font-size:13px;">Starting…</div>';
     try{
         const r=await apiFetch('/api/documents/'+mineruGateDoc.id+'/parse',{method:'POST'});
-        if(!r.ok){const e=await r.json().catch(()=>({}));throw new Error(e.detail||('HTTP '+r.status));}
+        if(!r.ok){
+            const e=await r.json().catch(()=>({}));
+            const d=e.detail;
+            if(d&&typeof d==='object'&&d.reason==='quota'){mineruGateRenderQuota(d);return;}
+            throw new Error((d&&d.reason)||d||('HTTP '+r.status));
+        }
         mineruGateRenderProgress();
     }catch(e){
         body.innerHTML='<div style="color:#ff6b6b;font-size:13px;padding:12px;">❌ '+escapeHtml(e.message)+'</div>'+
@@ -4012,7 +4106,9 @@ function mineruGateRenderProgress(){
         <div class="spinner" style="margin:0 auto 14px;"></div>
         <div id="mineru-progress-text" style="font-size:13px;color:var(--text-primary);font-weight:600;">Queued…</div>
         <div id="mineru-progress-sub" style="font-size:11px;color:var(--text-muted);margin-top:6px;">"${title}" · you can close this dialog, parsing continues in the background</div>
+        <div id="mineru-quota-line" style="font-size:11px;color:var(--text-muted);margin-top:8px;"></div>
     </div>`;
+    const quotaEl=document.getElementById('mineru-quota-line');
     const poll=async()=>{
         try{
             const r=await apiFetch('/api/documents/'+mineruGateDoc.id+'/parse');
@@ -4030,15 +4126,21 @@ function mineruGateRenderProgress(){
                     }
                     if(s.status==='failed'){
                         const auth=mineruIsAuthError(s);
+                        const quotaFail=s.error_type==='quota'||/quota/i.test(s.error||'');
                         t.innerHTML='<span style="color:#ff6b6b;">❌ '+escapeHtml(s.error||'Parsing failed')+'</span>';
                         const sub=document.getElementById('mineru-progress-sub');
                         if(sub&&auth){
                             sub.innerHTML='<button onclick="mineruGateUpdateKey()" style="margin-top:10px;padding:8px 20px;border-radius:8px;border:none;background:#722ed1;color:#fff;font-size:13px;font-weight:600;cursor:pointer;">🔑 Update MinerU Key & Retry</button>';
+                        }else if(sub&&quotaFail){
+                            sub.innerHTML='<span style="color:#faad14;">Finished parts are kept — continue tomorrow at no extra cost.</span>';
                         }
                         return;
                     }
                     const pages=s.total_pages?(' · '+s.pages_done+'/'+s.total_pages+' pages'):'';
                     t.textContent=s.status==='indexing'?'Building search index…':'Parsing on MinerU cloud'+pages;
+                    if(quotaEl&&typeof s.mineru_used==='number'){
+                        quotaEl.textContent='MinerU Today: '+s.mineru_used+' / '+(s.mineru_limit||2000).toLocaleString()+' pages · resets daily';
+                    }
                 }
             }
         }catch(e){}

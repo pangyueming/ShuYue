@@ -200,7 +200,8 @@ def retrieve(conn: sqlite3.Connection, doc_id: str, question: str, api_key: str,
     ).fetchall()
     if not emb_rows:
         return []
-    vec_by_id = {row[0]: struct.unpack(f"<{row[1]}f", row[2]) for row in emb_rows}
+    # dim may be stored REAL (legacy/imported rows) -> int() before struct unpack
+    vec_by_id = {row[0]: struct.unpack(f"<{int(row[1])}f", row[2]) for row in emb_rows}
     qvec = embed_texts([question], api_key)[0]
 
     dense_rank = sorted(by_id.keys(), key=lambda cid: -_cosine(qvec, vec_by_id.get(cid, (0.0,))))
@@ -218,6 +219,58 @@ def retrieve(conn: sqlite3.Connection, doc_id: str, question: str, api_key: str,
         item["score"] = round(score, 5)
         results.append(item)
     return results
+
+
+def retrieve_multi(
+    conn: sqlite3.Connection,
+    doc_ids: list,
+    question: str,
+    api_key: str,
+    per_path_k: int = 10,
+    topk: int = 3,
+) -> list:
+    """Cross-book retrieval with dual-path consensus.
+
+    A chunk counts as a hit ONLY if it ranks in the top-per_path_k of BOTH the
+    dense (cosine) and sparse (FTS/BM25) paths within its own book — a weak
+    single-path match never surfaces. Consensus chunks are RRF-fused across all
+    books and the global top-k is returned. The question is embedded exactly
+    once regardless of how many books are searched.
+    Returns [{id, doc_id, page, text, score}].
+    """
+    qvec = None
+    results = []
+    for doc_id in doc_ids:
+        rows = conn.execute(
+            "SELECT id, page, text FROM doc_chunks WHERE doc_id=? ORDER BY id", (doc_id,)
+        ).fetchall()
+        if not rows:
+            continue
+        emb_rows = conn.execute(
+            "SELECT chunk_id, dim, vec FROM doc_embeddings WHERE doc_id=?", (doc_id,)
+        ).fetchall()
+        if not emb_rows:
+            continue
+        if qvec is None:
+            qvec = embed_texts([question], api_key)[0]
+        by_id = {r[0]: {"id": r[0], "page": r[1], "text": r[2]} for r in rows}
+        # dim may be stored REAL (legacy/imported rows) -> int() before struct unpack
+        vec_by_id = {r[0]: struct.unpack(f"<{int(r[1])}f", r[2]) for r in emb_rows}
+        dense = sorted(vec_by_id, key=lambda cid: -_cosine(qvec, vec_by_id[cid]))[:per_path_k]
+        sparse = _fts_candidates(conn, doc_id, question)[:per_path_k]
+        if not dense or not sparse:
+            continue
+        sparse_rank = {cid: i for i, cid in enumerate(sparse)}
+        for rank_d, cid in enumerate(dense):
+            if cid not in sparse_rank:
+                continue  # no dual-path consensus -> not a hit
+            score = 1.0 / (RRF_K + rank_d + 1) + 1.0 / (RRF_K + sparse_rank[cid] + 1)
+            item = by_id[cid].copy()
+            item["score"] = round(score, 5)
+            item["doc_id"] = doc_id
+            results.append(item)
+    results.sort(key=lambda kv: -kv["score"])
+    return results[:topk]
 
 
 SYSTEM_PROMPT_EN = (

@@ -254,6 +254,14 @@ def init_db():
         detail_json TEXT DEFAULT '{}',
         created_at TEXT DEFAULT (datetime('now'))
     );
+
+    -- MinerU daily page quota ledger (BYOT: per-user, resets each day)
+    CREATE TABLE IF NOT EXISTS mineru_usage (
+        user_id TEXT NOT NULL,
+        day TEXT NOT NULL,
+        pages INTEGER DEFAULT 0,
+        PRIMARY KEY (user_id, day)
+    );
     """)
 
     # === Migration: add user_id to legacy tables (notes/documents) ===
@@ -266,6 +274,20 @@ def init_db():
     _ensure_column("documents", "user_id", "TEXT REFERENCES users(id)")
     _ensure_column("assessments", "result_json", "TEXT DEFAULT '{}'")   # full pretestResult snapshot
     _ensure_column("study_plans", "state_json", "TEXT DEFAULT '{}'")    # full plan state snapshot
+
+    # One-time repair: imported/legacy embeddings may store dim as REAL
+    # (e.g. 1024.0), which breaks struct.unpack -> cast back to INTEGER.
+    try:
+        bad = conn.execute(
+            "SELECT COUNT(*) FROM doc_embeddings WHERE typeof(dim)<>'integer'"
+        ).fetchone()[0]
+        if bad:
+            conn.execute(
+                "UPDATE doc_embeddings SET dim=CAST(dim AS INTEGER) WHERE typeof(dim)<>'integer'"
+            )
+            print(f"[migration] doc_embeddings: cast {bad} REAL dims to INTEGER")
+    except sqlite3.OperationalError:
+        pass   # table not created yet on first run
     # --- MinerU integration columns ---
     _ensure_column("documents", "needs_ocr", "INTEGER DEFAULT 0")  # legacy rows: assume native (no gate)
     _ensure_column("documents", "ai_declined", "INTEGER DEFAULT 0")
@@ -329,6 +351,53 @@ def set_parse_status(doc_id: str, status: str, error: str = "", error_type: str 
     conn.commit(); conn.close()
 
 
+MINERU_DAILY_LIMIT = 2000   # free tier, per user key, resets daily
+
+
+def _mineru_today() -> str:
+    return time.strftime("%Y-%m-%d")
+
+
+def mineru_usage_today(user_id: str) -> int:
+    conn = get_db()
+    row = conn.execute(
+        "SELECT pages FROM mineru_usage WHERE user_id=? AND day=?", (user_id, _mineru_today())
+    ).fetchone()
+    conn.close()
+    return row["pages"] if row else 0
+
+
+def record_mineru_usage(user_id: str, pages: int) -> None:
+    """Count pages actually submitted to the MinerU cloud (cached parts cost 0)."""
+    conn = get_db()
+    conn.execute(
+        "INSERT INTO mineru_usage(user_id,day,pages) VALUES (?,?,?) "
+        "ON CONFLICT(user_id,day) DO UPDATE SET pages=pages+?",
+        (user_id, _mineru_today(), pages, pages),
+    )
+    conn.commit(); conn.close()
+
+
+def mineru_pages_needed(book_dir, total_pages: int) -> int:
+    """Pages this parse would actually submit = non-cached parts only
+    (mirrors split_pdf boundaries of <=190 pages and the part cache naming)."""
+    from pathlib import Path
+    book_dir = Path(book_dir)
+    if (book_dir / "content_list.json").exists() and (book_dir / "pages.json").exists():
+        return 0   # short-circuit rebuild — zero cloud spend
+    needed = 0
+    start = 0
+    idx = 0
+    while start < total_pages:
+        end = min(start + 190, total_pages)
+        cache = book_dir / f"part{idx:02d}_p{start + 1}-{end}.content_list.json"
+        if not cache.exists():
+            needed += end - start
+        start = end
+        idx += 1
+    return needed
+
+
 def run_parse(doc_id: str) -> None:
     from pathlib import Path
 
@@ -356,13 +425,17 @@ def run_parse(doc_id: str) -> None:
             pages = json.loads(done_pages.read_text(encoding="utf-8"))
             total_pages = count_pages(pdf_path)
             set_parse_status(doc_id, "indexing", pages_done=total_pages, total_pages=total_pages)
-            chunks = rag.make_chunks(pages, 600)
-            conn = get_db()
-            chunk_ids = rag.rebuild_doc(conn, doc_id, chunks)
-            vectors = rag.embed_texts([text for _, text in chunks], DASHSCOPE_API_KEY)
-            rag.store_embeddings(conn, doc_id, chunk_ids, vectors)
-            conn.close()
-            set_parse_status(doc_id, "done", pages_done=total_pages, total_pages=total_pages, chunks=len(chunks))
+            # RAG index: textbooks only — other categories parse for reading but never index
+            if row["category"] == "textbooks":
+                chunks = rag.make_chunks(pages, 600)
+                conn = get_db()
+                chunk_ids = rag.rebuild_doc(conn, doc_id, chunks)
+                vectors = rag.embed_texts([text for _, text in chunks], DASHSCOPE_API_KEY)
+                rag.store_embeddings(conn, doc_id, chunk_ids, vectors)
+                conn.close()
+                set_parse_status(doc_id, "done", pages_done=total_pages, total_pages=total_pages, chunks=len(chunks))
+            else:
+                set_parse_status(doc_id, "done", pages_done=total_pages, total_pages=total_pages, chunks=0)
             return
         except BaseException as exc:  # noqa: BLE001
             set_parse_status(doc_id, "failed", f"index rebuild failed: {exc}"[:300])
@@ -380,9 +453,17 @@ def run_parse(doc_id: str) -> None:
             # part already parsed in a previous run (retry/restart) — don't burn quota again
             blocks = json.loads(part_cache.read_text(encoding="utf-8"))
         else:
+            part_pages = int(part_path.stem.split("-")[-1]) - start_page0
+            # Mid-job quota guard: never push the user past the daily free limit
+            if mineru_usage_today(row["user_id"]) + part_pages > MINERU_DAILY_LIMIT:
+                raise RuntimeError(
+                    "QUOTA_EXCEEDED: today's free MinerU limit (2,000 pages) would be passed. "
+                    "Finished parts are kept — continue tomorrow at no extra cost."
+                )
             for attempt in range(3):
                 try:
                     blocks = submit_part(part_path, start_page0, token, "ch", MINERU_PART_TIMEOUT)
+                    record_mineru_usage(row["user_id"], part_pages)   # count real submissions only
                     break
                 except RuntimeError as exc:
                     set_parse_status(doc_id, "parsing", phase=f"retry {attempt + 1}/3",
@@ -405,13 +486,17 @@ def run_parse(doc_id: str) -> None:
         json.dump(pages, f, ensure_ascii=False, indent=1)
 
     set_parse_status(doc_id, "indexing", pages_done=total_pages, total_pages=total_pages)
-    chunks = rag.make_chunks(pages, 600)
-    conn = get_db()
-    chunk_ids = rag.rebuild_doc(conn, doc_id, chunks)
-    vectors = rag.embed_texts([text for _, text in chunks], DASHSCOPE_API_KEY)
-    rag.store_embeddings(conn, doc_id, chunk_ids, vectors)
-    conn.close()
-    set_parse_status(doc_id, "done", pages_done=total_pages, total_pages=total_pages, chunks=len(chunks))
+    # RAG index: textbooks only — other categories parse for reading but never index
+    if row["category"] == "textbooks":
+        chunks = rag.make_chunks(pages, 600)
+        conn = get_db()
+        chunk_ids = rag.rebuild_doc(conn, doc_id, chunks)
+        vectors = rag.embed_texts([text for _, text in chunks], DASHSCOPE_API_KEY)
+        rag.store_embeddings(conn, doc_id, chunk_ids, vectors)
+        conn.close()
+        set_parse_status(doc_id, "done", pages_done=total_pages, total_pages=total_pages, chunks=len(chunks))
+    else:
+        set_parse_status(doc_id, "done", pages_done=total_pages, total_pages=total_pages, chunks=0)
 
 
 def parse_worker() -> None:
@@ -1266,6 +1351,16 @@ async def get_mineru_token_status(current_user: dict = Depends(get_current_user)
     return {"configured": bool(get_user_mineru_token(current_user["id"]))}
 
 
+@app.get("/api/user/mineru-usage")
+async def get_mineru_usage(current_user: dict = Depends(get_current_user)):
+    """Today's MinerU page usage for this user (local ledger, resets daily)."""
+    if not current_user:
+        raise HTTPException(401, "Please log in")
+    used = mineru_usage_today(current_user["id"])
+    return {"day": _mineru_today(), "used": used,
+            "limit": MINERU_DAILY_LIMIT, "remaining": max(0, MINERU_DAILY_LIMIT - used)}
+
+
 @app.get("/api/documents/parsing")
 async def list_parsing_documents(current_user: dict = Depends(get_current_user)):
     """Pending-parse list with live progress (DB-driven; powers the global tracker)."""
@@ -1315,12 +1410,27 @@ async def trigger_parse(doc_id: str, current_user: dict = Depends(get_current_us
         PARSE_STATUS[doc_id] = {"status": "queued", "error": ""}
         PARSE_QUEUE.put(doc_id)
         return {"status": "queued", "recovered": True}
-    if not row["needs_ocr"]:
+    if not row["needs_ocr"] and row["category"] != "textbooks":
         conn.close()
         raise HTTPException(400, "This PDF already has selectable text — MinerU is not needed")
     if not get_user_mineru_token(current_user["id"]):
         conn.close()
         raise HTTPException(400, "MinerU API key not configured")
+    # Quota pre-flight: refuse upfront rather than run out mid-book
+    # (cached parts make a tomorrow-continue cost 0 extra pages)
+    from pathlib import Path
+    book_dir = Path(os.path.join(MINERU_DATA_DIR, doc_id))
+    total_pages = count_pages(Path(os.path.join(UPLOAD_DIR, row["file_path"])))
+    needed = mineru_pages_needed(book_dir, total_pages)
+    remaining = MINERU_DAILY_LIMIT - mineru_usage_today(current_user["id"])
+    if needed > remaining:
+        conn.close()
+        raise HTTPException(429, {
+            "reason": "quota",
+            "needed": needed,
+            "remaining": max(0, remaining),
+            "limit": MINERU_DAILY_LIMIT,
+        })
     conn.execute("UPDATE documents SET parse_status='queued', parse_error='', ai_declined=0 WHERE id=?", (doc_id,))
     conn.commit(); conn.close()
     PARSE_STATUS[doc_id] = {"status": "queued", "error": ""}
@@ -1342,13 +1452,18 @@ async def parse_status(doc_id: str, current_user: dict = Depends(get_current_use
     if row["user_id"] != current_user["id"]:
         raise HTTPException(403, "Access denied")
     info = PARSE_STATUS.get(doc_id)
+    quota = {"mineru_used": mineru_usage_today(row["user_id"]), "mineru_limit": MINERU_DAILY_LIMIT}
     if info:
-        return info
+        out = dict(info); out.update(quota)
+        return out
     err = row["parse_error"] or ""
+    err_l = err.lower()
+    error_type = "auth" if "rejected" in err_l else ("quota" if "quota" in err_l else "")
     return {
         "status": row["parse_status"],
         "error": err,
-        "error_type": "auth" if "rejected" in err.lower() else "",
+        "error_type": error_type,
+        **quota,
     }
 
 
@@ -1380,7 +1495,7 @@ def doc_search(doc_id: str, req: DocSearchRequest, current_user: dict = Depends(
         raise HTTPException(400, "Empty query")
     conn = get_db()
     row = conn.execute(
-        "SELECT parse_status,user_id FROM documents WHERE id=?", (doc_id,)
+        "SELECT parse_status,user_id,category FROM documents WHERE id=?", (doc_id,)
     ).fetchone()
     if not row:
         conn.close()
@@ -1388,6 +1503,9 @@ def doc_search(doc_id: str, req: DocSearchRequest, current_user: dict = Depends(
     if row["user_id"] != current_user["id"]:
         conn.close()
         raise HTTPException(403, "Access denied")
+    if row["category"] != "textbooks":
+        conn.close()
+        return {"chunks": [], "reason": "not_textbook"}
     if row["parse_status"] != "done":
         conn.close()
         return {"chunks": [], "reason": "not_parsed"}
@@ -1415,6 +1533,44 @@ def doc_search(doc_id: str, req: DocSearchRequest, current_user: dict = Depends(
         if len(picked) >= 3:
             break
     return {"chunks": picked, "reason": "ok"}
+
+
+class TextbookSearchRequest(BaseModel):
+    query: str = ""
+    topk: int = 3
+
+
+# Automatic textbook anchoring: search across ALL of the user's indexed
+# textbooks (dual-path consensus). Sync endpoint — embeds the query once.
+@app.post("/api/textbooks/search")
+def textbooks_search(req: TextbookSearchRequest, current_user: dict = Depends(get_current_user)):
+    """Cross-book RAG for the auto-anchor pipeline (cite [Book · Page N] or stay silent)."""
+    if not current_user:
+        raise HTTPException(401, "Please log in")
+    query = (req.query or "").strip()[:200]
+    if not query:
+        raise HTTPException(400, "Empty query")
+    conn = get_db()
+    books = conn.execute(
+        "SELECT id, title FROM documents WHERE user_id=? AND category='textbooks' AND parse_status='done'",
+        (current_user["id"],),
+    ).fetchall()
+    if not books:
+        conn.close()
+        return {"chunks": [], "reason": "no_textbooks"}
+    try:
+        hits = rag.retrieve_multi(conn, [b["id"] for b in books], query,
+                                  DASHSCOPE_API_KEY, topk=max(1, min(5, req.topk)))
+    except Exception as e:  # noqa: BLE001
+        conn.close()
+        return {"chunks": [], "reason": f"retrieve_failed: {e}"}
+    conn.close()
+    titles = {b["id"]: b["title"] for b in books}
+    return {
+        "chunks": [{"book": titles.get(h["doc_id"], h["doc_id"]), "page": h["page"],
+                    "text": h["text"][:600], "score": h["score"]} for h in hits],
+        "reason": "ok",
+    }
 
 
 @app.get("/api/documents/{doc_id}/pages/{page_num}")
