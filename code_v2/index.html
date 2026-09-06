@@ -725,6 +725,12 @@
     <div id="ai-chat-quote" style="display:none;padding:8px 16px;font-size:12px;color:var(--text-secondary);font-style:italic;background:rgba(114,46,209,.04);border-bottom:1px solid var(--border);border-left:3px solid #722ed1;"></div>
     <!-- Messages area -->
     <div id="ai-chat-messages" style="flex:1;overflow-y:auto;padding:16px;" class="scrollbar"></div>
+    <!-- Whole-book mode toggle (only rendered when the open doc is MinerU-parsed) -->
+    <div id="ai-chat-mode-row" style="display:none;align-items:center;gap:6px;padding:8px 16px 0;border-top:1px solid var(--border);background:var(--bg-sidebar);">
+        <span style="font-size:10px;color:var(--text-muted);">Source</span>
+        <button id="ai-mode-page" onclick="aiChatSetMode('page')" style="font-size:11px;padding:4px 12px;border-radius:999px;border:1px solid var(--border);background:var(--bg-input);color:var(--text-secondary);cursor:pointer;">📄 Page</button>
+        <button id="ai-mode-book" onclick="aiChatSetMode('book')" style="font-size:11px;padding:4px 12px;border-radius:999px;border:1px solid var(--border);background:var(--bg-input);color:var(--text-secondary);cursor:pointer;">📚 Whole book</button>
+    </div>
     <!-- Quick buttons -->
     <div style="display:flex;gap:6px;padding:8px 16px;border-top:1px solid var(--border);background:var(--bg-sidebar);">
         <button onclick="aiChatQuick(this)" data-q="Explain this in simple terms for a first-year student" style="font-size:11px;padding:5px 10px;border-radius:999px;background:var(--bg-input);color:var(--text-secondary);border:1px solid var(--border);cursor:pointer;white-space:nowrap;">Explain</button>
@@ -1009,6 +1015,14 @@ function showPage(id){
     }
     if(id==='quiz'){
         quizPageInit();
+    }
+    if(id==='reader'&&!readerCurrentDocId&&!window.__guideShown){
+        // First visit to Reader this session: open the built-in guide
+        window.__guideShown=true;
+        setTimeout(()=>{
+            const i=(bsData.textbooks||[]).findIndex(d=>d.isGuide);
+            if(i!==-1)readerOpenDoc('textbooks',i);
+        },60);
     }
 }
 function toggleSidebar(){
@@ -2274,6 +2288,7 @@ async function loadDocumentsFromBackend(){
         console.error('Failed to load documents:',e);
         showNotification('⚠️ Could not load bookshelf from server');
     }
+    ensureGuideInShelf();   // built-in guide always pinned (guests included)
 }
 // Dashboard bookshelf rendering
 function bsRenderDashboard(cat){
@@ -2451,6 +2466,8 @@ let readerCurrentDocId=null;
 function readerOpenDoc(cat,idx){
     const doc=bsData[cat][idx];if(!doc)return;
     if(doc.isDeleted){showNotification('⚠️ Restore this document first to open it');return;}
+    // ===== Built-in guide (virtual doc, no network) =====
+    if(doc.isGuide){readerOpenGuide(doc);return;}
     readerCloseBookshelf();
     readerCurrentDocId=doc.id;
     readerCurrentDocRef={cat,idx};
@@ -2812,9 +2829,64 @@ function readerAction(action){const menu=document.getElementById('reader-float-m
 let aiChatMessages=[];
 
 // ===== AI Chat (Free mode): chat about the current page without selecting text =====
+// ===== Whole-book RAG mode (MinerU-parsed docs only) =====
+window.aiChatBookMode=false;
+window.aiChatBookDocId=null;
+window.aiChatBookCtx=null;       // per-message retrieved excerpts
+window.aiChatPageLabel='';       // remember page-mode strip label
+
+function aiChatSetMode(m){
+    window.aiChatBookMode=(m==='book');
+    window.aiChatBookCtx=null;
+    const bp=document.getElementById('ai-mode-page'),bb=document.getElementById('ai-mode-book');
+    const on='border:1px solid var(--accent);background:var(--accent);color:#fff;cursor:pointer;';
+    const off='border:1px solid var(--border);background:var(--bg-input);color:var(--text-secondary);cursor:pointer;';
+    if(bp)bp.style.cssText='font-size:11px;padding:4px 12px;border-radius:999px;'+(m==='page'?on:off);
+    if(bb)bb.style.cssText='font-size:11px;padding:4px 12px;border-radius:999px;'+(m==='book'?on:off);
+    // Update the context strip for the chosen mode
+    const quoteEl=document.getElementById('ai-chat-quote');
+    if(quoteEl){
+        if(m==='book'){
+            quoteEl.style.display='block';
+            quoteEl.textContent='📚 Whole book — ask anything about this book';
+            quoteEl.style.background='rgba(114,46,209,.06)';
+            quoteEl.style.borderLeft='3px solid #722ed1';
+        }else if(window.aiChatPageLabel){
+            quoteEl.style.display='block';
+            quoteEl.textContent=window.aiChatPageLabel;
+            quoteEl.style.background='rgba(35,131,226,.06)';
+            quoteEl.style.borderLeft='3px solid #2383e2';
+        }
+    }
+}
+
+async function aiChatMaybeRetrieveBookCtx(question){
+    window.aiChatBookCtx=null;
+    if(!window.aiChatBookMode||!window.aiChatBookDocId)return;
+    try{
+        const res=await apiFetch('/api/documents/'+window.aiChatBookDocId+'/search',
+            {method:'POST',body:JSON.stringify({query:question})});
+        if(!res.ok)return;
+        const d=await res.json();
+        if(d.reason==='ok'&&d.chunks&&d.chunks.length){
+            window.aiChatBookCtx=d.chunks.map(c=>'[Page '+c.page+'] '+c.text).join('\n\n');
+            const quoteEl=document.getElementById('ai-chat-quote');
+            if(quoteEl){
+                quoteEl.textContent='📚 Whole book · '+d.chunks.length+' passages · p.'
+                    +d.chunks.map(c=>c.page).join(', p.');
+            }
+        }else if(d.reason==='not_parsed'||d.reason==='no_index'||d.reason&&d.reason.startsWith('retrieve_failed')){
+            // Degrade gracefully: back to page mode for this message
+            showNotification('⚠️ Whole-book search unavailable — using page context');
+            aiChatSetMode('page');
+        }
+    }catch(e){/* network hiccup: fall back silently */}
+}
+
 function openAIChatFree(){
     aiChatMessages=[];
     window.aiChatPageContext=null;   // reset before capturing
+    window.aiChatBookMode=false;window.aiChatBookCtx=null;window.aiChatBookDocId=null;
     const modal=document.getElementById('ai-chat-modal');
     const quoteEl=document.getElementById('ai-chat-quote');
     const msgArea=document.getElementById('ai-chat-messages');
@@ -2835,6 +2907,7 @@ function openAIChatFree(){
             }
         }
     }catch(e){}
+    window.aiChatPageLabel=ctxLabel;   // for mode switching later
 
     // Show context strip (blue) or nothing in plain chat mode
     if(ctxLabel){
@@ -2855,6 +2928,21 @@ function openAIChatFree(){
     modal.style.left='auto';modal.style.top='auto';modal.style.right='24px';modal.style.bottom='0px';
     modal.style.display='flex';
 
+    // [Whole-book] show the mode toggle only if the open doc is MinerU-parsed
+    const modeRow=document.getElementById('ai-chat-mode-row');
+    if(modeRow)modeRow.style.display='none';
+    const _token=localStorage.getItem('cb_token');
+    if(_token&&readerCurrentDocId){
+        apiFetch('/api/documents/'+readerCurrentDocId+'/parse')
+            .then(r=>r.ok?r.json():{}).then(s=>{
+                if(s&&s.status==='done'&&modeRow&&document.getElementById('ai-chat-modal').style.display==='flex'){
+                    window.aiChatBookDocId=readerCurrentDocId;
+                    modeRow.style.display='flex';
+                    aiChatSetMode('page');   // page stays the default
+                }
+            }).catch(()=>{});
+    }
+
     // Focus input — no auto-send, let the student ask freely
     setTimeout(()=>{const inp=document.getElementById('ai-chat-input');if(inp)inp.focus();},150);
 }
@@ -2862,6 +2950,9 @@ function openAIChatFree(){
 function openAIChat(quotedText){
     aiChatMessages=[];
     window.aiChatPageContext=null;   // quote mode takes priority over page context
+    window.aiChatBookMode=false;window.aiChatBookCtx=null;window.aiChatBookDocId=null;
+    const modeRow0=document.getElementById('ai-chat-mode-row');
+    if(modeRow0)modeRow0.style.display='none';
     const modal=document.getElementById('ai-chat-modal');
     const quoteEl=document.getElementById('ai-chat-quote');
     const msgArea=document.getElementById('ai-chat-messages');
@@ -2904,6 +2995,9 @@ function openAIChat(quotedText){
 
 function closeAIChat(){
     window.aiChatPageContext=null;
+    window.aiChatBookMode=false;window.aiChatBookCtx=null;window.aiChatBookDocId=null;
+    const modeRow=document.getElementById('ai-chat-mode-row');
+    if(modeRow)modeRow.style.display='none';
     document.getElementById('ai-chat-modal').style.display='none';
 }
 
@@ -2952,7 +3046,7 @@ function closeAIChat(){
     });
 })();
 
-function aiChatSend(text){
+async function aiChatSend(text){
     text=text||document.getElementById('ai-chat-input').value.trim();
     if(!text)return;
     document.getElementById('ai-chat-input').value='';
@@ -2981,22 +3075,40 @@ function aiChatSend(text){
     const streamId=aiDiv.querySelector('div:last-child').id;
     msgArea.scrollTop=msgArea.scrollHeight;
 
+    // Whole-book mode: retrieve fresh excerpts for THIS question (per-message RAG)
+    await aiChatMaybeRetrieveBookCtx(text);
+
     // Build system context with quoted text
     const quoteEl=document.getElementById('ai-chat-quote');
     const quote=quoteEl.style.display!=='none'?quoteEl.textContent:'';
 
     const sysContent='You are CogniBridge, an AI maths tutor for university students. Be clear, concise and helpful. Use markdown formatting (bold, lists). If asked in Chinese, reply in Chinese. If English, reply in English.'+(quote?'\n\nThe student selected this text from their document:\n'+quote:'');
 
-    const apiMessages=[{role:'system',content:sysContent},...(
-        // Inject page context into the FIRST user message only (backend filters
-        // system messages, so context must travel inside a user message)
-        window.aiChatPageContext?aiChatMessages.map((m,i)=>{
-            const firstUser=i===aiChatMessages.findIndex(x=>x.role==='user');
+    // Context injection (backend filters system messages, so context rides in user
+    // messages): book excerpts → LAST user message; page context → FIRST user message
+    let bodyMsgs=aiChatMessages;
+    if(window.aiChatBookCtx){
+        const lastIdx=bodyMsgs.map(m=>m.role).lastIndexOf('user');
+        if(lastIdx!==-1){
+            bodyMsgs=bodyMsgs.map((m,i)=>i===lastIdx
+                ?{...m,content:m.content+'\n\n[Textbook excerpts retrieved for your question — answer from them and cite pages as [Page N]]\n'+window.aiChatBookCtx}
+                :m);
+        }
+        bodyMsgs=bodyMsgs.map((m,i)=>{
+            const firstUser=i===bodyMsgs.findIndex(x=>x.role==='user');
+            return (firstUser&&m.role==='user'&&window.aiChatPageContext)
+                ?{...m,content:m.content+'\n\n[Context: the page the student is currently reading]\n'+window.aiChatPageContext}
+                :m;
+        });
+    }else if(window.aiChatPageContext){
+        bodyMsgs=bodyMsgs.map((m,i)=>{
+            const firstUser=i===bodyMsgs.findIndex(x=>x.role==='user');
             return (firstUser&&m.role==='user')
                 ?{...m,content:m.content+'\n\n[Context: the page the student is currently reading]\n'+window.aiChatPageContext}
                 :m;
-        }):aiChatMessages
-    )];
+        });
+    }
+    const apiMessages=[{role:'system',content:sysContent},...bodyMsgs];
 
     // Call Kimi
     kimiCall(apiMessages,
@@ -3522,6 +3634,7 @@ document.addEventListener('DOMContentLoaded',async()=>{
         await notesInit();
     }else{
         // Guest mode: don't load from backend
+        ensureGuideInShelf();
         bsPageRenderTabs();
         bsPageRenderGrid('slides');
         notesRender();
@@ -4066,6 +4179,179 @@ async function readerRenderDocViewPage(pageNum){
     }catch(e){
         pageDiv.innerHTML='<div style="padding:30px;text-align:center;color:#ff6b6b;font-size:13px;">Failed to load page '+pageNum+': '+escapeHtml(e.message)+'</div>';
     }
+}
+
+// ===== Built-in bilingual user guide (virtual doc, zero backend) =====
+// Block types: h (lvl), p (EN main + CN muted sub-line), table, ui (CSS mock), img (future screenshots)
+const GUIDE_PAGES=[
+{blocks:[
+  {t:'h',lvl:1,en:'Welcome to CogniBridge',cn:'欢迎使用智学桥'},
+  {t:'p',en:'CogniBridge is your bridge between school maths and university maths. It finds your knowledge gaps, builds a personal study plan that follows your real lectures, and lets you practise with AI that is checked for correctness.',cn:'智学桥连接中学数学与大学数学：定位知识断层、生成跟随真实课表的个人计划、提供经过校验的 AI 练习。'},
+  {t:'ui',kind:'sidebar'},
+  {t:'p',en:'This guide lives permanently in your bookshelf (Textbooks). Open it any time you need a reminder.',cn:'本指南永久保存在书架（Textbooks 分类）中，随时可回来查阅。'}
+]},
+{blocks:[
+  {t:'h',lvl:1,en:'Start Here — Pre-Assessment & Your Plan',cn:'从这里开始 — 前测与个人计划'},
+  {t:'p',en:'Take the 3-minute Pre-Assessment: rate your school topics, check the new university ones, and answer 10 quick questions. You will get a personal profile: what you know, what is weak, what is completely new.',cn:'完成 3 分钟前测：为中学知识点自评、标记大学新内容、回答 10 道快问快答，即可获得个人画像。'},
+  {t:'ui',kind:'flow',items:['Diagnose 诊断','Plan 计划','Practise 练习','Evidence 证据']},
+  {t:'p',en:'Your study plan follows the real teaching schedule — Mathematical Analysis and Higher Algebra, week by week. Set your current teaching week (in the Pre-Assessment or your Profile) so tasks land before the lectures that need them.',cn:'学习计划按真实教学周排列（数学分析 + 高等代数双轨）。在前测或 Profile 中设置当前教学周，补漏任务会排在开课之前。'}
+]},
+{blocks:[
+  {t:'h',lvl:1,en:'Learn — Math Tutor & AI Quiz',cn:'学习 — AI 辅导与智能出题'},
+  {t:'ui',kind:'modes'},
+  {t:'p',en:'General mode gives clear, step-by-step solutions. Deep mode asks Socratic questions and guides you to find the answer yourself.',cn:'General 模式给出分步解答；Deep 模式以苏格拉底式提问引导你自主发现答案。'},
+  {t:'p',en:'AI Quiz writes practice questions for any topic — and every question is solved again by our own engine. If the two answers disagree, the question is thrown away. Low quiz scores push a topic back into your plan automatically.',cn:'AI Quiz 为任意知识点出题，且每道题都由解题引擎二次验证，答案不一致即弃用；低分知识点会自动回到你的学习计划中。'}
+]},
+{blocks:[
+  {t:'h',lvl:1,en:'Read — Reader & AI Chat',cn:'阅读 — 文档阅读与 AI 问答'},
+  {t:'ui',kind:'floatmenu'},
+  {t:'p',en:'Upload PDF/PPTX files to your bookshelf, then select any text to Translate, Highlight, take a Note, or Ask AI.',cn:'上传 PDF/PPTX 到书架后，选中任意文字即可翻译、高亮、记笔记或问 AI。'},
+  {t:'p',en:'Scanned textbooks work too: they are re-typeset automatically. In Chat AI, switch between 📄 Page (ask about the page you are reading) and 📚 Whole book (search the entire textbook — answers cite pages like [Page 45]).',cn:'扫描版教材同样可用（自动重排版）。Chat AI 可切换 📄 当前页 与 📚 整本书 两种问答模式，整书模式的回答会标注页码。'}
+]},
+{blocks:[
+  {t:'h',lvl:1,en:'Organise — Bookshelf, Notes & Sync',cn:'整理 — 书架、笔记与云同步'},
+  {t:'p',en:'The bookshelf has six categories (Slides, Textbooks, Exercises, Exam Papers, Research Papers, Notes). Highlights and notes made while reading sync straight to the Notes page; PDFs uploaded under "Notes" appear there too.',cn:'书架含六个分类；阅读时的高亮与笔记自动同步到 Notes 页，上传到 Notes 分类的 PDF 也会显示在那里。'},
+  {t:'table',head:['What you keep','Where it lives'],rows:[
+    ['Documents, notes, highlights','Bookshelf · Reader 书架与阅读器'],
+    ['Pre-assessment & study plan','Dashboard 仪表板'],
+    ['Quiz history & problem count','Dashboard 仪表板'],
+    ['Your account','Cloud — sign in on any device 云端，任意设备登录即同步']]},
+  {t:'p',en:'Everything above is saved to your account. Log in on any device and it all comes back.',cn:'以上内容全部保存在你的账号中，换设备登录即可恢复。'}
+]},
+{blocks:[
+  {t:'h',lvl:1,en:'Quick Tips',cn:'快速技巧'},
+  {t:'table',head:['Want to…','Go to'],rows:[
+    ['Know my weak points 了解薄弱点','Pre-Assessment → report 前测报告'],
+    ['Get lecture-aligned tasks 课表对齐任务','Dashboard → Study Plan 学习计划'],
+    ['Practise a topic 练习某知识点','AI Quiz (weak topics pre-suggested 弱点已预选)'],
+    ['Read a textbook 读教材','Bookshelf → open → chat with it 书架打开即可问答'],
+    ['See my progress 看进度','Dashboard stat cards 仪表板统计卡']]},
+  {t:'p',en:'University maths is a bridge, not a wall — and you just crossed the first step by reading this. Good luck!',cn:'大学数学是一座桥，而不是一堵墙——读完本页，你已迈出第一步。祝学习顺利！'},
+  {t:'eq',en:'e^{i\\pi}+1=0',cn:''}
+]}];
+const GUIDE_DOC={id:'__guide__',icon:'📘',title:'How to Use CogniBridge · 使用指南',
+  desc:'Built-in bilingual guide',category:'textbooks',source:'builtin',fileType:'guide',
+  parseStatus:'',needsOcr:false,aiDeclined:false,isGuide:true,isDeleted:false,deletedAt:null};
+
+function ensureGuideInShelf(){
+    const arr=bsData.textbooks||(bsData.textbooks=[]);
+    if(!arr.some(d=>d.isGuide))arr.unshift(GUIDE_DOC);
+}
+
+function renderGuideBlock(b,pageDiv,texts){
+    const cnSub=(cn)=>{
+        if(!cn)return;
+        const d=document.createElement('div');
+        d.style.cssText='font-size:12px;color:var(--text-muted);margin:-2px 0 8px;line-height:1.6;';
+        d.textContent=cn;pageDiv.appendChild(d);
+    };
+    if(b.t==='h'){
+        const h=document.createElement('h'+Math.max(2,Math.min(b.lvl||1,3)+1));
+        h.style.cssText='margin:18px 0 6px;font-weight:700;';
+        h.textContent=b.en;pageDiv.appendChild(h);cnSub(b.cn);texts.push(b.en,b.cn||'');
+    }else if(b.t==='p'){
+        const p=document.createElement('p');
+        p.style.cssText='margin:8px 0;line-height:1.85;font-size:15px;color:var(--text-primary);';
+        p.textContent=b.en;pageDiv.appendChild(p);cnSub(b.cn);texts.push(b.en,b.cn||'');
+    }else if(b.t==='eq'){
+        const eq=document.createElement('div');
+        eq.style.cssText='text-align:center;margin:14px 0;';
+        eq.textContent='$$'+b.en+'$$';pageDiv.appendChild(eq);texts.push(b.en);
+    }else if(b.t==='table'){
+        const wrap=document.createElement('div');wrap.style.cssText='overflow-x:auto;margin:10px 0;';
+        const tb=document.createElement('table');
+        tb.style.cssText='border-collapse:collapse;font-size:13px;width:100%;';
+        tb.innerHTML='<thead><tr>'+b.head.map(h=>'<th style="border:1px solid var(--border);padding:5px 10px;background:var(--bg-tag);text-align:left;">'+escapeHtml(h)+'</th>').join('')+'</tr></thead>'
+            +'<tbody>'+b.rows.map(r=>'<tr>'+r.map(c=>'<td style="border:1px solid var(--border);padding:5px 10px;">'+escapeHtml(c)+'</td>').join('')+'</tr>').join('')+'</tbody>';
+        wrap.appendChild(tb);pageDiv.appendChild(wrap);
+        texts.push(b.head.join(' '),b.rows.map(r=>r.join(' ')).join(' '));
+    }else if(b.t==='ui'){
+        pageDiv.appendChild(renderGuideUiMock(b.kind,b.items));texts.push('ui-guide');
+    }else if(b.t==='img'){
+        const im=document.createElement('img');
+        im.src=b.src;im.style.cssText='max-width:100%;border:1px solid var(--border);border-radius:8px;margin:10px 0;';
+        pageDiv.appendChild(im);
+        if(b.caption){const c=document.createElement('div');c.style.cssText='font-size:12px;color:var(--text-muted);text-align:center;';c.textContent=b.caption;pageDiv.appendChild(c);}
+        texts.push(b.caption||'image');
+    }
+}
+
+function renderGuideUiMock(kind,items){
+    const box=document.createElement('div');
+    box.style.cssText='border:1px dashed var(--border);border-radius:10px;padding:12px 14px;margin:12px 0;background:var(--bg-input);';
+    const chip=(txt,accent)=>'<span style="display:inline-block;padding:4px 12px;border-radius:999px;font-size:12px;border:1px solid '+(accent?'var(--accent)':'var(--border)')+';background:'+(accent?'rgba(35,131,226,.08)':'var(--bg-card)')+';color:'+(accent?'var(--accent)':'var(--text-secondary)')+';margin:2px 4px 2px 0;">'+escapeHtml(txt)+'</span>';
+    if(kind==='sidebar'){
+        const navs=[['📊','Dashboard 仪表盘'],['🧪','Pre-Assessment 前测'],['🧮','Math Tutor AI辅导'],['🎯','AI Quiz 智能出题'],['📉','Function Plotter 画板'],['📖','Reader 阅读','hot'],['📝','Notes 笔记','hot'],['📚','All Materials 书架']];
+        box.innerHTML='<div style="font-size:11px;color:var(--text-muted);margin-bottom:8px;">Sidebar 侧边栏导览</div>'
+            +navs.map(n=>'<div style="font-size:13px;padding:3px 8px;border-radius:6px;'+(n[2]?'background:rgba(35,131,226,.10);color:var(--accent);font-weight:600;':'color:var(--text-secondary);')+'">'+n[0]+' '+n[1]+(n[2]?' ◀ start here 从这开始':'')+'</div>').join('');
+    }else if(kind==='flow'){
+        box.innerHTML='<div style="font-size:11px;color:var(--text-muted);margin-bottom:8px;">How it works 工作流程</div>'
+            +items.map(i=>chip(i)).join('<span style="color:var(--text-muted);margin:0 4px;">→</span>');
+    }else if(kind==='modes'){
+        box.innerHTML='<div style="font-size:11px;color:var(--text-muted);margin-bottom:8px;">Math Tutor modes 辅导双模式</div>'
+            +chip('⚡ General · step-by-step 分步解答')+chip('🧠 Deep · Socratic 引导思考',true)
+            +'<div style="margin-top:8px;">'+chip('✅ Verified — every quiz question is double-checked 每道题双重验证')+'</div>';
+    }else if(kind==='floatmenu'){
+        box.innerHTML='<div style="font-size:11px;color:var(--text-muted);margin-bottom:8px;">Select text to see 选中文字即出现</div>'
+            +chip('🌐 Translate')+chip('🖍 Highlight')+chip('📝 Note')+chip('🤖 Ask AI',true);
+    }else{
+        box.textContent='';
+    }
+    return box;
+}
+
+function readerOpenGuide(doc){
+    readerCloseBookshelf();
+    readerCurrentDocId=doc.id;
+    readerCurrentDocRef={cat:'textbooks',idx:(bsData.textbooks||[]).findIndex(d=>d.isGuide)};
+    readerViewMode='doc';readerLastDocId=doc.id;
+    readerPdfDoc=null;readerPdfTotal=GUIDE_PAGES.length;readerDocType='docview';
+    document.getElementById('reader-doc-title').textContent=doc.title;
+    document.getElementById('reader-doc-meta').textContent=doc.desc;
+    document.getElementById('reader-toolbar').textContent=doc.title;
+    const toggleBtn=document.getElementById('reader-view-toggle');
+    if(toggleBtn)toggleBtn.style.display='none';
+    const aiBtn=document.getElementById('reader-enable-ai');
+    if(aiBtn)aiBtn.style.display='none';
+    readerNotes=[];readerHighlights=[];readerRenderNotes();readerRenderHighlights();
+    readerLoadHighlights(doc.id);
+    document.getElementById('reader-action-panel').style.display='none';
+    document.getElementById('reader-float-menu').style.display='none';
+    const area=document.getElementById('reader-content-area');
+    if(readerScrollObserver)readerScrollObserver.disconnect();
+    readerRenderedPages.clear();
+    area.style.cssText='flex:1;overflow-y:auto;padding:24px 8px;background:var(--bg-tag);';
+    area.innerHTML='';
+    const container=document.createElement('div');
+    container.id='pdf-pages-container';
+    container.style.cssText='max-width:860px;margin:0 auto;';
+    area.appendChild(container);
+    const total=GUIDE_PAGES.length;
+    GUIDE_PAGES.forEach((pg,i)=>{
+        const pageDiv=document.createElement('div');
+        pageDiv.id='pdf-page-'+(i+1);
+        pageDiv.dataset.pageNum=i+1;
+        pageDiv.style.cssText='margin:0 auto 18px;background:var(--bg-card);border:1px solid var(--border);border-radius:8px;padding:6px 34px 20px;min-height:200px;box-shadow:0 1px 4px rgba(0,0,0,.06);';
+        const divider=document.createElement('div');
+        divider.style.cssText='text-align:center;color:var(--text-muted);font-size:11px;letter-spacing:2px;padding:8px 0 14px;border-bottom:1px dashed var(--border);margin-bottom:14px;user-select:none;';
+        divider.textContent='— Page '+(i+1)+' —';
+        pageDiv.appendChild(divider);
+        const texts=[];
+        (pg.blocks||[]).forEach(b=>renderGuideBlock(b,pageDiv,texts));
+        pageDiv.dataset.text=texts.join(' ');
+        container.appendChild(pageDiv);
+        if(window.renderMathInElement)renderMathInElement(pageDiv,{delimiters:[{left:'$$',right:'$$',display:true},{left:'$',right:'$',display:false}],throwOnError:false,strict:false});
+    });
+    area.onscroll=()=>{
+        const pages=container.querySelectorAll('[data-page-num]');
+        for(let p of pages){
+            const rect=p.getBoundingClientRect();
+            if(rect.top>=0&&rect.top<area.clientHeight/2){
+                document.getElementById('reader-toolbar').textContent='Page '+p.dataset.pageNum+' of '+total+' · '+doc.title;
+                break;
+            }
+        }
+    };
 }
 
 // ===== [MinerU] bbox overlay injection (original-pages mode) =====

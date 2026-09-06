@@ -1363,6 +1363,60 @@ async def decline_ai(doc_id: str, current_user: dict = Depends(get_current_user)
     return {"ok": True}
 
 
+class DocSearchRequest(BaseModel):
+    query: str = ""
+    topk: int = 6
+
+
+# NOTE: sync endpoint — rag.retrieve makes a blocking DashScope embedding call,
+# so it must stay off the event loop (FastAPI runs sync endpoints in a threadpool).
+@app.post("/api/documents/{doc_id}/search")
+def doc_search(doc_id: str, req: DocSearchRequest, current_user: dict = Depends(get_current_user)):
+    """Whole-book RAG search: top chunks (FTS + embedding, RRF-fused) for a question."""
+    if not current_user:
+        raise HTTPException(401, "Please log in")
+    query = (req.query or "").strip()[:200]
+    if not query:
+        raise HTTPException(400, "Empty query")
+    conn = get_db()
+    row = conn.execute(
+        "SELECT parse_status,user_id FROM documents WHERE id=?", (doc_id,)
+    ).fetchone()
+    if not row:
+        conn.close()
+        raise HTTPException(404, "Unknown document")
+    if row["user_id"] != current_user["id"]:
+        conn.close()
+        raise HTTPException(403, "Access denied")
+    if row["parse_status"] != "done":
+        conn.close()
+        return {"chunks": [], "reason": "not_parsed"}
+    chunk_count = conn.execute(
+        "SELECT COUNT(*) FROM doc_chunks WHERE doc_id=?", (doc_id,)
+    ).fetchone()[0]
+    if not chunk_count:
+        conn.close()
+        return {"chunks": [], "reason": "no_index"}
+    try:
+        results = rag.retrieve(conn, doc_id, query, DASHSCOPE_API_KEY,
+                               topk=max(3, min(10, req.topk)))
+    except Exception as e:  # noqa: BLE001
+        conn.close()
+        return {"chunks": [], "reason": f"retrieve_failed: {e}"}
+    conn.close()
+    # De-dup: at most one chunk per page, keep the top 3 distinct pages
+    seen_pages = set()
+    picked = []
+    for c in results:
+        if c["page"] in seen_pages:
+            continue
+        seen_pages.add(c["page"])
+        picked.append({"page": c["page"], "text": c["text"][:600], "score": c.get("score", 0)})
+        if len(picked) >= 3:
+            break
+    return {"chunks": picked, "reason": "ok"}
+
+
 @app.get("/api/documents/{doc_id}/pages/{page_num}")
 async def get_page_blocks(doc_id: str, page_num: int, current_user: dict = Depends(get_current_user)):
     """Structured blocks for one page (powers the reformatted reader view)."""
