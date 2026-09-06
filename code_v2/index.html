@@ -744,6 +744,18 @@
     </div>
 </div>
 
+<!-- Textbook Peek floating window (side-by-side reading: exercises + AI + textbook) -->
+<div id="tb-peek-modal" style="display:none;position:fixed;z-index:110;top:64px;right:24px;width:420px;min-width:320px;min-height:240px;height:520px;max-width:calc(100vw - 48px);max-height:calc(100vh - 120px);flex-direction:column;border-radius:12px;box-shadow:0 8px 32px rgba(0,0,0,.22);background:var(--bg-card);border:1px solid var(--border);overflow:hidden;resize:both;">
+    <div id="tb-peek-header" style="display:flex;align-items:center;gap:8px;padding:10px 14px;border-bottom:1px solid var(--border);background:var(--bg-card);cursor:grab;user-select:none;flex-shrink:0;">
+        <span style="font-size:14px;">📖</span>
+        <span id="tb-peek-title" style="font-size:13px;font-weight:600;color:var(--text-primary);flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">Textbook</span>
+        <button onclick="tbPeekOpenInReader()" title="Open this book at this page in Reader" style="padding:4px 10px;border-radius:6px;border:1px solid var(--border);background:var(--bg-input);color:var(--text-secondary);font-size:11px;cursor:pointer;white-space:nowrap;">↗ Reader</button>
+        <button onclick="closeTbPeek()" style="width:24px;height:24px;border-radius:6px;border:none;background:transparent;color:var(--text-muted);cursor:pointer;font-size:14px;">✕</button>
+    </div>
+    <div id="tb-peek-tabs" style="display:none;gap:4px;padding:6px 12px;border-bottom:1px solid var(--border);background:var(--bg-sidebar);flex-shrink:0;overflow-x:auto;"></div>
+    <div id="tb-peek-body" style="flex:1;overflow-y:auto;padding:14px 18px;" class="scrollbar"></div>
+</div>
+
 <script>
 // ===== AUTH & API =====
 const AI_BACKEND_URL='http://localhost:8000';
@@ -2908,10 +2920,11 @@ async function textbookAnchorSearch(question){
 
 function tbAnchorStrip(hits,aiDiv){
     if(!hits||!aiDiv||!aiDiv.parentNode)return;
+    window.tbAnchorHits=hits;   // powers the peek window (tabs + open-in-reader)
     const strip=document.createElement('div');
     strip.style.cssText='display:flex;gap:6px;align-items:center;flex-wrap:wrap;margin-bottom:6px;';
     strip.innerHTML='<span style="font-size:11px;">📚</span>'
-        +hits.map(c=>'<span style="font-size:11px;padding:2px 8px;border-radius:999px;background:rgba(82,196,26,.08);border:1px solid rgba(82,196,26,.25);color:#52c41a;">'
+        +hits.map((c,i)=>'<span onclick="openTbPeek('+i+')" title="View textbook excerpt" style="font-size:11px;padding:2px 8px;border-radius:999px;background:rgba(82,196,26,.08);border:1px solid rgba(82,196,26,.25);color:#52c41a;cursor:pointer;">'
             +escapeHtml(c.book)+' · p.'+c.page+'</span>').join('');
     aiDiv.parentNode.insertBefore(strip,aiDiv);
 }
@@ -2920,8 +2933,9 @@ async function aiChatAnchorAsync(question,aiDiv){
     try{
         if(!localStorage.getItem('cb_token'))return;
         if(window.aiChatBookMode&&window.aiChatBookDocId)return;              // explicit 📚 mode wins
+        // Scope: auto-anchoring ONLY for exercises / exam-papers docs
         const doc=Object.values(bsData).flat().find(d=>d.id===readerCurrentDocId);
-        if(doc&&doc.category==='textbooks'&&doc.parseStatus==='done')return;  // open textbook: book mode covers it
+        if(!doc||!['exercises','exam-papers'].includes(doc.category))return;
         const hits=await textbookAnchorSearch(question);
         tbAnchorStrip(hits,aiDiv);
     }catch(e){/* retrieval hiccup: answer is unaffected */}
@@ -2934,6 +2948,119 @@ async function tutorAnchorAsync(question,aiDiv){
         tbAnchorStrip(hits,aiDiv);
     }catch(e){/* answer unaffected */}
 }
+
+// ===== Textbook Peek window (draggable + resizable side-by-side reader) =====
+let tbPeekCurrent=0;
+const TB_SKIP_TYPES=new Set(['header','footer','page_number','aside_text','page_footnote']);
+
+function closeTbPeek(){
+    document.getElementById('tb-peek-modal').style.display='none';
+}
+
+async function openTbPeek(i){
+    const hits=window.tbAnchorHits||[];
+    const h=hits[i];if(!h)return;
+    tbPeekCurrent=i;
+    const modal=document.getElementById('tb-peek-modal');
+    const titleEl=document.getElementById('tb-peek-title');
+    if(titleEl)titleEl.textContent=h.book+' · Page '+h.page;
+    const tabs=document.getElementById('tb-peek-tabs');
+    if(tabs){
+        tabs.innerHTML=hits.map((c,j)=>'<span onclick="openTbPeek('+j+')" style="font-size:11px;padding:3px 10px;border-radius:999px;cursor:pointer;white-space:nowrap;border:1px solid '+(j===i?'rgba(82,196,26,.4)':'var(--border)')+';background:'+(j===i?'rgba(82,196,26,.1)':'var(--bg-input)')+';color:'+(j===i?'#52c41a':'var(--text-secondary)')+';">'+escapeHtml(c.book)+' p.'+c.page+'</span>').join('');
+        tabs.style.display=hits.length>1?'flex':'none';
+    }
+    const body=document.getElementById('tb-peek-body');
+    body.innerHTML='<div style="text-align:center;color:var(--text-muted);padding:20px;font-size:12px;">Loading page…</div>';
+    body.scrollTop=0;
+    modal.style.display='flex';
+    try{
+        const r=await apiFetch('/api/documents/'+h.doc_id+'/pages/'+h.page);
+        if(!r.ok)throw new Error('HTTP '+r.status);
+        const data=await r.json();
+        renderTbBlocks(body,data.blocks||[]);
+    }catch(e){
+        body.innerHTML='<div style="color:#ff6b6b;font-size:12px;padding:12px;">❌ '+escapeHtml(e.message)+'</div>';
+    }
+}
+
+function renderTbBlocks(container,blocks){
+    container.innerHTML='';
+    let any=false;
+    for(const b of blocks){
+        if(TB_SKIP_TYPES.has(b.type))continue;
+        const t=(b.text||'').trim();
+        if(b.type==='table'&&b.html){
+            const wrap=document.createElement('div');wrap.style.cssText='overflow-x:auto;margin:8px 0;';
+            const tmp=document.createElement('div');tmp.innerHTML=b.html;
+            const table=tmp.querySelector('table');
+            if(table){
+                table.style.cssText='border-collapse:collapse;font-size:12px;margin:0 auto;';
+                [...table.querySelectorAll('td,th')].forEach(c=>{c.style.border='1px solid var(--border)';c.style.padding='4px 8px';});
+            }
+            wrap.appendChild(tmp);container.appendChild(wrap);any=true;continue;
+        }
+        if(!t)continue;
+        any=true;
+        if(b.type==='title'||b.text_level){
+            const lvl=Math.min(b.text_level||1,4);
+            const hEl=document.createElement('h'+Math.max(2,lvl+1));
+            hEl.style.cssText='margin:12px 0 6px;font-weight:700;font-size:'+(17-lvl*2)+'px;';
+            hEl.textContent=t.replace(/^#+\s*/,'');container.appendChild(hEl);
+        }else if(b.type==='equation'){
+            const eq=document.createElement('div');
+            eq.style.cssText='text-align:center;margin:8px 0;';
+            eq.textContent=t.startsWith('$$')?t:'$$'+t+'$$';container.appendChild(eq);
+        }else{
+            const p=document.createElement('p');
+            p.style.cssText='margin:6px 0;line-height:1.7;font-size:13.5px;color:var(--text-primary);';
+            p.textContent=t;container.appendChild(p);
+        }
+    }
+    if(!any)container.innerHTML='<div style="text-align:center;color:var(--text-muted);font-size:12px;font-style:italic;padding:16px 0;">No extractable content on this page</div>';
+    if(window.renderMathInElement)renderMathInElement(container,{delimiters:[{left:'$$',right:'$$',display:true},{left:'$',right:'$',display:false}],throwOnError:false,strict:false});
+}
+
+function tbPeekOpenInReader(){
+    const hits=window.tbAnchorHits||[];
+    const h=hits[tbPeekCurrent];if(!h)return;
+    const doc=Object.values(bsData).flat().find(d=>d.id===h.doc_id);
+    if(!doc){showNotification('⚠️ Book not found in bookshelf');return;}
+    closeTbPeek();                          // AI chat window stays open (side-by-side reading)
+    window.__guideShown=true;
+    readerLastDocId=doc.id;                 // skip the default-view reset so 'doc' survives
+    readerViewMode='doc';                   // docview lands instantly (no full-PDF download)
+    readerPendingScrollPage=h.page;         // reuse cross-view restore for precise landing
+    const cat=Object.keys(bsData).find(c=>bsData[c].some(d=>d.id===h.doc_id));
+    showPage('reader');
+    setTimeout(()=>{
+        if(cat)readerOpenDoc(cat,bsData[cat].findIndex(d=>d.id===h.doc_id));
+    },60);
+}
+
+// Peek window drag (same pattern as the Chat AI modal)
+(function initTbPeekDrag(){
+    const modal=document.getElementById('tb-peek-modal');
+    const header=document.getElementById('tb-peek-header');
+    if(!modal||!header)return;
+    let dragging=false,ox=0,oy=0;
+    header.addEventListener('mousedown',e=>{
+        if(e.target.closest('button'))return;
+        dragging=true;
+        const rect=modal.getBoundingClientRect();
+        ox=e.clientX-rect.left;oy=e.clientY-rect.top;
+        header.style.cursor='grabbing';
+    });
+    document.addEventListener('mousemove',e=>{
+        if(!dragging)return;
+        let x=e.clientX-ox,y=e.clientY-oy;
+        const maxX=window.innerWidth-modal.offsetWidth;
+        const maxY=window.innerHeight-modal.offsetHeight;
+        x=Math.max(0,Math.min(x,maxX));
+        y=Math.max(0,Math.min(y,maxY));
+        modal.style.left=x+'px';modal.style.top=y+'px';modal.style.right='auto';
+    });
+    document.addEventListener('mouseup',()=>{if(dragging){dragging=false;header.style.cursor='grab';}});
+})();
 
 function openAIChatFree(){
     aiChatMessages=[];
@@ -4402,7 +4529,10 @@ const GUIDE_PAGES=[
   {t:'h',lvl:1,en:'Read — Reader & AI Chat',cn:'阅读 — 文档阅读与 AI 问答'},
   {t:'ui',kind:'floatmenu'},
   {t:'p',en:'Upload PDF/PPTX files to your bookshelf, then select any text to Translate, Highlight, take a Note, or Ask AI.',cn:'上传 PDF/PPTX 到书架后，选中任意文字即可翻译、高亮、记笔记或问 AI。'},
-  {t:'p',en:'Scanned textbooks work too — they are re-typeset automatically (MinerU). In Chat AI, switch between 📄 Page (ask about the page you are reading) and 📚 Whole book (search the entire textbook — answers cite pages like [Page 45]).',cn:'扫描版教材同样可用（MinerU 自动重排版）。Chat AI 可切换 📄 当前页 与 📚 整本书 两种问答模式，整书模式的回答会标注页码。'}
+  {t:'p',en:'Scanned textbooks work too — they are re-typeset automatically (MinerU). In Chat AI, switch between 📄 Page (ask about the page you are reading) and 📚 Whole book (search the entire textbook — answers cite pages like [Page 45]).',cn:'扫描版教材同样可用（MinerU 自动重排版）。Chat AI 可切换 📄 当前页 与 📚 整本书 两种问答模式，整书模式的回答会标注页码。'},
+  {t:'h',lvl:2,en:'Exercises? Your textbooks answer alongside',cn:'做练习？教材与你同屏作答'},
+  {t:'p',en:'Open a document from Exercises or Exam Papers and ask Chat AI how to solve it: a green chip like "📚 高等代数 · p.45" appears above the answer. Click it — a small floating window opens with the textbook page itself (drag it anywhere, stretch its corner to resize).',cn:'打开练习或试卷分类的文档并向 Chat AI 提问：答案上方会浮现绿色标签（如"📚 高等代数 · p.45"）。点击它——弹出教材原文小浮窗，可任意拖动、拖角拉伸大小，与 AI 解答并排对照。'},
+  {t:'p',en:'The ↗ Reader button in that window opens the full textbook at exactly that page (the AI window stays open). Math Tutor shows the same chips.',cn:'浮窗中的 ↗ Reader 按钮会在 Reader 中打开教材并直达该页（AI 窗口保留）。Math Tutor 提问同样会出现这些标签。'}
 ]},
 {blocks:[
   {t:'h',lvl:1,en:'Function Plotter — See the Maths',cn:'函数画板 — 让数学可见'},

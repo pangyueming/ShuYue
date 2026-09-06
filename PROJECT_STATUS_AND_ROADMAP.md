@@ -573,7 +573,8 @@ passlib[bcrypt]             # 密码哈希（bcrypt）
 | 17 | **内置双语使用指南（虚拟文档）** | 前端常量 GUIDE_PAGES **九页**双语手册（EN主文+CN副行）：欢迎导览/前测→能力图/学习计划时间轴/自适应闭环/Math Tutor/AI Quiz 详解/Reader 与 Chat AI/**Function Plotter**/整理同步速查；含侧边栏导览、掌握度条、时间轴、模式chips、浮动菜单、函数示例 6 种 CSS 示意图（另留 img 块支持真截图）；永久钉在书架 Textbooks 首位（游客可见）；复用 docview 渲染+KaTeX+dataset.text；每次会话首次进 Reader 自动打开；零后端改动 |
 | 18 | **MinerU 扫描书双语指南（虚拟文档）** | 第二张钉住卡 🔬（P2 位）：五页——What is MinerU（含 mineru.net + GitHub 链接块）/为何需要/四步获取 API Key（免费 2000页/天）/在应用中使用（进度条/换Key续解析）/隐私与 FAQ（Fernet 只写不读、BYOT 边界）；**征询弹窗新增"❓ What is MinerU?"一键跳转**；readerOpenGuide 参数化支持多指南；零后端改动 |
 | 19 | **RAG 分类限定 + 原生教材入库 + 配额系统** | RAG 索引/检索仅限 Textbooks 分类（其他分类解析照常供阅读、不建索引，search 返回 not_textbook）；原生文字教材新增"✨ Index"按钮（征询弹窗文案变体，解析后默认保持原 PDF 视图）；mineru_usage 表按日记账（仅计真实提交分卷）+ trigger_parse 事前配额拦截(429)+worker 每卷兜底 + 弹窗实时显示 "MinerU Today: X / 2,000 pages · resets daily" + 超限预警弹窗（明日续解析零消耗） |
-| 20 | **自动教材锚定（跨书检索，异步引用条）** | `rag.retrieve_multi` 跨书检索（问题向量仅算一次；**双路共识**：块须同时进入稠密/稀疏两路 Top-10 才算命中，杜绝弱相关误引）；`POST /api/textbooks/search` 自动圈定用户已索引教材；Chat AI 与 Math Tutor **非阻塞**异步触发——AI 立即流式作答，命中后答案上方浮现绿色引用条 `📚 书名 · p.X`，未命中不显示；显式 📚 模式与游客自动跳过；修复导入数据 dim=REAL 导致的 struct 崩溃（int() 强转 + 一次性 CAST 迁移） |
+| 20 | **自动教材锚定（跨书检索，异步引用条）** | `rag.retrieve_multi` 跨书检索（问题向量仅算一次；**双路共识**：块须同时进入稠密/稀疏两路 Top-10 才算命中，杜绝弱相关误引）；`POST /api/textbooks/search` 自动圈定用户已索引教材（响应含 doc_id）；Chat AI 与 Math Tutor **非阻塞**异步触发——AI 立即流式作答，命中后答案上方浮现绿色引用条 `📚 书名 · p.X`，未命中不显示；**检索白名单：Chat AI 仅 Exercises/Exam Papers 分类的文档触发**（Tutor 恒可触发）；显式 📚 模式与游客自动跳过 |
+| 21 | **教材速览浮窗（边学边做）** | 点击引用条 → 教材原文浮窗（~30ms 拉取单页结构化块）：**标题栏拖拽** + **CSS resize:both 原生拉伸** + 多命中页标签切换 + docview 级渲染（标题分级/KaTeX 公式/表格）；与 AI Chat 弹窗双窗并排自由移动；**↗ Reader 按钮**一键升级——保留 AI 窗、docview 秒开（不下载整本 PDF）、复用跨视图保位机制精准落到目标页 |
 
 ### 2026-08-13 ~ 2026-08-14：修复迭代
 

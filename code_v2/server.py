@@ -1566,11 +1566,16 @@ def textbooks_search(req: TextbookSearchRequest, current_user: dict = Depends(ge
         return {"chunks": [], "reason": f"retrieve_failed: {e}"}
     conn.close()
     titles = {b["id"]: b["title"] for b in books}
-    return {
-        "chunks": [{"book": titles.get(h["doc_id"], h["doc_id"]), "page": h["page"],
-                    "text": h["text"][:600], "score": h["score"]} for h in hits],
-        "reason": "ok",
-    }
+    seen = set()
+    out = []
+    for h in hits:
+        key = (h["doc_id"], h["page"])
+        if key in seen:
+            continue
+        seen.add(key)
+        out.append({"doc_id": h["doc_id"], "book": titles.get(h["doc_id"], h["doc_id"]),
+                    "page": h["page"], "text": h["text"][:600], "score": h["score"]})
+    return {"chunks": out, "reason": "ok"}
 
 
 @app.get("/api/documents/{doc_id}/pages/{page_num}")
