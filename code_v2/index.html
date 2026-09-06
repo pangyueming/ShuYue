@@ -2769,6 +2769,7 @@ async function readerRenderPdfPageFull(pageNum){
                 readerApplyHighlightToPage(pageNum,h.text,h.color);
             });
         }
+        readerAnchorRestore(pageNum);   // cross-view sync: final exact restore once content exists
 
     }catch(err){
         pageDiv.innerHTML='<div style="padding:40px;text-align:center;color:#ff6b6b;">Failed to render page '+pageNum+': '+escapeHtml(err.message)+'</div>';
@@ -4051,36 +4052,69 @@ let readerViewMode='doc';
 let readerLastDocId=null;
 let readerCurrentDocRef=null;
 let readerPendingScrollPage=null;   // cross-view page sync on Original ⇄ Reformatted toggle
+let readerPendingAnchor='';         // first chars of the visible page's text (off-by-one guard)
 
 function readerDetectCurrentPage(){
     const area=document.getElementById('reader-content-area');
     const container=document.getElementById('pdf-pages-container');
     if(!area||!container)return 1;
     const pages=container.querySelectorAll('[data-page-num]');
+    let cur=1;
     for(const p of pages){
         const r=p.getBoundingClientRect();
-        if(r.top>=0&&r.top<area.clientHeight/2)return parseInt(p.dataset.pageNum)||1;
+        if(r.top<area.clientHeight/2){cur=parseInt(p.dataset.pageNum)||1;}  // last page that crossed the mid-line
+        else break;
     }
-    return 1;
+    return cur;
+}
+
+// Deterministic restore: direct scrollTop math (no scrollIntoView ancestor chains).
+function readerRestoreScroll(target){
+    const area=document.getElementById('reader-content-area');
+    const el=document.getElementById('pdf-page-'+target);
+    if(!area||!el)return;
+    const a=area.getBoundingClientRect(),r=el.getBoundingClientRect();
+    area.scrollTop+=r.top-a.top-8;
+    const tb=document.getElementById('reader-toolbar');
+    const title=document.getElementById('reader-doc-title').textContent||'';
+    if(tb)tb.textContent='Page '+target+' of '+readerPdfTotal+' · '+title;
 }
 
 function readerApplyPendingScroll(){
     if(!readerPendingScrollPage)return;
     const target=readerPendingScrollPage;
-    readerPendingScrollPage=null;
-    const el=document.getElementById('pdf-page-'+target);
-    if(el){
-        el.scrollIntoView({block:'start'});
-        const tb=document.getElementById('reader-toolbar');
-        const title=document.getElementById('reader-doc-title').textContent||'';
-        if(tb)tb.textContent='Page '+target+' of '+readerPdfTotal+' · '+title;
+    // early landings on placeholders; the render hook below makes the final exact call
+    requestAnimationFrame(()=>readerRestoreScroll(target));
+    setTimeout(()=>readerRestoreScroll(target),350);
+    setTimeout(()=>{if(readerPendingScrollPage===target)readerPendingScrollPage=null;},2000);  // safety expiry
+}
+
+// Render hook (docview + pdf): called when a page's real content materialises.
+// If it's the pending page, optionally correct ±1 via the text anchor, then final restore.
+function readerAnchorRestore(pageNum){
+    if(readerPendingScrollPage!==pageNum)return;
+    const anchor=readerPendingAnchor;
+    if(anchor){
+        const here=(document.getElementById('pdf-page-'+pageNum).dataset.text||'');
+        if(!here.includes(anchor.slice(0,30))){
+            for(const n of [pageNum-1,pageNum+1]){
+                if(n<1||n>readerPdfTotal)continue;
+                const t=(document.getElementById('pdf-page-'+n)||{}).dataset||{};
+                if((t.text||'').includes(anchor.slice(0,30))){readerPendingScrollPage=n;break;}
+            }
+        }
     }
+    const finalPage=readerPendingScrollPage;
+    readerPendingScrollPage=null;readerPendingAnchor='';
+    readerRestoreScroll(finalPage);
 }
 const MINERU_SKIP_TYPES=new Set(['header','footer','page_number','aside_text','page_footnote']);
 
 function readerToggleView(){
     if(!readerCurrentDocRef)return;
     readerPendingScrollPage=readerDetectCurrentPage();   // keep position across views
+    const pd=document.getElementById('pdf-page-'+readerPendingScrollPage);
+    readerPendingAnchor=((pd&&pd.dataset.text)||'').trim().slice(0,60);   // off-by-one guard
     readerViewMode=readerViewMode==='doc'?'pdf':'doc';
     const btn=document.getElementById('reader-view-toggle');
     if(btn)btn.textContent=readerViewMode==='doc'?'📄 Original Pages':'📝 Reformatted';
@@ -4217,6 +4251,7 @@ async function readerRenderDocViewPage(pageNum){
                 try{readerApplyHighlightToPage(pageNum,h.text,h.color);}catch(e){}
             });
         }
+        readerAnchorRestore(pageNum);   // cross-view sync: final exact restore once content exists
     }catch(e){
         pageDiv.innerHTML='<div style="padding:30px;text-align:center;color:#ff6b6b;font-size:13px;">Failed to load page '+pageNum+': '+escapeHtml(e.message)+'</div>';
     }
