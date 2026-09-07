@@ -2804,6 +2804,13 @@ async function readerRenderPdfPageFull(pageNum){
 }
 
 // ===== READER: TEXT SELECTION (Reader area + textbook-peek window) =====
+// [Top-layer pattern] Relocate the float menu to document.body so it renders
+// above every page-view (a display:none ancestor would hide it entirely —
+// e.g. selecting in the peek window while on the Math Tutor page).
+(function promoteFloatMenu(){
+    const _m=document.getElementById('reader-float-menu');
+    if(_m&&_m.parentNode!==document.body)document.body.appendChild(_m);
+})();
 document.addEventListener('mouseup',e=>{const area=document.getElementById('reader-content-area');const menu=document.getElementById('reader-float-menu');
     const peekBody=document.getElementById('tb-peek-body');
     const inReader=area&&area.contains(e.target);
@@ -3036,11 +3043,13 @@ async function openTbPeek(i){
     tbPeekHighlights=[];
     loadTbPeekHighlights();
     body.innerHTML='';
-    // Fixed-width reading column (740px) — browser-window semantics:
-    // resizing the popup NEVER reflows text, it only changes the viewport.
     const wrap=document.createElement('div');
-    wrap.style.cssText='width:740px;max-width:none;margin:0 auto;';
     body.appendChild(wrap);
+    // [Viewport semantics] Column width fits the popup AT OPEN TIME, then is
+    // frozen: resizing afterwards never reflows text, it only changes the
+    // viewport (browser-window behaviour). Re-fits on every open.
+    const _fitW=Math.max(360,body.clientWidth-20);
+    wrap.style.width=_fitW+'px';
     // Batch-build all placeholders in ONE innerHTML pass (465 x createElement
     // was the main source of the "popup opens with a stutter" lag)
     let ph='';
@@ -4639,14 +4648,31 @@ async function readerOpenDocView(doc,area){
     container.id='pdf-pages-container';
     container.style.cssText='max-width:860px;margin:0 auto;';
     area.appendChild(container);
+    // [Virtualization] Batch-build ALL placeholders in ONE innerHTML pass
+    // (465 x createElement was the main source of open-lag) — then only a
+    // sliding WINDOW of ~40 pages is ever observed at once (react-window /
+    // PDF.js-viewer pattern), not all 465.
+    let _ph='';
     for(let i=1;i<=total;i++){
-        const pageDiv=document.createElement('div');
-        pageDiv.id='pdf-page-'+i;
-        pageDiv.dataset.pageNum=i;
-        pageDiv.className='docview-page';
-        pageDiv.style.cssText='margin:0 auto 18px;background:var(--bg-card);border:1px solid var(--border);border-radius:8px;padding:6px 34px 20px;min-height:200px;box-shadow:0 1px 4px rgba(0,0,0,.06);';
-        pageDiv.innerHTML='<div style="display:flex;align-items:center;justify-content:center;padding:34px;color:var(--text-muted);font-size:13px;">⏳ Page '+i+'</div>';
-        container.appendChild(pageDiv);
+        _ph+='<div id="pdf-page-'+i+'" data-page-num="'+i+'" class="docview-page" style="margin:0 auto 18px;background:var(--bg-card);border:1px solid var(--border);border-radius:8px;padding:6px 34px 20px;min-height:200px;box-shadow:0 1px 4px rgba(0,0,0,.06);"><div style="display:flex;align-items:center;justify-content:center;padding:34px;color:var(--text-muted);font-size:13px;">⏳ Page '+i+'</div></div>';
+    }
+    container.innerHTML=_ph;
+    const _allPages=Array.from(container.querySelectorAll('[data-page-num]'));
+    // --- Sliding observation window ---
+    let _obsLo=1,_obsHi=0;   // current observed range [lo, hi]
+    function _slideWindow(centerPage){
+        const lo=Math.max(1,centerPage-18);
+        const hi=Math.min(total,centerPage+22);
+        if(lo===_obsLo&&hi===_obsHi)return;
+        for(const p of _allPages){
+            const n=parseInt(p.dataset.pageNum);
+            if(n>=lo&&n<=hi){
+                if(!readerRenderedPages.has(n))readerScrollObserver.observe(p);
+            }else if(n>=_obsLo&&n<=_obsHi){
+                readerScrollObserver.unobserve(p);   // left the window
+            }
+        }
+        _obsLo=lo;_obsHi=hi;
     }
     readerApplyPendingScroll();   // cross-view sync: land on the page we left
     readerScrollObserver=new IntersectionObserver((entries)=>{
@@ -4663,26 +4689,31 @@ async function readerOpenDocView(doc,area){
             }
         });
     },{root:area,rootMargin:'300px 0px',threshold:0.01});
-    container.querySelectorAll('[data-page-num]').forEach(d=>readerScrollObserver.observe(d));
-    // Toolbar updater: rAF-throttled + cached page list. Without this, every
-    // scroll event re-queried 465 divs and forced a full relayout per gBCR —
-    // a layout-thrash freeze while KaTeX inserts DOM during page renders.
-    let _dvPages=null,_dvTick=false;
+    // Toolbar updater + window slider: rAF-throttled + cached page list.
+    let _dvTick=false;
     area.onscroll=()=>{
         if(_dvTick)return;
         _dvTick=true;
         requestAnimationFrame(()=>{
             _dvTick=false;
-            if(!_dvPages)_dvPages=Array.from(container.querySelectorAll('[data-page-num]'));
-            for(let p of _dvPages){
+            let _cur=1;
+            for(let p of _allPages){
                 const rect=p.getBoundingClientRect();
                 if(rect.top>=0&&rect.top<area.clientHeight/2){
-                    document.getElementById('reader-toolbar').textContent='Page '+p.dataset.pageNum+' of '+total+' · '+doc.title;
+                    _cur=parseInt(p.dataset.pageNum);
+                    document.getElementById('reader-toolbar').textContent='Page '+_cur+' of '+total+' · '+doc.title;
                     break;
                 }
             }
+            _slideWindow(_cur);
         });
     };
+    // Paint first, then observe the initial window around the landing page
+    const _startPage=readerPendingScrollPage||1;
+    requestAnimationFrame(()=>{
+        _slideWindow(_startPage);
+        readerApplyPendingScroll();
+    });
     showNotification('✅ '+doc.title+' · reformatted view ('+total+' pages) · Select text to translate, highlight or ask AI');
 }
 
