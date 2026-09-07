@@ -557,7 +557,7 @@
                             <button class="btn-primary" onclick="readerOpenBookshelf()">Open Bookshelf</button>
                         </div>
                     </div>
-                    <div id="reader-float-menu" style="display:none;position:fixed;z-index:50;align-items:center;gap:4px;padding:6px 8px;border-radius:10px;box-shadow:0 4px 12px rgba(0,0,0,.15);background:var(--bg-card);border:1px solid var(--border);">
+                    <div id="reader-float-menu" style="display:none;position:fixed;z-index:130;align-items:center;gap:4px;padding:6px 8px;border-radius:10px;box-shadow:0 4px 12px rgba(0,0,0,.15);background:var(--bg-card);border:1px solid var(--border);">
                         <button onclick="readerAction('translate')" style="padding:6px 12px;border-radius:6px;border:none;font-size:12px;font-weight:600;background:#2383e2;color:#fff;cursor:pointer;">Translate</button>
                         <button onclick="readerAction('highlight')" style="padding:6px 12px;border-radius:6px;border:none;font-size:12px;font-weight:600;background:#faad14;color:#fff;cursor:pointer;">Highlight</button>
                         <button onclick="readerAction('note')" style="padding:6px 12px;border-radius:6px;border:none;font-size:12px;font-weight:600;background:#52c41a;color:#fff;cursor:pointer;">Note</button>
@@ -754,7 +754,7 @@
     </div>
     <div id="tb-peek-tabs" style="display:none;gap:4px;padding:6px 12px;border-bottom:1px solid var(--border);background:var(--bg-sidebar);flex-shrink:0;overflow-x:auto;"></div>
     <div id="tb-peek-slot" style="display:none;flex-shrink:0;border-bottom:1px solid var(--border);background:var(--bg-card);"></div>
-    <div id="tb-peek-body" style="flex:1;overflow-y:auto;padding:14px 18px;" class="scrollbar"></div>
+    <div id="tb-peek-body" style="flex:1;overflow:auto;padding:14px 10px;" class="scrollbar"></div>
 </div>
 
 <script>
@@ -3036,16 +3036,18 @@ async function openTbPeek(i){
     tbPeekHighlights=[];
     loadTbPeekHighlights();
     body.innerHTML='';
+    // Fixed-width reading column (740px) — browser-window semantics:
+    // resizing the popup NEVER reflows text, it only changes the viewport.
     const wrap=document.createElement('div');
+    wrap.style.cssText='width:740px;max-width:none;margin:0 auto;';
     body.appendChild(wrap);
+    // Batch-build all placeholders in ONE innerHTML pass (465 x createElement
+    // was the main source of the "popup opens with a stutter" lag)
+    let ph='';
     for(let n2=1;n2<=tbPeekTotal;n2++){
-        const pageDiv=document.createElement('div');
-        pageDiv.id='tbpp-page-'+n2;
-        pageDiv.dataset.pageNum=n2;
-        pageDiv.style.cssText='margin:0 auto 14px;background:var(--bg-card);border:1px solid var(--border);border-radius:8px;padding:4px 24px 16px;min-height:160px;';
-        pageDiv.innerHTML='<div style="display:flex;align-items:center;justify-content:center;padding:24px;color:var(--text-muted);font-size:12px;">⏳ Page '+n2+'</div>';
-        wrap.appendChild(pageDiv);
+        ph+='<div id="tbpp-page-'+n2+'" data-page-num="'+n2+'" style="margin:0 auto 14px;background:var(--bg-card);border:1px solid var(--border);border-radius:8px;padding:4px 24px 16px;min-height:160px;"><div style="display:flex;align-items:center;justify-content:center;padding:24px;color:var(--text-muted);font-size:12px;">⏳ Page '+n2+'</div></div>';
     }
+    wrap.innerHTML=ph;
     if(tbPeekObserver)tbPeekObserver.disconnect();
     tbPeekObserver=new IntersectionObserver((entries)=>{
         entries.forEach(entry=>{
@@ -3054,15 +3056,15 @@ async function openTbPeek(i){
             if(!tbPeekRenderedPages.has(p))tbPeekRenderPage(p);
         });
     },{root:body,rootMargin:'300px 0px',threshold:0.01});
-    wrap.querySelectorAll('[data-page-num]').forEach(d=>tbPeekObserver.observe(d));
-    // rAF-throttled page tracker (title + feeds ↗Reader with the live page)
+    // rAF-throttled page tracker over a CACHED page list (no per-frame re-query)
+    const pgsArr=Array.from(wrap.querySelectorAll('[data-page-num]'));
     let _pTick=false;
     body.onscroll=()=>{
         if(_pTick)return;_pTick=true;
         requestAnimationFrame(()=>{
             _pTick=false;
             let cur=tbPeekCurrentPage;
-            for(const p of wrap.querySelectorAll('[data-page-num]')){
+            for(const p of pgsArr){
                 const rect=p.getBoundingClientRect();
                 if(rect.top>=0&&rect.top<body.clientHeight/2){cur=parseInt(p.dataset.pageNum);break;}
             }
@@ -3074,7 +3076,12 @@ async function openTbPeek(i){
         });
     };
     if(titleEl)titleEl.textContent=h.book+' · Page '+h.page+'/'+tbPeekTotal;
-    tbPeekJumpTo(h.page);
+    // Let the modal paint BEFORE the observer's initial pass + jump
+    // (another chunk of the open-lag: work happened before first paint)
+    requestAnimationFrame(()=>{
+        pgsArr.forEach(d=>tbPeekObserver.observe(d));
+        tbPeekJumpTo(h.page);
+    });
 }
 
 async function tbPeekRenderPage(n){
