@@ -754,6 +754,12 @@
     </div>
     <div id="tb-peek-tabs" style="display:none;gap:4px;padding:6px 12px;border-bottom:1px solid var(--border);background:var(--bg-sidebar);flex-shrink:0;overflow-x:auto;"></div>
     <div id="tb-peek-slot" style="display:none;flex-shrink:0;border-bottom:1px solid var(--border);background:var(--bg-card);"></div>
+    <div id="tb-peek-menu" style="display:none;position:absolute;z-index:10;align-items:center;gap:4px;padding:6px 8px;border-radius:10px;box-shadow:0 4px 12px rgba(0,0,0,.18);background:var(--bg-card);border:1px solid var(--border);flex-shrink:0;">
+        <button onclick="tbPeekAction('translate')" style="padding:5px 10px;border-radius:6px;border:none;font-size:11px;font-weight:600;background:#2383e2;color:#fff;cursor:pointer;">🌐 Translate</button>
+        <button onclick="tbPeekAction('highlight')" style="padding:5px 10px;border-radius:6px;border:none;font-size:11px;font-weight:600;background:#faad14;color:#fff;cursor:pointer;">🖍 Highlight</button>
+        <button onclick="tbPeekAction('note')" style="padding:5px 10px;border-radius:6px;border:none;font-size:11px;font-weight:600;background:#52c41a;color:#fff;cursor:pointer;">📝 Note</button>
+        <button onclick="tbPeekAction('ai')" style="padding:5px 10px;border-radius:6px;border:none;font-size:11px;font-weight:600;background:#722ed1;color:#fff;cursor:pointer;">🤖 Ask AI</button>
+    </div>
     <div id="tb-peek-body" style="flex:1;overflow:auto;padding:14px 10px;" class="scrollbar"></div>
 </div>
 
@@ -2803,37 +2809,45 @@ async function readerRenderPdfPageFull(pageNum){
     }
 }
 
-// ===== READER: TEXT SELECTION (Reader area + textbook-peek window) =====
-// [Top-layer pattern] Relocate the float menu to document.body so it renders
-// above every page-view (a display:none ancestor would hide it entirely —
-// e.g. selecting in the peek window while on the Math Tutor page).
-(function promoteFloatMenu(){
-    const _m=document.getElementById('reader-float-menu');
-    if(_m&&_m.parentNode!==document.body)document.body.appendChild(_m);
-})();
+// ===== READER: TEXT SELECTION (Reader area only — peek has its own menu) =====
 document.addEventListener('mouseup',e=>{const area=document.getElementById('reader-content-area');const menu=document.getElementById('reader-float-menu');
-    const peekBody=document.getElementById('tb-peek-body');
-    const inReader=area&&area.contains(e.target);
-    const inPeek=peekBody&&peekBody.contains(e.target);
-    if(!inReader&&!inPeek){if(menu)menu.style.display='none';tbPeekLastSel=false;return;}
+    if(!area||!area.contains(e.target)){if(menu)menu.style.display='none';return;}
     const sel=window.getSelection();const text=sel.toString().trim();
-    if(text.length>1&&text.length<500){
-        if(inPeek){
-            tbPeekSelText=text;tbPeekLastSel=true;
-            const pgEl=e.target&&e.target.closest?e.target.closest('[data-page-num]'):null;
-            tbPeekSelPage=pgEl?parseInt(pgEl.dataset.pageNum):tbPeekCurrentPage;
-        }else{
-            readerSelText=text;tbPeekLastSel=false;
-            try{readerSelRange=sel.getRangeAt(0).cloneRange();}catch(e2){return;}
-        }
+    if(text.length>1&&text.length<500){readerSelText=text;try{readerSelRange=sel.getRangeAt(0).cloneRange();}catch(e){return;}
         const rect=sel.getRangeAt(0).getBoundingClientRect();menu.style.display='flex';menu.style.top=(window.scrollY+rect.bottom+8)+'px';menu.style.left=(window.scrollX+rect.left+rect.width/2-140)+'px';}
     else{menu.style.display='none';}});
 
+// ===== PEEK: dedicated text-selection menu (self-contained in the modal) =====
+document.addEventListener('mouseup',e=>{
+    const body=document.getElementById('tb-peek-body');
+    const menu=document.getElementById('tb-peek-menu');
+    if(!body||!menu)return;
+    // Only show for selections inside the peek body
+    if(!body.contains(e.target)){menu.style.display='none';return;}
+    const sel=window.getSelection();const text=sel.toString().trim();
+    if(text.length>1&&text.length<500){
+        tbPeekSelText=text;tbPeekLastSel=true;
+        const pgEl=e.target.closest?e.target.closest('[data-page-num]'):null;
+        tbPeekSelPage=pgEl?parseInt(pgEl.dataset.pageNum):tbPeekCurrentPage;
+        // Position in modal coordinates (guaranteed visible — modal is fixed & on top)
+        const modal=document.getElementById('tb-peek-modal');
+        if(!modal){menu.style.display='none';return;}
+        const mRect=modal.getBoundingClientRect();
+        const sRect=sel.getRangeAt(0).getBoundingClientRect();
+        let top=sRect.bottom-mRect.top+6;
+        let left=sRect.left-mRect.left+sRect.width/2-140;
+        // Clamp within modal bounds
+        top=Math.max(40,Math.min(top,mRect.height-50));
+        left=Math.max(4,Math.min(left,mRect.width-290));
+        menu.style.top=top+'px';menu.style.left=left+'px';
+        menu.style.display='flex';
+    }else{
+        menu.style.display='none';
+    }
+});
+
 // ===== READER ACTIONS =====
-function readerAction(action){
-    // Selection came from the textbook-peek window -> dispatch to its handlers
-    if(typeof tbPeekLastSel!=='undefined'&&tbPeekLastSel){tbPeekAction(action);return;}
-    const menu=document.getElementById('reader-float-menu');menu.style.display='none';const panel=document.getElementById('reader-action-panel');const text=readerSelText;
+function readerAction(action){const menu=document.getElementById('reader-float-menu');menu.style.display='none';const panel=document.getElementById('reader-action-panel');const text=readerSelText;
     if(action==='translate'){panel.innerHTML=`<div class="card" style="border-left:4px solid #2383e2;background:rgba(35,131,226,.06);">
         <div style="display:flex;gap:12px;"><div style="width:32px;height:32px;border-radius:8px;display:flex;align-items:center;justify-content:center;font-size:14px;font-weight:700;color:#fff;background:var(--accent);flex-shrink:0;">译</div>
         <div style="flex:1;"><div style="font-size:12px;font-weight:600;color:#2383e2;margin-bottom:4px;">🌐 Translating...</div><p style="font-size:14px;margin-bottom:8px;">${escapeHtml(text)}</p><div id="reader-translate-result" style="color:var(--text-muted);font-size:13px;">⏳ Calling AI...</div>
@@ -3011,6 +3025,8 @@ function closeTbPeek(){
     document.getElementById('tb-peek-modal').style.display='none';
     const slot=document.getElementById('tb-peek-slot');
     if(slot){slot.style.display='none';slot.innerHTML='';}
+    const menu=document.getElementById('tb-peek-menu');
+    if(menu)menu.style.display='none';
     tbPeekLastSel=false;
 }
 
@@ -3162,7 +3178,7 @@ function tbPeekShowSlot(html){
 }
 
 function tbPeekAction(action){
-    const menu=document.getElementById('reader-float-menu');
+    const menu=document.getElementById('tb-peek-menu');
     if(menu)menu.style.display='none';
     const text=tbPeekSelText;
     if(action==='translate'){
