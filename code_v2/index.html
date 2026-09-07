@@ -2947,7 +2947,8 @@ async function textbookAnchorSearch(question){
     }catch(e){return null}
 }
 
-function tbAnchorStrip(hits,aiDiv){
+function tbAnchorStrip(hits,aiDiv,searchingEl){
+    if(searchingEl&&searchingEl.parentNode)searchingEl.remove();   // dismiss "Searching…" placeholder
     if(!hits||!aiDiv||!aiDiv.parentNode)return;
     window.tbAnchorHits=hits;   // powers the peek window (tabs + open-in-reader)
     const strip=document.createElement('div');
@@ -2958,6 +2959,21 @@ function tbAnchorStrip(hits,aiDiv){
     aiDiv.parentNode.insertBefore(strip,aiDiv);
 }
 
+function tbAnchorSearching(aiDiv){
+    if(!aiDiv||!aiDiv.parentNode)return null;
+    const el=document.createElement('div');
+    el.style.cssText='font-size:11px;color:var(--text-muted);font-style:italic;margin-bottom:6px;transition:opacity .3s ease;';
+    el.textContent='🔍 Searching your textbooks…';
+    aiDiv.parentNode.insertBefore(el,aiDiv);
+    return el;
+}
+
+function tbAnchorDismissSearching(el){
+    if(!el||!el.parentNode)return;
+    el.style.opacity='0';
+    setTimeout(()=>{if(el.parentNode)el.remove();},350);
+}
+
 async function aiChatAnchorAsync(question,aiDiv){
     try{
         if(!localStorage.getItem('cb_token'))return;
@@ -2965,16 +2981,20 @@ async function aiChatAnchorAsync(question,aiDiv){
         // Scope: auto-anchoring ONLY for exercises / exam-papers docs
         const doc=Object.values(bsData).flat().find(d=>d.id===readerCurrentDocId);
         if(!doc||!['exercises','exam-papers'].includes(doc.category))return;
+        const _s=tbAnchorSearching(aiDiv);
         const hits=await textbookAnchorSearch(question);
-        tbAnchorStrip(hits,aiDiv);
+        tbAnchorStrip(hits,aiDiv,_s);
+        if(!hits)tbAnchorDismissSearching(_s);
     }catch(e){/* retrieval hiccup: answer is unaffected */}
 }
 
 async function tutorAnchorAsync(question,aiDiv){
     try{
         if(!localStorage.getItem('cb_token'))return;
+        const _s=tbAnchorSearching(aiDiv);
         const hits=await textbookAnchorSearch(question);
-        tbAnchorStrip(hits,aiDiv);
+        tbAnchorStrip(hits,aiDiv,_s);
+        if(!hits)tbAnchorDismissSearching(_s);
     }catch(e){/* answer unaffected */}
 }
 
