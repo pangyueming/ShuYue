@@ -575,6 +575,7 @@ passlib[bcrypt]             # 密码哈希（bcrypt）
 | 19 | **RAG 分类限定 + 原生教材入库 + 配额系统** | RAG 索引/检索仅限 Textbooks 分类（其他分类解析照常供阅读、不建索引，search 返回 not_textbook）；原生文字教材新增"✨ Index"按钮（征询弹窗文案变体，解析后默认保持原 PDF 视图）；mineru_usage 表按日记账（仅计真实提交分卷）+ trigger_parse 事前配额拦截(429)+worker 每卷兜底 + 弹窗实时显示 "MinerU Today: X / 2,000 pages · resets daily" + 超限预警弹窗（明日续解析零消耗） |
 | 20 | **自动教材锚定（跨书检索，异步引用条）** | `rag.retrieve_multi` 跨书检索（问题向量仅算一次；**双路共识**：块须同时进入稠密/稀疏两路 Top-10 才算命中，杜绝弱相关误引）；`POST /api/textbooks/search` 自动圈定用户已索引教材（响应含 doc_id）；Chat AI 与 Math Tutor **非阻塞**异步触发——AI 立即流式作答，命中后答案上方浮现绿色引用条 `📚 书名 · p.X`，未命中不显示；**检索白名单：Chat AI 仅 Exercises/Exam Papers 分类的文档触发**（Tutor 恒可触发）；显式 📚 模式与游客自动跳过 |
 | 21 | **教材速览浮窗（边学边做）** | 点击引用条 → 教材原文浮窗（~30ms 拉取单页结构化块）：**标题栏拖拽** + **CSS resize:both 原生拉伸** + 多命中页标签切换 + docview 级渲染（标题分级/KaTeX 公式/表格）；与 AI Chat 弹窗双窗并排自由移动；**↗ Reader 按钮**一键升级——保留 AI 窗、docview 秒开（不下载整本 PDF）、复用跨视图保位机制精准落到目标页 |
+| 22 | **弹窗迷你阅读器 + 划词三件套 + 专属菜单** | 弹窗升级为全教材连续阅读（占位页+滑窗懒渲染）；**弹窗专属浮动菜单**（position:absolute 在弹窗内，弹窗坐标系定位+边界钳制，按钮直调 tbPeekAction）——翻译/高亮（4色+笔记，POST /api/highlights 按教材 docId+弹窗页码，Reader 同步）/笔记（POST /api/notes，Notes 页同步）/Ask AI（Chat 窗开着=追加追问不打断；没开=新引用会话）；**打开时适配列宽后冻结**（浏览器视口语义，拉伸零文字重排）；性能优化：占位页单次 innerHTML 批量构建 + rAF 后再 observe + 弹窗页码追踪器缓存列表；**"🔍 Searching your textbooks…" 检索中提示**（命中→替换为绿色引用条，未命中→300ms 淡出）；Reader docview 虚拟化（react-window/PDF.js 模式）：批量构建+滑窗观察（~40 页）+rAF 延迟注册，深跳秒开 |
 
 ### 2026-08-13 ~ 2026-08-14：修复迭代
 
