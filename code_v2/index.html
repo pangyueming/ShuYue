@@ -2455,7 +2455,6 @@ function bsRenderDashboard(cat){
         <div style="font-size:11px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;color:var(--text-primary);">${d.title}</div>
         <div class="document-meta" style="margin-top:4px;">${d.desc||'Study material'}</div></div></div>`;}).join('');refreshIcons();
 }
-function bsOpenFromDash(cat,idx){showPage('reader');setTimeout(()=>readerOpenDoc(cat,idx),100);}
 function bsPageRenderTabs(){const c=document.getElementById('bs-page-tabs');if(!c)return;c.innerHTML='';
     const allCats=[...BS_CATS,{key:'recycle-bin',icon:'trash-2',label:'Recycle Bin'}];
     allCats.forEach((cat,i)=>{const t=document.createElement('button');t.className='chip'+(cat.key===bsPageCat?' active':'');t.style.cssText='padding:7px 12px;border:none;cursor:pointer;';
@@ -2920,6 +2919,12 @@ async function readerRenderPdfPageFull(pageNum){
 }
 
 // ===== READER: TEXT SELECTION (Reader area only — peek has its own menu) =====
+// [Safety] Promote the float menu to document.body so it can NEVER be trapped
+// inside a hidden/clipped container (page-view display:none, overflow, etc.)
+(function(){
+    const _m=document.getElementById('reader-float-menu');
+    if(_m&&_m.parentNode!==document.body)document.body.appendChild(_m);
+})();
 document.addEventListener('mouseup',e=>{const area=document.getElementById('reader-content-area');const menu=document.getElementById('reader-float-menu');
     if(!area||!area.contains(e.target)){if(menu)menu.style.display='none';return;}
     const sel=window.getSelection();const text=sel.toString().trim();
