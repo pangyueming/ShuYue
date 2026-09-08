@@ -41,9 +41,6 @@
             --shadow-lg:0 16px 40px rgba(16,24,40,.14),0 6px 12px rgba(16,24,40,.07);
             --t-fast:120ms cubic-bezier(.2,.8,.2,1);
             --t:180ms cubic-bezier(.2,.8,.2,1);
-            --page-max:1180px;
-            --page-gutter:clamp(20px,3vw,40px);
-            --surface-gap:24px;
         }
         body.dark{
             --bg-app:#191919;--bg-sidebar:#1f1f1f;--bg-card:#242424;--bg-hover:#2f2f2f;
@@ -64,47 +61,17 @@
         @keyframes spin{to{transform:rotate(360deg)}}
         @keyframes shimmer{from{background-position:200% 0}to{background-position:-200% 0}}
         @keyframes rippleAnim{to{transform:scale(1);opacity:0}}
-        .nav-item{display:flex;align-items:center;gap:8px;padding:8px 10px;border-radius:8px;cursor:pointer;font-size:14px;color:var(--text-primary);transition:background var(--t-fast),color var(--t-fast),transform var(--t-fast);user-select:none}
+        .nav-item{display:flex;align-items:center;gap:8px;padding:6px 8px;border-radius:6px;cursor:pointer;font-size:14px;color:var(--text-primary);transition:background var(--t-fast);user-select:none}
         .nav-item:hover{background:var(--bg-hover)}.nav-item.active{background:var(--bg-hover);font-weight:500}
-        .btn-primary{background:var(--accent);color:#fff;padding:8px 16px;border-radius:8px;font-size:14px;font-weight:600;border:none;cursor:pointer;box-shadow:var(--shadow-xs);transition:background var(--t-fast),box-shadow var(--t-fast),transform var(--t-fast);position:relative;overflow:hidden}
+        .btn-primary{background:var(--accent);color:#fff;padding:8px 16px;border-radius:6px;font-size:14px;font-weight:500;border:none;cursor:pointer;box-shadow:var(--shadow-xs);transition:background var(--t-fast),box-shadow var(--t-fast),transform var(--t-fast);position:relative;overflow:hidden}
         .btn-primary:hover{background:var(--accent-hover);box-shadow:var(--shadow-sm)}
         .btn-primary:active{transform:translateY(1px)}
-        .btn-secondary{background:var(--bg-card);color:var(--text-primary);padding:8px 16px;border-radius:8px;font-size:14px;border:1px solid var(--border);cursor:pointer;box-shadow:var(--shadow-xs);transition:background var(--t-fast),box-shadow var(--t-fast),transform var(--t-fast);position:relative;overflow:hidden}
+        .btn-secondary{background:var(--bg-card);color:var(--text-primary);padding:8px 16px;border-radius:6px;font-size:14px;border:1px solid var(--border);cursor:pointer;box-shadow:var(--shadow-xs);transition:background var(--t-fast),box-shadow var(--t-fast),transform var(--t-fast);position:relative;overflow:hidden}
         .btn-secondary:hover{background:var(--bg-hover)}
         .btn-secondary:active{transform:translateY(1px)}
-        .card{background:var(--bg-card);border:1px solid var(--border);border-radius:8px;padding:16px;transition:border-color var(--t-fast),box-shadow var(--t-fast),transform var(--t-fast);box-shadow:var(--shadow-xs)}
-        .input{background:var(--bg-input);border:1px solid var(--border);border-radius:8px;padding:8px 12px;color:var(--text-primary);font-size:14px;outline:none;transition:border-color var(--t-fast),box-shadow var(--t-fast)}
+        .card{background:var(--bg-card);border:1px solid var(--border);border-radius:8px;padding:16px;transition:border-color var(--t-fast)}
+        .input{background:var(--bg-input);border:1px solid var(--border);border-radius:6px;padding:8px 12px;color:var(--text-primary);font-size:14px;outline:none;transition:border-color var(--t-fast),box-shadow var(--t-fast)}
         .input:focus{border-color:var(--accent);box-shadow:0 0 0 3px rgba(35,131,226,.12)}
-        .surface{background:var(--bg-card);border:1px solid var(--border);border-radius:8px;box-shadow:var(--shadow-xs)}
-        .page-view{padding-left:var(--page-gutter)!important;padding-right:var(--page-gutter)!important;padding-top:28px!important;padding-bottom:40px!important}
-        .page-shell{max-width:var(--page-max);margin:0 auto}
-        .page-hero{padding:20px 22px;margin-bottom:20px}
-        .page-kicker{font-size:11px;font-weight:700;letter-spacing:.12em;text-transform:uppercase;color:var(--accent);margin-bottom:8px}
-        .page-title{font-size:28px;font-weight:700;line-height:1.08;letter-spacing:-.03em;margin:0}
-        .page-subtitle{font-size:14px;line-height:1.7;color:var(--text-muted);max-width:68ch;margin-top:8px}
-        .section-title{font-size:15px;font-weight:700;letter-spacing:-.01em;margin:0;color:var(--text-primary)}
-        .section-meta{font-size:12px;color:var(--text-muted)}
-        .segmented{display:inline-flex;gap:2px;padding:4px;border-radius:999px;background:var(--bg-tag);border:1px solid var(--border)}
-        .segmented > button{border-radius:999px!important;border:none!important}
-        .soft-divider{height:1px;background:var(--border-light)}
-        .dashboard-layout{display:grid;grid-template-columns:minmax(0,1.35fr) minmax(300px,.95fr);gap:20px;align-items:start}
-        .dashboard-stack{display:flex;flex-direction:column;gap:20px}
-        .dashboard-rail{display:flex;flex-direction:column;gap:20px;position:sticky;top:68px}
-        .stat-grid{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:16px}
-        .stat-card{padding:18px}
-        .stat-value{font-size:24px;font-weight:700;letter-spacing:-.03em}
-        .stat-label{font-size:12px;color:var(--text-muted);margin-top:4px}
-        .workspace-shell{display:flex;flex-direction:column;gap:16px}
-        .workspace-card{background:var(--bg-card);border:1px solid var(--border);border-radius:8px;box-shadow:var(--shadow-xs)}
-        .chat-shell{display:flex;flex-direction:column;min-height:calc(100vh - 480px);max-height:calc(100vh - 380px);gap:14px;overflow-y:auto;overflow-x:hidden}
-        .chat-composer{display:flex;align-items:center;gap:12px;padding:14px 16px;background:var(--bg-card);border:1px solid var(--border);border-radius:12px;box-shadow:var(--shadow-xs)}
-        .chat-empty{padding:42px 24px;color:var(--text-muted);font-size:13px;text-align:center}
-        .chat-empty-title{font-size:14px;font-weight:600;color:var(--text-secondary);margin-bottom:6px}
-        .document-card{position:relative;background:var(--bg-card);border:1px solid var(--border);border-radius:8px;box-shadow:var(--shadow-xs);transition:transform var(--t-fast),box-shadow var(--t-fast),border-color var(--t-fast)}
-        .document-card:hover{transform:translateY(-2px);box-shadow:var(--shadow-md);border-color:rgba(35,131,226,.24)}
-        .document-meta{font-size:11px;color:var(--text-muted);line-height:1.5}
-        .chip{display:inline-flex;align-items:center;gap:6px;padding:5px 10px;border-radius:999px;font-size:12px;border:1px solid var(--border);background:var(--bg-input);color:var(--text-secondary);white-space:nowrap}
-        .chip.active{background:rgba(35,131,226,.08);border-color:rgba(35,131,226,.3);color:var(--accent);font-weight:600}
         .tag{display:inline-flex;align-items:center;padding:2px 8px;border-radius:4px;font-size:12px;font-weight:500;line-height:1.4}
         .placeholder-box{border:1.5px dashed var(--border);border-radius:8px;padding:40px;text-align:center;color:var(--text-muted)}
         .spinner{width:16px;height:16px;border:2px solid var(--border);border-top-color:var(--accent);border-radius:50%;animation:spin .7s linear infinite;flex-shrink:0}
@@ -157,48 +124,36 @@
         .reader-notes-panel.collapsed h3{display:none;}
         .pageDiv{position:relative;margin:0 auto;}
         .canvasWrapper{overflow:hidden;}
-        #page-reader,#page-plotter,#page-forum{padding:0!important}
-        @media (max-width:1120px){
-            .dashboard-layout{grid-template-columns:1fr}
-            .dashboard-rail{position:static}
-            .stat-grid{grid-template-columns:repeat(2,minmax(0,1fr))}
-        }
-        @media (max-width:720px){
-            .page-title{font-size:24px}
-            .dashboard-layout{gap:16px}
-            .stat-grid{grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}
-            .reader-left-panel{display:none}
-            .reader-notes-panel{display:none!important}
-        }
-        /* Smooth scroll */
-        #reader-content-area{scroll-behavior:smooth;}
+        /* Instant programmatic landing (smooth-behavior hijacked scrollTop writes into
+           an animated scroll through every page — the ↗Reader jump freeze) */
+        #reader-content-area{scroll-behavior:auto;}
     </style>
 </head>
 <body class="dark">
 <script>try{if(localStorage.getItem('cb_theme')==='light')document.body.classList.remove('dark');}catch(e){}</script>
 
-<div class="flex h-screen overflow-hidden app-shell">
+<div class="flex h-screen overflow-hidden">
     <!-- SIDEBAR -->
-    <aside id="app-sidebar" class="sidebar-panel flex-shrink-0 flex flex-col overflow-y-auto scrollbar transition-all duration-200" style="width:260px;min-width:260px;background:var(--bg-sidebar);border-right:1px solid var(--border);">
-        <div style="padding:14px 14px 10px;cursor:pointer;display:flex;align-items:center;gap:10px;">
+    <aside id="app-sidebar" class="flex-shrink-0 flex flex-col overflow-y-auto scrollbar transition-all duration-200" style="width:240px;min-width:240px;background:var(--bg-sidebar);border-right:1px solid var(--border);">
+        <div style="padding:12px;cursor:pointer;display:flex;align-items:center;gap:8px;">
             <div style="width:32px;height:32px;border-radius:8px;background:var(--accent);display:flex;align-items:center;justify-content:center;color:#fff;font-weight:600;font-size:14px;letter-spacing:.02em;">CB</div>
-            <div><div style="font-weight:700;font-size:14px;">CogniBridge</div><div style="font-size:11px;color:var(--text-muted);">Academic study workspace</div></div>
+            <div><div style="font-weight:600;font-size:14px;">CogniBridge</div><div style="font-size:11px;color:var(--text-muted);">智学桥</div></div>
         </div>
-        <div style="margin:0 12px 10px;padding:8px 10px;border-radius:8px;background:var(--bg-card);font-size:13px;color:var(--text-muted);cursor:pointer;display:flex;align-items:center;gap:8px;border:1px solid var(--border);box-shadow:var(--shadow-xs);"><i data-lucide="search" style="width:14px;height:14px;"></i><span>Search materials</span></div>
-        <div style="padding:0 10px 10px;flex:1;">
-            <div style="font-size:10px;font-weight:700;color:var(--text-muted);text-transform:uppercase;letter-spacing:.12em;padding:6px 10px 8px;">Workspace</div>
-            <div class="nav-item active" onclick="showPage('dashboard')"><i data-lucide="layout-dashboard"></i>Overview</div>
-            <div class="nav-item" onclick="showPage('pretest')"><i data-lucide="clipboard-check"></i>Diagnostic</div>
-            <div class="nav-item" onclick="showPage('tutor')"><i data-lucide="sigma"></i>Tutor</div>
-            <div class="nav-item" onclick="showPage('quiz')"><i data-lucide="target"></i>Practice</div>
-            <div class="nav-item" onclick="showPage('plotter')"><i data-lucide="chart-line"></i>Plotter</div>
+        <div style="margin:0 8px 8px;padding:6px 8px;border-radius:6px;background:var(--bg-hover);font-size:13px;color:var(--text-muted);cursor:pointer;display:flex;align-items:center;gap:6px;"><i data-lucide="search" style="width:14px;height:14px;"></i>Search...</div>
+        <div style="padding:0 8px;flex:1;">
+            <div style="font-size:11px;font-weight:600;color:var(--text-muted);text-transform:uppercase;padding:4px 8px;margin-bottom:4px;">Workspace</div>
+            <div class="nav-item active" onclick="showPage('dashboard')"><i data-lucide="layout-dashboard"></i>Dashboard</div>
+            <div class="nav-item" onclick="showPage('pretest')"><i data-lucide="clipboard-check"></i>Pre-Assessment</div>
+            <div class="nav-item" onclick="showPage('tutor')"><i data-lucide="sigma"></i>Math Tutor</div>
+            <div class="nav-item" onclick="showPage('quiz')"><i data-lucide="target"></i>AI Quiz</div>
+            <div class="nav-item" onclick="showPage('plotter')"><i data-lucide="chart-line"></i>Function Plotter</div>
             <div class="nav-item" onclick="showPage('reader')"><i data-lucide="book-open"></i>Reader</div>
             <div class="nav-item" onclick="showPage('notes')"><i data-lucide="notebook-pen"></i>Notes</div>
-            <div class="nav-item" onclick="showPage('graph')"><i data-lucide="network"></i>Network</div>
-            <div style="font-size:10px;font-weight:700;color:var(--text-muted);text-transform:uppercase;letter-spacing:.12em;padding:14px 10px 8px;">Community</div>
-            <div class="nav-item" onclick="showPage('forum')"><i data-lucide="messages-square"></i>Forum</div>
-            <div style="font-size:10px;font-weight:700;color:var(--text-muted);text-transform:uppercase;letter-spacing:.12em;padding:14px 10px 8px;">Library</div>
-            <div class="nav-item" onclick="showPage('bookshelf')"><i data-lucide="library"></i>All materials</div>
+            <div class="nav-item" onclick="showPage('graph')"><i data-lucide="network"></i>Knowledge Graph</div>
+            <div style="font-size:11px;font-weight:600;color:var(--text-muted);text-transform:uppercase;padding:4px 8px;margin-top:16px;margin-bottom:4px;">Community</div>
+            <div class="nav-item" onclick="showPage('forum')"><i data-lucide="messages-square"></i>Student Forum</div>
+            <div style="font-size:11px;font-weight:600;color:var(--text-muted);text-transform:uppercase;padding:4px 8px;margin-top:16px;margin-bottom:4px;">Bookshelf</div>
+            <div class="nav-item" onclick="showPage('bookshelf')"><i data-lucide="library"></i>All Materials</div>
         </div>
         <div style="border-top:1px solid var(--border);padding:12px;" id="sidebar-user-area">
             <!-- Dynamic user profile rendered by renderSidebarUser() -->
@@ -207,7 +162,7 @@
 
     <!-- MAIN -->
     <main class="flex-1 overflow-y-auto scrollbar" style="background:var(--bg-app);">
-        <div class="topbar" style="display:flex;align-items:center;gap:8px;padding:10px 16px;position:sticky;top:0;z-index:40;background:var(--bg-topbar);backdrop-filter:blur(8px);border-bottom:1px solid var(--border-light);">
+        <div style="display:flex;align-items:center;gap:8px;padding:8px 12px;position:sticky;top:0;z-index:40;background:var(--bg-topbar);backdrop-filter:blur(8px);border-bottom:1px solid var(--border-light);">
             <button id="sidebar-toggle-btn" onclick="toggleSidebar()" style="width:32px;height:32px;border-radius:6px;border:none;background:transparent;cursor:pointer;color:var(--text-muted);display:flex;align-items:center;justify-content:center;transition:all .15s;" onmouseenter="this.style.background='var(--bg-hover)'" onmouseleave="this.style.background='transparent'" title="Toggle sidebar"><i data-lucide="panel-left" style="width:18px;height:18px;"></i></button>
             <span style="color:var(--border);font-size:12px;">/</span>
             <span id="breadcrumb" style="font-size:13px;color:var(--text-muted);">Dashboard</span>
@@ -272,74 +227,36 @@
         </div>
 
         <!-- ===== DASHBOARD (placeholder) ===== -->
-        <div id="page-dashboard" class="page-view active">
-            <div class="page-shell">
-                <div class="page-hero surface">
-                    <div class="page-kicker">Dashboard</div>
-                    <h1 class="page-title">Good to see you, User</h1>
-                    <p class="page-subtitle">A single place for your progress, study plan, reading, and practice. Built to feel calm, sharp, and useful on an ordinary study day.</p>
-                </div>
-                <div class="dashboard-layout">
-                    <div class="dashboard-stack">
-                        <div class="stat-grid">
-                            <div class="card stat-card"><div style="margin-bottom:6px;color:var(--text-secondary);"><i data-lucide="sigma" style="width:18px;height:18px;"></i></div><div class="count-up stat-value" data-count="87" data-suffix="%">0%</div><div class="stat-label">Math Proficiency</div></div>
-                            <div class="card stat-card"><div style="margin-bottom:6px;color:var(--text-secondary);"><i data-lucide="book-open" style="width:18px;height:18px;"></i></div><div class="count-up stat-value" data-count="12">0</div><div class="stat-label">Documents Read</div></div>
-                            <div class="card stat-card"><div style="margin-bottom:6px;color:var(--text-secondary);"><i data-lucide="circle-check" style="width:18px;height:18px;"></i></div><div class="count-up stat-value" data-count="156">0</div><div class="stat-label">Problems Solved</div></div>
-                            <div class="card stat-card"><div style="margin-bottom:6px;color:var(--text-secondary);"><i data-lucide="flame" style="width:18px;height:18px;"></i></div><div class="count-up stat-value" data-count="14">0</div><div class="stat-label">Day Streak</div></div>
-                        </div>
-                        <div class="surface">
-                            <div style="padding:18px 18px 12px;display:flex;align-items:end;justify-content:space-between;gap:12px;">
-                                <div>
-                                    <div class="section-title">My Bookshelf</div>
-                                    <div class="section-meta">Your latest materials and categories</div>
-                                </div>
-                                <button class="btn-secondary" style="font-size:12px;padding:6px 12px;" onclick="bsUpload()">Upload</button>
-                            </div>
-                            <div style="padding:0 18px 18px;">
-                                <div id="dash-bs-tabs" style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:14px;"></div>
-                                <div id="dash-bs-grid" style="display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:10px;min-height:120px;"></div>
-                            </div>
-                        </div>
-                        <div class="surface">
-                            <div style="padding:18px 18px 12px;display:flex;align-items:end;justify-content:space-between;gap:12px;">
-                                <div>
-                                    <div class="section-title">Math Skill Breakdown</div>
-                                    <div class="section-meta">Your latest diagnostic view</div>
-                                </div>
-                            </div>
-                            <div id="math-skill-card" style="padding:0 18px 18px;">
-                                <div class="placeholder-box" id="math-skill-placeholder" style="background:var(--bg-input);">Your math skill analysis will appear here<br><span style="font-size:12px;">Complete the diagnostic to see your knowledge map</span></div>
-                                <div id="math-skill-content" style="display:none;"></div>
-                            </div>
-                        </div>
-                    </div>
-                    <div class="dashboard-rail">
-                        <div class="surface">
-                            <div style="padding:18px 18px 12px;display:flex;align-items:end;justify-content:space-between;gap:12px;">
-                                <div>
-                                    <div class="section-title">Recent Activity</div>
-                                    <div class="section-meta">What changed most recently</div>
-                                </div>
-                            </div>
-                            <div style="padding:0 18px 18px;">
-                                <div class="placeholder-box" style="background:var(--bg-input);padding:28px 20px;"><div style="margin-bottom:10px;display:flex;justify-content:center;"><i data-lucide="activity" style="width:24px;height:24px;color:var(--text-muted);stroke-width:1.4;"></i></div>Your recent learning activity will appear here<br><span style="font-size:12px;">Knowledge points · Reading progress · Last note · Forum activity</span></div>
-                            </div>
-                        </div>
-                        <div class="surface">
-                            <div style="padding:18px 18px 12px;display:flex;align-items:center;justify-content:space-between;gap:12px;">
-                                <div>
-                                    <div class="section-title">Study Plan</div>
-                                    <div class="section-meta">Weekly tasks aligned to your lectures</div>
-                                </div>
-                                <button class="btn-secondary" style="font-size:11px;padding:6px 10px;" onclick="togglePlanEdit()">Edit</button>
-                            </div>
-                            <div id="study-plan-card" style="padding:0 18px 18px;">
-                                <div class="placeholder-box" id="study-plan-placeholder" style="background:var(--bg-input);">AI-generated study plan based on your assessment<br><span style="font-size:12px;">Complete the diagnostic to unlock your plan</span></div>
-                                <div id="study-plan-content" style="display:none;"></div>
-                            </div>
-                        </div>
-                    </div>
-                </div>
+        <div id="page-dashboard" class="page-view active" style="max-width:900px;margin:0 auto;padding:40px 48px;">
+            <div style="margin-bottom:32px;">
+                <div style="font-size:13px;color:var(--text-muted);margin-bottom:4px;">Dashboard</div>
+                <h1 style="font-size:28px;font-weight:700;">Hello, User</h1>
+            </div>
+            <div class="stats-grid" style="display:grid;grid-template-columns:repeat(4,1fr);gap:16px;margin-bottom:32px;">
+                <div class="card"><div style="margin-bottom:6px;color:var(--text-secondary);"><i data-lucide="sigma" style="width:20px;height:20px;"></i></div><div class="count-up" data-count="87" data-suffix="%" style="font-size:24px;font-weight:700;">0%</div><div style="font-size:12px;color:var(--text-muted);">Math Proficiency</div></div>
+                <div class="card"><div style="margin-bottom:6px;color:var(--text-secondary);"><i data-lucide="book-open" style="width:20px;height:20px;"></i></div><div class="count-up" data-count="12" style="font-size:24px;font-weight:700;">0</div><div style="font-size:12px;color:var(--text-muted);">Documents Read</div></div>
+                <div class="card"><div style="margin-bottom:6px;color:var(--text-secondary);"><i data-lucide="circle-check" style="width:20px;height:20px;"></i></div><div class="count-up" data-count="156" style="font-size:24px;font-weight:700;">0</div><div style="font-size:12px;color:var(--text-muted);">Problems Solved</div></div>
+                <div class="card"><div style="margin-bottom:6px;color:var(--text-secondary);"><i data-lucide="flame" style="width:20px;height:20px;"></i></div><div class="count-up" data-count="14" style="font-size:24px;font-weight:700;">0</div><div style="font-size:12px;color:var(--text-muted);">Day Streak</div></div>
+            </div>
+            <h2 style="font-size:18px;font-weight:600;margin-bottom:12px;">My Bookshelf</h2>
+            <div class="card" style="margin-bottom:32px;padding:12px;">
+                <div id="dash-bs-tabs" style="display:flex;gap:4px;border-bottom:1px solid var(--border);padding-bottom:8px;margin-bottom:12px;flex-wrap:wrap;"></div>
+                <div id="dash-bs-grid" style="display:grid;grid-template-columns:repeat(5,1fr);gap:8px;min-height:120px;"></div>
+                <button class="btn-secondary" style="width:100%;margin-top:8px;border-style:dashed;font-size:13px;padding:8px;" onclick="bsUpload()">Upload PDF / PPTX</button>
+            </div>
+            <h2 style="font-size:18px;font-weight:600;margin-bottom:12px;">Recent Activity</h2>
+            <div class="card" style="margin-bottom:32px;">
+                <div class="placeholder-box"><div style="margin-bottom:10px;display:flex;justify-content:center;"><i data-lucide="activity" style="width:28px;height:28px;color:var(--text-muted);stroke-width:1.4;"></i></div>Your recent learning activity will appear here<br><span style="font-size:12px;">Knowledge points · Reading progress · Last note · Forum activity</span></div>
+            </div>
+            <h2 style="font-size:18px;font-weight:600;margin-bottom:12px;">Math Skill Breakdown</h2>
+            <div class="card" id="math-skill-card" style="margin-bottom:32px;">
+                <div class="placeholder-box" id="math-skill-placeholder">Your math skill analysis will appear here<br><span style="font-size:12px;">Complete pre-assessment to see your knowledge breakdown</span></div>
+                <div id="math-skill-content" style="display:none;"></div>
+            </div>
+            <h2 style="font-size:18px;font-weight:600;margin-bottom:12px;display:flex;align-items:center;gap:8px;">Study Plan <button class="btn-secondary" style="font-size:11px;padding:2px 8px;margin-left:auto;" onclick="togglePlanEdit()">Edit</button></h2>
+            <div class="card" id="study-plan-card">
+                <div class="placeholder-box" id="study-plan-placeholder">AI-generated study plan based on your assessment<br><span style="font-size:12px;">Complete pre-assessment to unlock personalised plan</span></div>
+                <div id="study-plan-content" style="display:none;"></div>
             </div>
         </div>
 
@@ -432,38 +349,31 @@
         </div>
 
         <!-- ===== MATH TUTOR (FUNCTIONAL) ===== -->
-        <div id="page-tutor" class="page-view" style="height:calc(100vh - 49px);display:flex;flex-direction:column;overflow:hidden;">
-            <div class="page-shell" style="flex:1;display:flex;flex-direction:column;overflow:hidden;width:100%;">
-                <div class="page-hero surface" style="padding:14px 18px;margin-bottom:12px;flex-shrink:0;">
-                    <div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap;">
-                        <div style="flex:1;min-width:200px;">
-                            <div class="page-kicker">Tutor</div>
-                            <h1 class="page-title" style="font-size:20px;">AI Problem Solver</h1>
-                        </div>
-                        <div style="display:flex;background:var(--bg-tag);border-radius:999px;padding:3px;">
-                            <button id="tutor-mode-general" style="padding:6px 14px;border-radius:999px;border:none;font-size:12px;font-weight:600;background:var(--accent);color:#fff;cursor:pointer;" onclick="tutorSwitchMode('general')">⚡ General</button>
-                            <button id="tutor-mode-deep" style="padding:6px 14px;border-radius:999px;border:none;font-size:12px;font-weight:600;background:transparent;color:var(--text-secondary);cursor:pointer;" onclick="tutorSwitchMode('deep')">🧠 Deep</button>
-                        </div>
-                    </div>
-                    <p id="tutor-mode-desc" style="font-size:11px;color:var(--text-muted);margin-top:6px;">⚡ Direct answers with method breakdowns & concise explanations</p>
-                </div>
-                <div class="workspace-shell" style="gap:10px;flex:1;display:flex;flex-direction:column;overflow:hidden;min-height:0;">
-                    <div id="tutor-materials" style="display:flex;flex-direction:column;gap:6px;flex-shrink:0;"></div>
-                    <div id="tutor-chat" class="chat-shell" style="flex:1;min-height:0;max-height:none;">
-                        <div class="surface chat-empty" style="padding:28px 20px;"><div class="chat-empty-title">Ask a question or upload materials to begin</div><span style="font-size:11px;">Powered by CogniBridge AI</span></div>
-                    </div>
-                    <div style="display:flex;gap:5px;flex-wrap:wrap;flex-shrink:0;">
-                        <button onclick="tutorSendQuick('Evaluate: lim(x→0) sin(x)/x')" class="chip" style="font-size:10px;padding:4px 8px;">lim sin(x)/x</button>
-                        <button onclick="tutorSendQuick('Prove that a²+b² ≥ 2ab for all real numbers')" class="chip" style="font-size:10px;padding:4px 8px;">Proof: a²+b²≥2ab</button>
-                        <button onclick="tutorSendQuick('Find the eigenvalues of matrix [[2,1],[1,2]]')" class="chip" style="font-size:10px;padding:4px 8px;">Eigenvalues</button>
-                        <button onclick="tutorSendQuick('Does the series Σ(1/n²) converge?')" class="chip" style="font-size:10px;padding:4px 8px;">Σ1/n² converge?</button>
-                    </div>
-                    <div class="chat-composer" style="padding:10px 14px;flex-shrink:0;">
-                        <span style="cursor:pointer;color:var(--text-secondary);display:flex;align-items:center;" onclick="tutorUploadMaterial()"><i data-lucide="paperclip" style="width:18px;height:18px;"></i></span>
-                        <input id="tutor-input" class="input" style="flex:1;border:none;background:transparent;padding-left:0;" placeholder="Ask a maths question..." onkeypress="if(event.key==='Enter')tutorSend()">
-                        <button class="btn-primary" onclick="tutorSend()">Send</button>
-                    </div>
-                </div>
+        <div id="page-tutor" class="page-view" style="max-width:720px;margin:0 auto;padding:32px 48px;">
+            <h1 style="font-size:24px;font-weight:700;margin-bottom:16px;">AI Problem Solver</h1>
+            <div style="display:flex;background:var(--bg-tag);border-radius:10px;padding:3px;margin-bottom:4px;">
+                <button id="tutor-mode-general" style="flex:1;padding:8px;border-radius:8px;border:none;font-size:13px;font-weight:600;background:var(--accent);color:#fff;cursor:pointer;" onclick="tutorSwitchMode('general')">General Mode</button>
+                <button id="tutor-mode-deep" style="flex:1;padding:8px;border-radius:8px;border:none;font-size:13px;font-weight:600;background:transparent;color:var(--text-secondary);cursor:pointer;" onclick="tutorSwitchMode('deep')">Deep Learning Mode</button>
+            </div>
+            <p id="tutor-mode-desc" style="font-size:11px;color:var(--text-muted);margin-bottom:16px;">Direct answers with knowledge sources, method breakdowns & easy explanations</p>
+            <!-- Uploaded materials -->
+            <div id="tutor-materials" style="margin-bottom:12px;"></div>
+            <!-- Chat area -->
+            <div id="tutor-chat" style="min-height:calc(100vh - 320px);display:flex;flex-direction:column;gap:12px;margin-bottom:16px;">
+                <div style="text-align:center;padding:40px 20px;color:var(--text-muted);font-size:13px;">Ask a question or upload materials to get started<br><span style="font-size:11px;">Powered by CogniBridge AI</span></div>
+            </div>
+            <!-- Quick examples -->
+            <div style="display:flex;gap:6px;margin-bottom:12px;flex-wrap:wrap;">
+                <button onclick="tutorSendQuick('Evaluate: lim(x→0) sin(x)/x')" style="font-size:11px;padding:5px 10px;border-radius:999px;background:var(--bg-input);border:1px solid var(--border);color:var(--text-secondary);cursor:pointer;">lim sin(x)/x</button>
+                <button onclick="tutorSendQuick('Prove that a²+b² ≥ 2ab for all real numbers')" style="font-size:11px;padding:5px 10px;border-radius:999px;background:var(--bg-input);border:1px solid var(--border);color:var(--text-secondary);cursor:pointer;">Proof: a²+b²≥2ab</button>
+                <button onclick="tutorSendQuick('Find the eigenvalues of matrix [[2,1],[1,2]]')" style="font-size:11px;padding:5px 10px;border-radius:999px;background:var(--bg-input);border:1px solid var(--border);color:var(--text-secondary);cursor:pointer;">Eigenvalues</button>
+                <button onclick="tutorSendQuick('Does the series Σ(1/n²) converge?')" style="font-size:11px;padding:5px 10px;border-radius:999px;background:var(--bg-input);border:1px solid var(--border);color:var(--text-secondary);cursor:pointer;">Σ1/n² converge?</button>
+            </div>
+            <!-- Input -->
+            <div class="card" style="display:flex;align-items:center;gap:12px;">
+                <span style="cursor:pointer;color:var(--text-secondary);display:flex;align-items:center;" onclick="tutorUploadMaterial()"><i data-lucide="paperclip" style="width:18px;height:18px;"></i></span>
+                <input id="tutor-input" class="input" style="flex:1;border:none;background:transparent;" placeholder="Ask a math question..." onkeypress="if(event.key==='Enter')tutorSend()">
+                <button class="btn-primary" onclick="tutorSend()">Send</button>
             </div>
         </div>
 
@@ -630,27 +540,20 @@
         <!-- ===== READER (FUNCTIONAL) ===== -->
         <div id="page-reader" class="page-view">
             <div style="display:flex;height:calc(100vh - 49px);">
-                <aside class="reader-left-panel" style="width:240px;border-right:1px solid var(--border);background:var(--bg-sidebar);padding:16px;flex-shrink:0;overflow-y:auto;" class="scrollbar">
-                    <div class="surface" style="padding:14px;margin-bottom:12px;">
-                        <button onclick="readerOpenBookshelf()" class="btn-secondary" style="width:100%;font-size:13px;">Open Bookshelf</button>
-                    </div>
-                    <div class="surface" style="padding:14px;">
-                        <div style="font-size:10px;font-weight:700;letter-spacing:.12em;text-transform:uppercase;color:var(--text-muted);margin-bottom:8px;">Document</div>
-                        <div style="font-size:15px;font-weight:700;line-height:1.3;" id="reader-doc-title">No document open</div>
-                        <div style="font-size:12px;color:var(--text-muted);margin-top:6px;" id="reader-doc-meta">Open from the bookshelf</div>
+                <aside style="width:220px;border-right:1px solid var(--border);background:var(--bg-sidebar);padding:12px;flex-shrink:0;overflow-y:auto;" class="scrollbar">
+                    <button onclick="readerOpenBookshelf()" class="btn-secondary" style="width:100%;margin-bottom:12px;font-size:13px;">Open Bookshelf</button>
+                    <div id="reader-sidebar-info">
+                        <div style="font-size:11px;color:var(--text-muted);margin-bottom:4px;">Document</div>
+                        <div style="font-size:14px;font-weight:600;" id="reader-doc-title">No document open</div>
+                        <div style="font-size:12px;color:var(--text-muted);" id="reader-doc-meta">Open from bookshelf</div>
                     </div>
                 </aside>
                 <div style="flex:1;display:flex;flex-direction:column;overflow:hidden;">
-                    <div style="padding:10px 16px;border-bottom:1px solid var(--border);background:var(--bg-card);display:flex;align-items:center;gap:8px;box-shadow:var(--shadow-xs);">
-                        <span style="font-size:14px;font-weight:500;flex:1;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;" id="reader-toolbar">Select text to translate, annotate or ask AI</span>
-                        <button id="reader-enable-ai" onclick="mineruGateReopen()" style="flex-shrink:0;display:none;padding:6px 14px;border-radius:8px;border:none;background:#722ed1;color:#fff;font-size:12px;font-weight:600;cursor:pointer;">✨ Enable AI</button>
-                        <button id="reader-view-toggle" onclick="readerToggleView()" style="flex-shrink:0;display:none;padding:6px 14px;border-radius:8px;border:1px solid var(--border);background:var(--bg-input);color:var(--text-secondary);font-size:12px;font-weight:600;cursor:pointer;">📄 Original Pages</button>
-                        <button onclick="openAIChatFree()" style="flex-shrink:0;display:flex;align-items:center;gap:6px;padding:6px 14px;border-radius:8px;border:none;background:#722ed1;color:#fff;font-size:12px;font-weight:600;cursor:pointer;transition:background .15s;"><i data-lucide="sparkles" style="width:14px;height:14px;"></i>Chat AI</button>
-                    </div>
+                    <div style="padding:8px 16px 8px 24px;border-bottom:1px solid var(--border);background:var(--bg-card);display:flex;align-items:center;gap:8px;"><span style="font-size:14px;font-weight:500;flex:1;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;" id="reader-toolbar">Select text to translate, annotate or ask AI</span><button id="reader-enable-ai" onclick="mineruGateReopen()" style="flex-shrink:0;display:none;padding:6px 14px;border-radius:8px;border:none;background:#722ed1;color:#fff;font-size:12px;font-weight:600;cursor:pointer;">✨ Enable AI</button><button id="reader-view-toggle" onclick="readerToggleView()" style="flex-shrink:0;display:none;padding:6px 14px;border-radius:8px;border:1px solid var(--border);background:var(--bg-input);color:var(--text-secondary);font-size:12px;font-weight:600;cursor:pointer;">📄 Original Pages</button><button onclick="openAIChatFree()" onmouseenter="this.style.background='#5b21b6'" onmouseleave="this.style.background='#722ed1'" style="flex-shrink:0;display:flex;align-items:center;gap:6px;padding:6px 14px;border-radius:8px;border:none;background:#722ed1;color:#fff;font-size:12px;font-weight:600;cursor:pointer;transition:background .15s;"><i data-lucide="sparkles" style="width:14px;height:14px;"></i>Chat AI</button></div>
                     <div id="reader-content-area" style="flex:1;overflow-y:auto;padding:32px 16px;background:var(--bg-tag);" class="scrollbar">
-                        <div class="placeholder-box surface" style="max-width:620px;margin:0 auto;min-height:calc(100vh - 250px);background:var(--bg-card);">
-                            <div style="margin-bottom:14px;display:flex;justify-content:center;"><i data-lucide="book-open" style="width:36px;height:36px;color:var(--text-muted);stroke-width:1.4;"></i></div>
-                            <div style="font-size:15px;font-weight:600;color:var(--text-secondary);margin-bottom:6px;">Reading area</div>
+                        <div class="placeholder-box" style="max-width:600px;margin:0 auto;min-height:calc(100vh - 250px);background:var(--bg-card);">
+                            <div style="margin-bottom:14px;display:flex;justify-content:center;"><i data-lucide="book-open" style="width:40px;height:40px;color:var(--text-muted);stroke-width:1.4;"></i></div>
+                            <div style="font-size:15px;font-weight:600;color:var(--text-secondary);margin-bottom:6px;">Reading Area</div>
                             <span style="font-size:12px;">Open a document from the bookshelf to start reading</span><br><br>
                             <button class="btn-primary" onclick="readerOpenBookshelf()">Open Bookshelf</button>
                         </div>
@@ -661,22 +564,22 @@
                         <button onclick="readerAction('note')" style="padding:6px 12px;border-radius:6px;border:none;font-size:12px;font-weight:600;background:#52c41a;color:#fff;cursor:pointer;">Note</button>
                         <button onclick="readerAction('ai')" style="padding:6px 12px;border-radius:6px;border:none;font-size:12px;font-weight:600;background:#722ed1;color:#fff;cursor:pointer;">Ask AI</button>
                     </div>
-                    <div id="reader-action-panel" style="display:none;max-width:620px;margin:0 auto;padding:0 16px 16px;"></div>
+                    <div id="reader-action-panel" style="display:none;max-width:600px;margin:0 auto;padding:0 16px 16px;"></div>
                 </div>
-                <aside id="reader-notes-aside" class="reader-notes-panel" style="width:300px;border-left:1px solid var(--border);background:var(--bg-card);padding:16px;flex-shrink:0;overflow-y:auto;transition:width .2s ease,min-width .2s ease,padding .2s ease,border .2s ease;" class="scrollbar">
+                <aside id="reader-notes-aside" class="reader-notes-panel" style="width:280px;border-left:1px solid var(--border);background:var(--bg-card);padding:16px;flex-shrink:0;overflow-y:auto;transition:width .2s ease,min-width .2s ease,padding .2s ease,border .2s ease;" class="scrollbar">
                     <div style="display:flex;align-items:center;gap:8px;margin-bottom:12px;">
-                        <h3 style="font-size:14px;font-weight:700;">Notes</h3>
+                        <h3 style="font-size:14px;font-weight:600;">Notes</h3>
                         <span style="margin-left:auto;font-size:12px;color:var(--text-muted);" id="reader-note-count">0 notes</span>
-                        <button onclick="toggleNotesPanel()" id="notes-toggle-btn" style="width:24px;height:24px;border-radius:6px;border:none;background:var(--bg-hover);color:var(--text-muted);cursor:pointer;font-size:12px;flex-shrink:0;" title="Collapse notes">▶</button>
+                        <button onclick="toggleNotesPanel()" id="notes-toggle-btn" style="width:24px;height:24px;border-radius:4px;border:none;background:var(--bg-hover);color:var(--text-muted);cursor:pointer;font-size:12px;flex-shrink:0;" title="Collapse notes">▶</button>
                     </div>
                     <div id="reader-notes-content">
-                        <div class="surface" style="padding:12px;margin-bottom:12px;">
-                            <textarea id="reader-quick-note" placeholder="Quick note..." style="width:100%;padding:8px;border-radius:8px;font-size:12px;resize:none;border:1px solid var(--border);background:var(--bg-input);color:var(--text-primary);outline:none;" rows="2"></textarea>
-                            <button class="btn-secondary" style="width:100%;font-size:12px;padding:6px;margin-top:8px;" onclick="readerSaveQuickNote()">+ Add Note</button>
+                        <div style="margin-bottom:12px;">
+                            <textarea id="reader-quick-note" placeholder="Quick note..." style="width:100%;padding:8px;border-radius:6px;font-size:12px;resize:none;border:1px solid var(--border);background:var(--bg-input);color:var(--text-primary);outline:none;" rows="2"></textarea>
+                            <button class="btn-secondary" style="width:100%;font-size:12px;padding:4px;margin-top:4px;" onclick="readerSaveQuickNote()">+ Add Note</button>
                         </div>
                         <div id="reader-notes-list" style="display:flex;flex-direction:column;gap:8px;margin-bottom:16px;"></div>
                         <div style="border-top:1px solid var(--border);padding-top:12px;">
-                            <h3 style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.12em;color:var(--text-muted);margin-bottom:8px;">Highlights</h3>
+                            <h3 style="font-size:11px;font-weight:600;text-transform:uppercase;color:var(--text-muted);margin-bottom:8px;">Highlights</h3>
                             <div id="reader-highlights-list" style="display:flex;flex-direction:column;gap:4px;"></div>
                         </div>
                     </div>
@@ -738,21 +641,13 @@
         </div>
 
         <!-- ===== BOOKSHELF (FUNCTIONAL) ===== -->
-        <div id="page-bookshelf" class="page-view">
-            <div class="page-shell">
-                <div class="page-hero surface" style="display:flex;justify-content:space-between;align-items:flex-end;gap:16px;">
-                    <div>
-                        <div class="page-kicker">Library</div>
-                        <h1 class="page-title">My Bookshelf</h1>
-                        <p class="page-subtitle" id="bs-page-count">All your study materials in one place.</p>
-                    </div>
-                    <button class="btn-secondary" style="border-style:dashed;" onclick="bsUpload()">Upload PDF</button>
-                </div>
-                <div class="surface" style="padding:14px 16px 18px;">
-                    <div id="bs-page-tabs" style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:16px;"></div>
-                    <div id="bs-page-grid" style="display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:12px;min-height:300px;"></div>
-                </div>
+        <div id="page-bookshelf" class="page-view" style="max-width:1000px;margin:0 auto;padding:40px 48px;">
+            <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:24px;">
+                <div><h1 style="font-size:24px;font-weight:700;">My Bookshelf</h1><p style="color:var(--text-muted);font-size:13px;margin-top:4px;" id="bs-page-count">All your study materials</p></div>
+                <button class="btn-secondary" style="border-style:dashed;" onclick="bsUpload()">Upload PDF</button>
             </div>
+            <div id="bs-page-tabs" style="display:flex;gap:4px;border-bottom:1px solid var(--border);padding-bottom:8px;margin-bottom:16px;"></div>
+            <div id="bs-page-grid" style="display:grid;grid-template-columns:repeat(5,1fr);gap:12px;min-height:300px;"></div>
         </div>
 
         <!-- ===== PROFILE ===== -->
@@ -1195,12 +1090,11 @@ function tutorUploadMaterial(){
 
 function tutorRenderMaterials(){
     const c=document.getElementById('tutor-materials');if(!c)return;
-    c.innerHTML=tutorMaterials.length?tutorMaterials.map((m,i)=>
-        `<div class="surface" style="display:flex;align-items:center;gap:10px;padding:10px 12px;font-size:12px;">
-        <span style="color:var(--text-secondary);display:flex;align-items:center;">${iconHtml('paperclip',13)}</span><span style="color:var(--text-primary);font-weight:500;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;flex:1;">${m.name}</span><span style="color:var(--text-muted);white-space:nowrap;">${m.size}</span>
-        <button onclick="tutorMaterials.splice(${i},1);tutorRenderMaterials()" style="margin-left:4px;color:#ff6b6b;background:none;border:none;cursor:pointer;font-size:14px;line-height:1;">×</button></div>`
-    ).join(''):'';
-    refreshIcons();
+    c.innerHTML=tutorMaterials.map((m,i)=>
+        `<div style="display:flex;align-items:center;gap:8px;padding:6px 12px;border-radius:6px;background:var(--bg-input);margin-bottom:4px;font-size:12px;">
+        <span style="color:var(--text-secondary);">${iconHtml('paperclip',13)}</span><span style="color:var(--text-primary);">${m.name}</span><span style="color:var(--text-muted);">${m.size}</span>
+        <button onclick="tutorMaterials.splice(${i},1);tutorRenderMaterials()" style="margin-left:auto;color:#ff6b6b;background:none;border:none;cursor:pointer;font-size:14px;">×</button></div>`
+    ).join('');refreshIcons();
 }
 
 function tutorSendQuick(q){
@@ -1251,7 +1145,7 @@ async function tutorSend(){
     kimiCall(msgs,
         full=>{const el=document.getElementById(bubbleId);if(el)el.innerHTML=mdToHtmlTutor(full)+'<span style="opacity:.5;">▌</span>';chat.scrollTop=chat.scrollHeight;},
         full=>{const el=document.getElementById(bubbleId);if(el)el.innerHTML=mdToHtmlTutor(full);tutorChatHistory.push({role:'assistant',content:full});chat.scrollTop=chat.scrollHeight;
-            // Post-answer concept tracing: locate theorems in user's textbooks (async, non-blocking)
+            // Post-answer concept tracing: locate theorems in user's textbooks
             traceConcepts(full,aiDiv);
             // Suggest practice + A-Level connections in General mode
             if(tutorMode==='general'){
@@ -1436,11 +1330,11 @@ function notesRender(){
     if(cnt)cnt.textContent=activeNotes.length+(activeNotes.length===1?' note':' notes');
     // Build tag filter
     const allTags=[...new Set(activeNotes.map(n=>n.tag).filter(t=>t))];
-    let tagButtons=['<button class="chip'+(notesFilterTag==='all'?' active':'')+'" onclick="notesFilterTag=\'all\';notesRender()" style="border:none;cursor:pointer;">All</button>'];
-    tagButtons=tagButtons.concat(allTags.map(t=>'<button class="chip'+(notesFilterTag===t?' active':'')+'" onclick="notesFilterTag=\''+escapeHtml(t)+'\';notesRender()" style="border:none;cursor:pointer;">'+escapeHtml(t)+'</button>'));
+    let tagButtons=['<button onclick="notesFilterTag=\'all\';notesRender()" style="font-size:11px;padding:4px 10px;border-radius:999px;cursor:pointer;border:1px solid '+(notesFilterTag==='all'?'var(--accent)':'var(--border)')+';background:'+(notesFilterTag==='all'?'var(--accent)':'var(--bg-input)')+';color:'+(notesFilterTag==='all'?'#fff':'var(--text-secondary)')+';">All</button>'];
+    tagButtons=tagButtons.concat(allTags.map(t=>'<button onclick="notesFilterTag=\''+escapeHtml(t)+'\';notesRender()" style="font-size:11px;padding:4px 10px;border-radius:999px;cursor:pointer;border:1px solid '+(notesFilterTag===t?'var(--accent)':'var(--border)')+';background:'+(notesFilterTag===t?'var(--accent)':'var(--bg-input)')+';color:'+(notesFilterTag===t?'#fff':'var(--text-secondary)')+';">'+escapeHtml(t)+'</button>'));
     // Add Recycle Bin tag
-    const rbStyle=notesFilterTag==='__recycle__'?'background:#ff6b6b;border-color:#ff6b6b;color:#fff;':'';
-    tagButtons.push('<button class="chip'+(notesFilterTag==='__recycle__'?' active':'')+'" onclick="notesFilterTag=\'__recycle__\';notesRender()" style="border:none;cursor:pointer;'+rbStyle+'">Recycle Bin'+(deletedCount>0?' <span style="font-size:10px;padding:1px 5px;border-radius:999px;background:#fff;color:#ff6b6b;font-weight:600;">'+deletedCount+'</span>':'')+'</button>');
+    const rbStyle=notesFilterTag==='__recycle__'?'border:1px solid #ff6b6b;background:#ff6b6b;color:#fff;':'border:1px solid var(--border);background:var(--bg-input);color:var(--text-secondary);';
+    tagButtons.push('<button onclick="notesFilterTag=\'__recycle__\';notesRender()" style="font-size:11px;padding:4px 10px;border-radius:999px;cursor:pointer;'+rbStyle+'">Recycle Bin'+(deletedCount>0?' <span style="font-size:10px;padding:1px 5px;border-radius:999px;background:#fff;color:#ff6b6b;font-weight:600;">'+deletedCount+'</span>':'')+'</button>');
     if(tagsEl)tagsEl.innerHTML=tagButtons.join('');
     // Filter
     let filtered;
@@ -1459,10 +1353,10 @@ function notesRender(){
         const dateStr=date?new Date(date).toLocaleDateString():'';
         const preview=(n.content||'').substring(0,200)+((n.content||'').length>200?'...':'');
         if(n.isDeleted){
-            return `<div class="document-card" style="padding:14px;opacity:.72;" onmouseenter="this.style.opacity='1'" onmouseleave="this.style.opacity='.72'">
+            return `<div class="card" style="opacity:.6;transition:opacity .15s;" onmouseenter="this.style.opacity='1'" onmouseleave="this.style.opacity='.6'">
                 <div style="display:flex;align-items:center;gap:8px;margin-bottom:6px;">
                     <span style="font-size:14px;font-weight:600;color:var(--text-primary);text-decoration:line-through;">${escapeHtml(n.title||'Untitled')}</span>
-                    ${n.tag?'<span class="chip" style="padding:2px 8px;font-size:10px;">'+escapeHtml(n.tag)+'</span>':''}
+                    ${n.tag?'<span style="font-size:10px;padding:1px 6px;border-radius:4px;background:var(--bg-input);color:var(--text-muted);">'+escapeHtml(n.tag)+'</span>':''}
                     <span style="margin-left:auto;font-size:11px;color:var(--text-muted);">Deleted ${n.deletedAt?new Date(n.deletedAt).toLocaleDateString():''}</span>
                 </div>
                 <p style="font-size:13px;color:var(--text-secondary);white-space:pre-wrap;">${escapeHtml(preview)}</p>
@@ -1473,13 +1367,13 @@ function notesRender(){
             </div>`;
         }
         if(n.isPdf){
-            return `<div class="document-card" style="cursor:pointer;position:relative;padding:14px;" onmouseenter="this.querySelector('.note-del-btn').style.opacity='1'" onmouseleave="this.querySelector('.note-del-btn').style.opacity='0'">
-                <button class="note-del-btn" onclick="event.stopPropagation();notesDeletePdfNote('${n.id}')" style="position:absolute;top:8px;right:8px;width:22px;height:22px;border-radius:999px;border:none;background:rgba(255,107,107,.9);color:#fff;font-size:11px;cursor:pointer;opacity:0;transition:opacity .15s;display:flex;align-items:center;justify-content:center;z-index:2;">×</button>
+            return `<div class="card" style="cursor:pointer;position:relative;" onmouseenter="this.querySelector('.note-del-btn').style.opacity='1'" onmouseleave="this.querySelector('.note-del-btn').style.opacity='0'">
+                <button class="note-del-btn" onclick="event.stopPropagation();notesDeletePdfNote('${n.id}')" style="position:absolute;top:8px;right:8px;width:22px;height:22px;border-radius:6px;border:none;background:rgba(255,107,107,.9);color:#fff;font-size:11px;cursor:pointer;opacity:0;transition:opacity .15s;display:flex;align-items:center;justify-content:center;z-index:2;">×</button>
                 <div onclick="notesOpenPdf('${n.id}')" style="width:100%;">
                 <div style="display:flex;align-items:center;gap:8px;margin-bottom:6px;">
                     <span style="color:#722ed1;display:flex;align-items:center;">${iconHtml('file-text',18)}</span>
                     <span style="font-size:14px;font-weight:600;color:var(--text-primary);">${escapeHtml(n.title||'Untitled PDF')}</span>
-                    <span class="chip active" style="padding:2px 8px;font-size:10px;">PDF</span>
+                    <span style="font-size:10px;padding:1px 6px;border-radius:4px;background:rgba(114,46,209,.1);color:#722ed1;font-weight:600;">PDF</span>
                     <span style="margin-left:auto;font-size:11px;color:var(--text-muted);">${dateStr}</span>
                 </div>
                 <div style="font-size:12px;color:var(--text-muted);display:flex;align-items:center;gap:6px;">
@@ -1488,12 +1382,12 @@ function notesRender(){
                 </div></div>
             </div>`;
         }
-        return `<div class="document-card" style="cursor:pointer;position:relative;padding:14px;" onmouseenter="this.querySelector('.note-del-btn').style.opacity='1'" onmouseleave="this.querySelector('.note-del-btn').style.opacity='0'">
-            <button class="note-del-btn" onclick="event.stopPropagation();notesDeleteNote('${n.id}')" style="position:absolute;top:8px;right:8px;width:22px;height:22px;border-radius:999px;border:none;background:rgba(255,107,107,.9);color:#fff;font-size:11px;cursor:pointer;opacity:0;transition:opacity .15s;display:flex;align-items:center;justify-content:center;z-index:2;">×</button>
+        return `<div class="card" style="cursor:pointer;position:relative;" onmouseenter="this.querySelector('.note-del-btn').style.opacity='1'" onmouseleave="this.querySelector('.note-del-btn').style.opacity='0'">
+            <button class="note-del-btn" onclick="event.stopPropagation();notesDeleteNote('${n.id}')" style="position:absolute;top:8px;right:8px;width:22px;height:22px;border-radius:6px;border:none;background:rgba(255,107,107,.9);color:#fff;font-size:11px;cursor:pointer;opacity:0;transition:opacity .15s;display:flex;align-items:center;justify-content:center;z-index:2;">×</button>
             <div onclick="notesEdit('${n.id}')" style="width:100%;">
             <div style="display:flex;align-items:center;gap:8px;margin-bottom:6px;">
                 <span style="font-size:14px;font-weight:600;color:var(--text-primary);">${escapeHtml(n.title||'Untitled')}</span>
-                ${n.tag?'<span class="chip" style="padding:2px 8px;font-size:10px;">'+escapeHtml(n.tag)+'</span>':''}
+                ${n.tag?'<span style="font-size:10px;padding:1px 6px;border-radius:4px;background:var(--bg-input);color:var(--text-muted);">'+escapeHtml(n.tag)+'</span>':''}
                 <span style="margin-left:auto;font-size:11px;color:var(--text-muted);">${dateStr}</span>
             </div>
             <p style="font-size:13px;color:var(--text-secondary);white-space:pre-wrap;">${escapeHtml(preview)}</p></div>
@@ -2388,7 +2282,7 @@ async function bsPageInit(){
 }
 function renderSkeletonGrid(id,count){
     const g=document.getElementById(id);if(!g)return;
-    g.innerHTML=Array.from({length:count}).map(()=>'<div class="surface" style="display:flex;flex-direction:column;gap:10px;align-items:center;padding:14px;"><div class="skeleton" style="width:48px;height:56px;border-radius:8px;"></div><div class="skeleton" style="width:72%;height:12px;"></div><div class="skeleton" style="width:48%;height:10px;"></div></div>').join('');
+    g.innerHTML=Array.from({length:count}).map(()=>'<div style="display:flex;flex-direction:column;gap:10px;align-items:center;padding:14px;"><div class="skeleton" style="width:48px;height:56px;border-radius:8px;"></div><div class="skeleton" style="width:72%;height:12px;"></div><div class="skeleton" style="width:48%;height:10px;"></div></div>').join('');
 }
 async function loadDocumentsFromBackend(){
     try{
@@ -2428,15 +2322,15 @@ function bsRenderDashboard(cat){
     if(!tabs||!grid)return;
     // Render tabs
     tabs.innerHTML='';
-    BS_CATS.forEach((c,i)=>{const t=document.createElement('button');t.className='chip'+(c.key===cat?' active':'');t.style.cssText='padding:6px 10px;border:none;cursor:pointer;';
+    BS_CATS.forEach((c,i)=>{const t=document.createElement('span');t.style.cssText=`font-size:12px;padding:3px 10px;cursor:pointer;border-bottom:2px solid ${c.key===cat?'var(--accent)':'transparent'};color:${c.key===cat?'var(--accent)':'var(--text-muted)'};font-weight:${c.key===cat?'600':'400'};white-space:nowrap;`;
         t.innerHTML=iconHtml(c.icon,13)+' '+c.label;t.onclick=()=>{bsRenderDashboard(c.key);};tabs.appendChild(t);});refreshIcons();
     // Render grid
     const docs=(bsData[cat]||[]).filter(d=>!d.isDeleted);
     if(docs.length===0){grid.innerHTML='<div style="grid-column:1/-1;text-align:center;padding:20px;color:var(--text-muted);font-size:12px;">No documents in this category</div>';return;}
     grid.innerHTML=docs.map((d,i)=>{const origIdx=(bsData[cat]||[]).indexOf(d);
         const showMineru=(d.fileType==='pdf'&&d.needsOcr&&d.parseStatus!=='done');
-        const aiBadge=d.parseStatus==='done'?'<span style="position:absolute;top:8px;left:8px;font-size:8px;padding:1px 6px;border-radius:999px;background:rgba(82,196,26,.18);color:#52c41a;font-weight:700;z-index:2;">MinerU</span>':'';
-        const sparkBtn=showMineru?`<button class="dash-spark-btn" onclick="event.stopPropagation();bsMineruById('${d.id}')" style="position:absolute;top:8px;left:8px;width:22px;height:22px;border-radius:999px;border:none;background:#722ed1;color:#fff;font-size:10px;cursor:pointer;opacity:0;transition:opacity .15s;display:flex;align-items:center;justify-content:center;z-index:2;" title="Enable AI re-layout">✨</button>`:'';
+        const aiBadge=d.parseStatus==='done'?'<span style="position:absolute;top:2px;left:2px;font-size:8px;padding:1px 5px;border-radius:4px;background:rgba(82,196,26,.18);color:#52c41a;font-weight:600;z-index:2;">MinerU</span>':'';
+        const sparkBtn=showMineru?`<button class="dash-spark-btn" onclick="event.stopPropagation();bsMineruById('${d.id}')" style="position:absolute;top:2px;left:2px;width:18px;height:18px;border-radius:4px;border:none;background:#722ed1;color:#fff;font-size:9px;cursor:pointer;opacity:0;transition:opacity .15s;display:flex;align-items:center;justify-content:center;z-index:2;" title="Enable AI re-layout">✨</button>`:'';
         const isParsing=(d.parseStatus==='queued'||d.parseStatus==='parsing'||d.parseStatus==='indexing');
         const prog=(isParsing&&mineruTracker.progress&&mineruTracker.progress[d.id])||null;
         const pct=prog&&prog.total_pages?Math.min(99,Math.round(prog.pages_done*100/prog.total_pages)):0;
@@ -2447,31 +2341,31 @@ function bsRenderDashboard(cat){
                 :'<div style="height:3px;background:var(--bg-input);"><div class="mineru-prog-fill" style="height:100%;width:'+pct+'%;background:#faad14;transition:width .6s ease;"></div></div>')
              +'<span class="mineru-prog-pct" style="position:absolute;right:2px;bottom:4px;font-size:8px;color:#faad14;font-weight:600;">'+(d.parseStatus==='queued'?'…':(d.parseStatus==='indexing'?'idx':pct+'%'))+'</span></div>'
             :'';
-        return `<div class="document-card" style="padding:10px;text-align:center;overflow:hidden;" onmouseenter="this.querySelector('.dash-del-btn').style.opacity='1';var s=this.querySelector('.dash-spark-btn');if(s)s.style.opacity='1'" onmouseleave="this.querySelector('.dash-del-btn').style.opacity='0';var s=this.querySelector('.dash-spark-btn');if(s)s.style.opacity='0'">
-        <button class="dash-del-btn" onclick="event.stopPropagation();bsDeleteDocument('${d.id}')" style="position:absolute;top:8px;right:8px;width:22px;height:22px;border-radius:999px;border:none;background:rgba(255,107,107,.9);color:#fff;font-size:11px;cursor:pointer;opacity:0;transition:opacity .15s;display:flex;align-items:center;justify-content:center;z-index:2;">×</button>
+        return `<div style="border:1px solid var(--border);border-radius:8px;padding:8px;text-align:center;transition:all .15s;background:var(--bg-card);position:relative;overflow:hidden;" onmouseenter="this.style.borderColor='var(--accent)';this.querySelector('.dash-del-btn').style.opacity='1';var s=this.querySelector('.dash-spark-btn');if(s)s.style.opacity='1'" onmouseleave="this.style.borderColor='var(--border)';this.querySelector('.dash-del-btn').style.opacity='0';var s=this.querySelector('.dash-spark-btn');if(s)s.style.opacity='0'">
+        <button class="dash-del-btn" onclick="event.stopPropagation();bsDeleteDocument('${d.id}')" style="position:absolute;top:2px;right:2px;width:18px;height:18px;border-radius:4px;border:none;background:rgba(255,107,107,.9);color:#fff;font-size:11px;cursor:pointer;opacity:0;transition:opacity .15s;display:flex;align-items:center;justify-content:center;z-index:2;">×</button>
         ${sparkBtn}${aiBadge}${progOverlay}
         <div onclick="bsOpenFromDash('${cat}',${origIdx})" style="cursor:pointer;">
-        <div style="margin-bottom:6px;display:flex;justify-content:center;color:var(--text-secondary);">${iconHtml(d.icon,20)}</div>
-        <div style="font-size:11px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;color:var(--text-primary);">${d.title}</div>
-        <div class="document-meta" style="margin-top:4px;">${d.desc||'Study material'}</div></div></div>`;}).join('');refreshIcons();
+        <div style="margin-bottom:4px;display:flex;justify-content:center;color:var(--text-secondary);">${iconHtml(d.icon,20)}</div>
+        <div style="font-size:11px;font-weight:500;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;color:var(--text-primary);">${d.title}</div></div></div>`;}).join('');refreshIcons();
 }
+function bsOpenFromDash(cat,idx){showPage('reader');setTimeout(()=>readerOpenDoc(cat,idx),100);}
 function bsPageRenderTabs(){const c=document.getElementById('bs-page-tabs');if(!c)return;c.innerHTML='';
     const allCats=[...BS_CATS,{key:'recycle-bin',icon:'trash-2',label:'Recycle Bin'}];
-    allCats.forEach((cat,i)=>{const t=document.createElement('button');t.className='chip'+(cat.key===bsPageCat?' active':'');t.style.cssText='padding:7px 12px;border:none;cursor:pointer;';
+    allCats.forEach((cat,i)=>{const t=document.createElement('span');t.style.cssText=`font-size:14px;padding:4px 16px;cursor:pointer;border-bottom:2px solid ${cat.key===bsPageCat?'var(--accent)':'transparent'};color:${cat.key===bsPageCat?'var(--accent)':'var(--text-muted)'};font-weight:${cat.key===bsPageCat?'600':'400'};white-space:nowrap;`;
         t.innerHTML=iconHtml(cat.icon,14)+' '+cat.label;
         if(cat.key==='recycle-bin'){
             const deletedCount=Object.values(bsData).flat().filter(d=>d.isDeleted).length;
             if(deletedCount>0)t.innerHTML+=` <span style="font-size:10px;padding:1px 5px;border-radius:999px;background:#ff6b6b;color:#fff;font-weight:600;">${deletedCount}</span>`;
-            if(bsPageCat==='recycle-bin'){t.style.color='#ff6b6b';}
+            if(bsPageCat==='recycle-bin'){t.style.borderBottomColor='#ff6b6b';t.style.color='#ff6b6b';}
         }
-        t.onclick=()=>{c.querySelectorAll('button').forEach(s=>{s.classList.remove('active');s.style.color='var(--text-secondary)';});t.classList.add('active');t.style.color=cat.key==='recycle-bin'?'#ff6b6b':'var(--accent)';bsPageCat=cat.key;bsPageRenderGrid(cat.key);};c.appendChild(t);});refreshIcons();}
+        t.onclick=()=>{c.querySelectorAll('span').forEach(s=>{s.style.borderBottomColor='transparent';s.style.color='var(--text-muted)';s.style.fontWeight='400';});t.style.borderBottomColor='var(--accent)';t.style.color='var(--accent)';t.style.fontWeight='600';if(cat.key==='recycle-bin'){t.style.borderBottomColor='#ff6b6b';t.style.color='#ff6b6b';}bsPageCat=cat.key;bsPageRenderGrid(cat.key);};c.appendChild(t);});refreshIcons();}
 function bsPageRenderGrid(cat){
     const g=document.getElementById('bs-page-grid');const c=document.getElementById('bs-page-count');if(!g)return;
     if(cat==='recycle-bin'){
         const docs=Object.values(bsData).flat().filter(d=>d.isDeleted);
         if(c)c.textContent=`${docs.length} document(s) in Recycle Bin`;
         if(docs.length===0){g.innerHTML=`<div class="placeholder-box" style="grid-column:1/-1;">Recycle Bin is empty<br><span style="font-size:12px;">Deleted documents will appear here</span></div>`;return;}
-        g.innerHTML=docs.map(d=>`<div class="document-card" style="padding:12px;opacity:.72;" onmouseenter="this.style.opacity='1'" onmouseleave="this.style.opacity='.72'">
+        g.innerHTML=docs.map(d=>`<div style="border:1px solid var(--border);border-radius:10px;padding:12px;transition:all .15s;background:var(--bg-card);position:relative;opacity:.6;" onmouseenter="this.style.opacity='1'" onmouseleave="this.style.opacity='.6'">
             <div style="text-align:center;margin-bottom:8px;"><div style="width:48px;height:56px;border-radius:8px;display:inline-flex;align-items:center;justify-content:center;color:var(--text-secondary);background:var(--bg-tag);">${iconHtml(d.icon,22)}</div></div>
             <div style="font-size:13px;font-weight:600;text-align:center;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${d.title}</div>
             <div style="font-size:11px;color:var(--text-muted);text-align:center;">Deleted ${d.deletedAt?new Date(d.deletedAt).toLocaleDateString():''}</div>
@@ -2508,12 +2402,12 @@ function bsPageRenderGrid(cat){
         }else if(d.parseStatus==='failed'){
             statusLine='<div style="font-size:10px;color:#ff6b6b;text-align:center;margin-top:6px;">⚠️ Parsing failed</div>';
         }
-        return `<div class="document-card" style="padding:12px;cursor:pointer;position:relative;" onmouseenter="this.querySelector('.bs-del-btn').style.opacity='1'" onmouseleave="this.querySelector('.bs-del-btn').style.opacity='0'">
-        <button class="bs-del-btn" onclick="event.stopPropagation();bsDeleteDocument('${d.id}')" style="position:absolute;top:8px;right:8px;width:22px;height:22px;border-radius:999px;border:none;background:rgba(255,107,107,.9);color:#fff;font-size:11px;cursor:pointer;opacity:0;transition:opacity .15s;display:flex;align-items:center;justify-content:center;z-index:2;">×</button>
-        <span style="position:absolute;top:8px;left:8px;font-size:9px;padding:2px 6px;border-radius:999px;background:rgba(82,196,26,.15);color:#52c41a;font-weight:600;">Yours</span>
+        return `<div style="border:1px solid var(--border);border-radius:10px;padding:12px;cursor:pointer;transition:all .18s cubic-bezier(.2,.8,.2,1);background:var(--bg-card);position:relative;box-shadow:var(--shadow-xs);" onmouseenter="this.style.borderColor='var(--accent)';this.style.transform='translateY(-3px)';this.style.boxShadow='var(--shadow-md)';this.querySelector('.bs-del-btn').style.opacity='1'" onmouseleave="this.style.borderColor='var(--border)';this.style.transform='translateY(0)';this.style.boxShadow='var(--shadow-xs)';this.querySelector('.bs-del-btn').style.opacity='0'">
+        <button class="bs-del-btn" onclick="event.stopPropagation();bsDeleteDocument('${d.id}')" style="position:absolute;top:6px;right:6px;width:22px;height:22px;border-radius:6px;border:none;background:rgba(255,107,107,.9);color:#fff;font-size:11px;cursor:pointer;opacity:0;transition:opacity .15s;display:flex;align-items:center;justify-content:center;z-index:2;">×</button>
+        <span style="position:absolute;top:6px;left:6px;font-size:9px;padding:1px 6px;border-radius:4px;background:rgba(82,196,26,.15);color:#52c41a;font-weight:500;">Yours</span>
         <div onclick="bsOpenFromPage('${cat}',${origIdx})" style="cursor:pointer;">
         <div style="text-align:center;margin-bottom:8px;"><div style="width:48px;height:56px;border-radius:8px;display:inline-flex;align-items:center;justify-content:center;color:var(--text-secondary);background:var(--bg-tag);">${iconHtml(d.icon,22)}</div></div>
-        <div style="font-size:13px;font-weight:600;text-align:center;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${d.title}</div><div class="document-meta" style="text-align:center;">${d.desc||'Study material'}</div></div>
+        <div style="font-size:13px;font-weight:600;text-align:center;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${d.title}</div><div style="font-size:11px;color:var(--text-muted);text-align:center;">${d.desc}</div></div>
         <div style="text-align:center;margin-top:8px;display:flex;gap:6px;justify-content:center;align-items:center;">
             <span onclick="bsOpenFromPage('${cat}',${origIdx})" style="font-size:11px;padding:2px 10px;border-radius:4px;background:var(--accent);color:#fff;cursor:pointer;">Read</span>
             ${showMineru?`<button onclick="event.stopPropagation();bsMineruById('${d.id}')" style="font-size:11px;padding:2px 10px;border-radius:4px;background:#722ed1;color:#fff;border:none;cursor:pointer;">✨ MinerU</button>`:''}
@@ -2579,16 +2473,16 @@ function readerOpenBookshelf(){readerRenderModalTabs();readerRenderModalDocs('al
 function readerCloseBookshelf(){document.getElementById('reader-bs-modal').style.display='none';}
 function readerRenderModalTabs(){const c=document.getElementById('reader-bs-tabs');if(!c)return;c.innerHTML='';
     const cats=[{key:'all',icon:'layout-grid',label:'All'},...BS_CATS];
-    cats.forEach((cat,i)=>{const t=document.createElement('button');t.className='chip'+(i===0?' active':'');t.style.cssText='padding:7px 12px;border:none;cursor:pointer;';
-        t.innerHTML=iconHtml(cat.icon,14)+' '+cat.label;t.onclick=()=>{c.querySelectorAll('button').forEach(b=>{b.classList.remove('active');b.style.color='var(--text-secondary)';});t.classList.add('active');t.style.color='var(--accent)';bsModalCat=cat.key;readerRenderModalDocs(cat.key);};c.appendChild(t);});refreshIcons();}
+    cats.forEach((cat,i)=>{const t=document.createElement('button');t.style.cssText=`padding:6px 12px;border-radius:6px;border:none;font-size:13px;font-weight:${i===0?'600':'400'};background:${i===0?'var(--accent)':'transparent'};color:${i===0?'#fff':'var(--text-secondary)'};cursor:pointer;`;
+        t.innerHTML=iconHtml(cat.icon,14)+' '+cat.label;t.onclick=()=>{c.querySelectorAll('button').forEach(b=>{b.style.background='transparent';b.style.color='var(--text-secondary)';b.style.fontWeight='400';});t.style.background='var(--accent)';t.style.color='#fff';t.style.fontWeight='600';bsModalCat=cat.key;readerRenderModalDocs(cat.key);};c.appendChild(t);});refreshIcons();}
 function readerRenderModalDocs(cat){const g=document.getElementById('reader-bs-grid');if(!g)return;
     const all=[];Object.keys(bsData).forEach(c=>bsData[c].forEach((d,i)=>{if(!d.isDeleted)all.push({...d,cat:c,idx:i});}));
     const docs=cat==='all'?all:all.filter(d=>d.cat===cat);
     if(docs.length===0){g.innerHTML=`<div class="placeholder-box" style="grid-column:1/-1;">No documents<br><button class="btn-secondary" style="margin-top:12px;" onclick="bsUpload()">📎 Upload PDF</button></div>`;return;}
     g.innerHTML=docs.map(d=>{const cl=BS_CATS.find(c=>c.key===d.cat);
-        return `<div class="document-card" onclick="readerOpenDoc('${d.cat}',${d.idx})" style="padding:12px;cursor:pointer;background:var(--bg-sidebar);">
+        return `<div onclick="readerOpenDoc('${d.cat}',${d.idx})" style="border:1px solid var(--border);border-radius:10px;padding:12px;cursor:pointer;transition:all .18s cubic-bezier(.2,.8,.2,1);background:var(--bg-sidebar);box-shadow:var(--shadow-xs);" onmouseenter="this.style.borderColor='var(--accent)';this.style.transform='translateY(-3px)';this.style.boxShadow='var(--shadow-md)'" onmouseleave="this.style.borderColor='var(--border)';this.style.transform='translateY(0)';this.style.boxShadow='var(--shadow-xs)'">
         <div style="text-align:center;margin-bottom:8px;"><div style="width:48px;height:56px;border-radius:8px;display:inline-flex;align-items:center;justify-content:center;color:var(--text-secondary);background:var(--bg-tag);">${iconHtml(d.icon,22)}</div></div>
-        <div style="font-size:13px;font-weight:600;text-align:center;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${d.title}</div><div class="document-meta" style="text-align:center;">${cl?cl.label:''}</div></div>`;}).join('');refreshIcons();}
+        <div style="font-size:13px;font-weight:600;text-align:center;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${d.title}</div><div style="font-size:11px;color:var(--text-muted);text-align:center;">${cl?cl.label:''}</div></div>`;}).join('');refreshIcons();}
 
 // ===== READER: OPEN DOC WITH PDF.JS (ScholarRead — text layer + smooth scroll) =====
 let readerNotes=[],readerHighlights=[],readerSelText='',readerSelRange=null,readerPdfDoc=null,readerPdfTotal=0;
@@ -2919,12 +2813,6 @@ async function readerRenderPdfPageFull(pageNum){
 }
 
 // ===== READER: TEXT SELECTION (Reader area only — peek has its own menu) =====
-// [Safety] Promote the float menu to document.body so it can NEVER be trapped
-// inside a hidden/clipped container (page-view display:none, overflow, etc.)
-(function(){
-    const _m=document.getElementById('reader-float-menu');
-    if(_m&&_m.parentNode!==document.body)document.body.appendChild(_m);
-})();
 document.addEventListener('mouseup',e=>{const area=document.getElementById('reader-content-area');const menu=document.getElementById('reader-float-menu');
     if(!area||!area.contains(e.target)){if(menu)menu.style.display='none';return;}
     const sel=window.getSelection();const text=sel.toString().trim();
@@ -3062,35 +2950,6 @@ async function aiChatMaybeRetrieveBookCtx(question){
     }catch(e){/* network hiccup: fall back silently */}
 }
 
-async function aiChatRetrieveBookCtxAfterAnswer(question,aiDiv){
-    if(!window.aiChatBookMode||!window.aiChatBookDocId)return;
-    const searchingEl=tbAnchorSearching(aiDiv);
-    try{
-        const res=await apiFetch('/api/documents/'+window.aiChatBookDocId+'/search',
-            {method:'POST',body:JSON.stringify({query:question})});
-        if(!res.ok){tbAnchorDismissSearching(searchingEl);return;}
-        const d=await res.json();
-        if(d.reason==='ok'&&d.chunks&&d.chunks.length){
-            const doc=Object.values(bsData).flat().find(x=>x.id===window.aiChatBookDocId)||{};
-            window.aiChatBookCtx=d.chunks.map(c=>'[Page '+c.page+'] '+c.text).join('\n\n');
-            const hits=d.chunks.map(c=>({...c,doc_id:window.aiChatBookDocId,book:doc.title||'Current book'}));
-            tbAnchorStrip(hits,aiDiv,searchingEl);
-            const quoteEl=document.getElementById('ai-chat-quote');
-            if(quoteEl){
-                quoteEl.textContent='📚 Whole book · '+d.chunks.length+' passages · p.'
-                    +d.chunks.map(c=>c.page).join(', p.');
-            }
-        }else{
-            tbAnchorDismissSearching(searchingEl);
-            if(d.reason==='not_parsed'||d.reason==='no_index'||d.reason==='not_textbook'||(d.reason&&d.reason.startsWith('retrieve_failed'))){
-                showNotification('⚠️ Whole-book search unavailable — answer shown without book retrieval');
-            }
-        }
-    }catch(e){
-        tbAnchorDismissSearching(searchingEl);
-    }
-}
-
 // ===== Automatic textbook anchoring (async, non-blocking) =====
 // The AI answer streams immediately; when retrieval hits, a green citation
 // strip appears ABOVE the answer. No hit -> nothing is shown.
@@ -3168,23 +3027,21 @@ async function traceConcepts(answerText,aiDiv){
         const res=await apiFetch('/api/textbooks/concepts',{
             method:'POST',body:JSON.stringify({answer_text:answerText})
         });
-        if(!res.ok){
-            status.textContent='📘 Key concept search is temporarily unavailable';
-            setTimeout(()=>{if(status.parentNode)status.remove();},1800);
-            return;
-        }
+        if(!res.ok){status.textContent='📘 Key concept search is temporarily unavailable';return;}
         const d=await res.json();
         if(d.reason!=='ok'||!d.concepts||!d.concepts.length){
-            status.textContent='📘 No obvious matching textbook concepts found';
-            setTimeout(()=>{if(status.parentNode)status.remove();},1800);
+            status.style.opacity='0';status.style.transition='opacity .3s';
+            setTimeout(()=>{if(status.parentNode)status.remove();},350);
             return;
         }
-        status.remove();
-        renderConceptCitations(d.concepts,aiDiv);
-    }catch(e){/* silent: answer already displayed */}
+        renderConceptCitations(d.concepts,aiDiv,status);
+    }catch(e){
+        status.textContent='📘 Key concept search is temporarily unavailable';
+    }
 }
 
-function renderConceptCitations(concepts,aiDiv){
+function renderConceptCitations(concepts,aiDiv,statusEl){
+    if(statusEl&&statusEl.parentNode)statusEl.remove();
     if(!aiDiv||!aiDiv.parentNode)return;
     const block=document.createElement('div');
     block.style.cssText='margin-top:8px;padding:8px 12px;border-radius:8px;background:rgba(114,46,209,.04);border-left:3px solid #722ed1;';
@@ -3201,14 +3058,13 @@ function renderConceptCitations(concepts,aiDiv){
     });
     block.innerHTML=html;
     aiDiv.parentNode.insertBefore(block,aiDiv.nextSibling);
-    window._conceptHits=concepts;   // store for peek window
+    window._conceptHits=concepts;
 }
 
 function conceptPeek(ci,hi){
     const c=(window._conceptHits||[])[ci];
     if(!c)return;
     const h=c.hits[hi];if(!h)return;
-    // Reuse the peek window by crafting a compatible hit object
     window.tbAnchorHits=[{doc_id:h.doc_id,book:h.book,page:h.page,text:''}];
     openTbPeek(0);
 }
@@ -3766,24 +3622,36 @@ async function aiChatSend(text){
     const streamId=aiDiv.querySelector('div:last-child').id;
     msgArea.scrollTop=msgArea.scrollHeight;
 
-    // Answer-first strategy: never block the streaming answer on whole-book RAG.
-    // Retrieval runs only after the answer is visible, then adds source chips.
-    window.aiChatBookCtx=null;
+    // Whole-book mode: retrieve fresh excerpts for THIS question (per-message RAG)
+    await aiChatMaybeRetrieveBookCtx(text);
     // Auto textbook anchoring: NON-BLOCKING — the answer streams immediately;
     // a citation strip appears above the bubble when retrieval hits
     aiChatAnchorAsync(text,aiDiv);
 
     // Build system context with quoted text
     const quoteEl=document.getElementById('ai-chat-quote');
-    const quote=quoteEl.style.display!=='none'&&!window.aiChatBookMode?quoteEl.textContent:'';
+    const quote=quoteEl.style.display!=='none'?quoteEl.textContent:'';
 
     const sysContent='You are CogniBridge, an AI maths tutor for university students. Be clear, concise and helpful. Use markdown formatting (bold, lists). If asked in Chinese, reply in Chinese. If English, reply in English.'+(quote?'\n\nThe student selected this text from their document:\n'+quote:'');
 
     // Context injection (backend filters system messages, so context rides in user
-    // messages): page context only. Book retrieval is now post-answer so it can
-    // never delay the first streamed tokens.
+    // messages): book excerpts → LAST user message; page context → FIRST user message
+    // (auto textbook anchoring no longer injects — it renders an async strip instead)
     let bodyMsgs=aiChatMessages;
-    if(window.aiChatPageContext){
+    if(window.aiChatBookCtx){
+        const lastIdx=bodyMsgs.map(m=>m.role).lastIndexOf('user');
+        if(lastIdx!==-1){
+            bodyMsgs=bodyMsgs.map((m,i)=>i===lastIdx
+                ?{...m,content:m.content+'\n\n[Textbook excerpts retrieved for your question — answer from them and cite pages as [Page N]]\n'+window.aiChatBookCtx}
+                :m);
+        }
+        bodyMsgs=bodyMsgs.map((m,i)=>{
+            const firstUser=i===bodyMsgs.findIndex(x=>x.role==='user');
+            return (firstUser&&m.role==='user'&&window.aiChatPageContext)
+                ?{...m,content:m.content+'\n\n[Context: the page the student is currently reading]\n'+window.aiChatPageContext}
+                :m;
+        });
+    }else if(window.aiChatPageContext){
         bodyMsgs=bodyMsgs.map((m,i)=>{
             const firstUser=i===bodyMsgs.findIndex(x=>x.role==='user');
             return (firstUser&&m.role==='user')
@@ -3805,7 +3673,6 @@ async function aiChatSend(text){
             if(el){el.innerHTML=markdownToHtml(full);enhanceCitations(el);}   // [MinerU] clickable [Page N]
             aiChatMessages.push({role:'assistant',content:full});
             msgArea.scrollTop=msgArea.scrollHeight;
-            aiChatRetrieveBookCtxAfterAnswer(text,aiDiv);
             // Post-answer concept tracing (exercises/exam-papers scope only)
             const _doc=Object.values(bsData).flat().find(d=>d.id===readerCurrentDocId);
             if(_doc&&['exercises','exam-papers'].includes(_doc.category)){
@@ -4052,7 +3919,7 @@ function readerRenderHighlights(){
 
 function readerJumpToPage(pageNum){
     const pageDiv=document.getElementById('pdf-page-'+pageNum);if(!pageDiv)return;
-    pageDiv.scrollIntoView({behavior:'smooth',block:'start'});
+    pageDiv.scrollIntoView({behavior:'auto',block:'start'});   // instant: smooth scrolled through every page
 }
 
 // ===== RECYCLE BIN & CONFIRM DIALOG =====
@@ -4810,6 +4677,7 @@ function readerRestoreScroll(target){
     const area=document.getElementById('reader-content-area');
     const el=document.getElementById('pdf-page-'+target);
     if(!area||!el)return;
+    area.style.scrollBehavior='auto';   // belt-and-suspenders: never animate programmatic landings
     const a=area.getBoundingClientRect(),r=el.getBoundingClientRect();
     area.scrollTop+=r.top-a.top-8;
     const tb=document.getElementById('reader-toolbar');
