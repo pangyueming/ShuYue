@@ -1019,8 +1019,21 @@ async def chat(req: ChatRequest):
                 "temperature": req.temperature,
                 "max_tokens": req.max_tokens,
                 "stream": True,
-                "enable_thinking": True,
+                # Answer-first UX: keep visible content flowing immediately.
+                # Some upstream models emit long reasoning/thinking deltas before
+                # normal content, which makes the frontend look stuck.
+                "enable_thinking": False,
             }, stream=True, timeout=120)
+
+            if resp.status_code != 200:
+                try:
+                    body = resp.json()
+                except Exception:
+                    body = {"message": resp.text[:500]}
+                detail = body.get("message") or body.get("error", {}).get("message") or str(body)[:500]
+                yield f"data: {json.dumps({'error': f'AI provider error {resp.status_code}: {detail}'})}\n\n"
+                yield "data: [DONE]\n\n"
+                return
 
             full_text = ""
             for line in resp.iter_lines(decode_unicode=True):
@@ -1576,6 +1589,88 @@ def textbooks_search(req: TextbookSearchRequest, current_user: dict = Depends(ge
         out.append({"doc_id": h["doc_id"], "book": titles.get(h["doc_id"], h["doc_id"]),
                     "page": h["page"], "text": h["text"][:600], "score": h["score"]})
     return {"chunks": out, "reason": "ok"}
+
+
+class ConceptTraceRequest(BaseModel):
+    answer_text: str = ""
+
+
+# Post-answer concept tracing: extract theorems from a completed AI answer,
+# then locate each in the user's indexed textbooks.
+@app.post("/api/textbooks/concepts")
+def textbooks_concepts(req: ConceptTraceRequest, current_user: dict = Depends(get_current_user)):
+    """Extract key mathematical concepts from an AI answer and cite textbook pages."""
+    if not current_user:
+        raise HTTPException(401, "Please log in")
+    text = (req.answer_text or "").strip()[:3000]
+    if len(text) < 30:
+        return {"concepts": [], "reason": "answer_too_short"}
+
+    # Phase 1: extract concepts via the cheap model
+    extract_prompt = (
+        "List the mathematical theorems, formulas, and named methods used in this solution. "
+        "Return ONLY a JSON array of strings (max 4 items). No explanation.\n\n"
+        f"Solution:\n{text}"
+    )
+    try:
+        resp = requests.post(BASE_URL, headers={
+            "Authorization": f"Bearer {DASHSCOPE_API_KEY}",
+            "Content-Type": "application/json",
+        }, json={
+            "model": TRANSLATE_MODEL,   # cheap qwen-turbo is enough for extraction
+            "messages": [
+                {"role": "system", "content": "Output only a JSON array of strings."},
+                {"role": "user", "content": extract_prompt},
+            ],
+            "temperature": 0.0,
+            "max_tokens": 200,
+        }, timeout=30)
+        body = resp.json()
+        raw = body.get("choices", [{}])[0].get("message", {}).get("content", "[]")
+        # Extract JSON array from the response
+        import re as _re
+        m = _re.search(r'\[.*?\]', raw, _re.DOTALL)
+        names = json.loads(m.group()) if m else []
+        names = [str(n).strip()[:80] for n in names if isinstance(n, str) and len(n.strip()) > 2][:4]
+    except Exception as e:
+        return {"concepts": [], "reason": f"extract_failed: {e}"}
+
+    if not names:
+        return {"concepts": [], "reason": "no_concepts"}
+
+    # Phase 2: search textbooks for each concept
+    conn = get_db()
+    books = conn.execute(
+        "SELECT id, title FROM documents WHERE user_id=? AND category='textbooks' AND parse_status='done'",
+        (current_user["id"],),
+    ).fetchall()
+    if not books:
+        conn.close()
+        return {"concepts": [], "reason": "no_textbooks"}
+
+    titles = {b["id"]: b["title"] for b in books}
+    doc_ids = [b["id"] for b in books]
+    concepts_out = []
+    for name in names:
+        try:
+            hits = rag.retrieve_multi(conn, doc_ids, name, DASHSCOPE_API_KEY, topk=2)
+        except Exception:
+            continue
+        if not hits:
+            continue
+        seen = set()
+        citations = []
+        for h in hits:
+            key = (h["doc_id"], h["page"])
+            if key in seen:
+                continue
+            seen.add(key)
+            citations.append({"book": titles.get(h["doc_id"], h["doc_id"]),
+                              "page": h["page"], "doc_id": h["doc_id"]})
+        if citations:
+            concepts_out.append({"name": name, "hits": citations})
+    conn.close()
+    return {"concepts": concepts_out, "reason": "ok"}
 
 
 @app.get("/api/documents/{doc_id}/pages/{page_num}")

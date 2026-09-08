@@ -576,6 +576,8 @@ passlib[bcrypt]             # 密码哈希（bcrypt）
 | 20 | **自动教材锚定（跨书检索，异步引用条）** | `rag.retrieve_multi` 跨书检索（问题向量仅算一次；**双路共识**：块须同时进入稠密/稀疏两路 Top-10 才算命中，杜绝弱相关误引）；`POST /api/textbooks/search` 自动圈定用户已索引教材（响应含 doc_id）；Chat AI 与 Math Tutor **非阻塞**异步触发——AI 立即流式作答，命中后答案上方浮现绿色引用条 `📚 书名 · p.X`，未命中不显示；**检索白名单：Chat AI 仅 Exercises/Exam Papers 分类的文档触发**（Tutor 恒可触发）；显式 📚 模式与游客自动跳过 |
 | 21 | **教材速览浮窗（边学边做）** | 点击引用条 → 教材原文浮窗（~30ms 拉取单页结构化块）：**标题栏拖拽** + **CSS resize:both 原生拉伸** + 多命中页标签切换 + docview 级渲染（标题分级/KaTeX 公式/表格）；与 AI Chat 弹窗双窗并排自由移动；**↗ Reader 按钮**一键升级——保留 AI 窗、docview 秒开（不下载整本 PDF）、复用跨视图保位机制精准落到目标页 |
 | 22 | **弹窗迷你阅读器 + 划词三件套 + 专属菜单** | 弹窗升级为全教材连续阅读（占位页+滑窗懒渲染）；**弹窗专属浮动菜单**（position:absolute 在弹窗内，弹窗坐标系定位+边界钳制，按钮直调 tbPeekAction）——翻译/高亮（4色+笔记，POST /api/highlights 按教材 docId+弹窗页码，Reader 同步）/笔记（POST /api/notes，Notes 页同步）/Ask AI（Chat 窗开着=追加追问不打断；没开=新引用会话）；**打开时适配列宽后冻结**（浏览器视口语义，拉伸零文字重排）；性能优化：占位页单次 innerHTML 批量构建 + rAF 后再 observe + 弹窗页码追踪器缓存列表；**"🔍 Searching your textbooks…" 检索中提示**（命中→替换为绿色引用条，未命中→300ms 淡出）；Reader docview 虚拟化（react-window/PDF.js 模式）：批量构建+滑窗观察（~40 页）+rAF 延迟注册，深跳秒开 |
+| 23 | **答案概念溯源（Post-Answer Concept Tracing）** | AI 回答完毕后异步提取回答中使用的定理/公式/方法名（qwen-turbo 后置提取，不阻塞答案显示）→ 对每个概念跨书 RAG 检索（双路共识）→ 在答案下方显示 "📚 Key concepts in your textbooks" 紫色区块，每条可点击打开教材浮窗；可见状态条 "🔎 Searching key concepts…" + 失败友好提示；适用范围：Math Tutor（General+Deep）+ Reader Chat AI（exercises/exam-papers 范围）；后端新增 `POST /api/textbooks/concepts` 端点 |
+| 24 | **Math Tutor UI 紧凑化** | Hero 区域压缩（标题+模式按钮同行、去副标题、减小 padding），chat-shell 加 max-height 限制+overflow 滚动，输入框始终在视口内无需下拉；快捷 chips 字号缩小 |
 
 ### 2026-08-13 ~ 2026-08-14：修复迭代
 
