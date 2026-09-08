@@ -432,9 +432,9 @@
         </div>
 
         <!-- ===== MATH TUTOR (FUNCTIONAL) ===== -->
-        <div id="page-tutor" class="page-view">
-            <div class="page-shell">
-                <div class="page-hero surface" style="padding:14px 18px;margin-bottom:12px;">
+        <div id="page-tutor" class="page-view" style="height:calc(100vh - 49px);display:flex;flex-direction:column;overflow:hidden;">
+            <div class="page-shell" style="flex:1;display:flex;flex-direction:column;overflow:hidden;width:100%;">
+                <div class="page-hero surface" style="padding:14px 18px;margin-bottom:12px;flex-shrink:0;">
                     <div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap;">
                         <div style="flex:1;min-width:200px;">
                             <div class="page-kicker">Tutor</div>
@@ -447,18 +447,18 @@
                     </div>
                     <p id="tutor-mode-desc" style="font-size:11px;color:var(--text-muted);margin-top:6px;">⚡ Direct answers with method breakdowns & concise explanations</p>
                 </div>
-                <div class="workspace-shell" style="gap:10px;">
-                    <div id="tutor-materials" style="display:flex;flex-direction:column;gap:6px;"></div>
-                    <div id="tutor-chat" class="chat-shell">
+                <div class="workspace-shell" style="gap:10px;flex:1;display:flex;flex-direction:column;overflow:hidden;min-height:0;">
+                    <div id="tutor-materials" style="display:flex;flex-direction:column;gap:6px;flex-shrink:0;"></div>
+                    <div id="tutor-chat" class="chat-shell" style="flex:1;min-height:0;max-height:none;">
                         <div class="surface chat-empty" style="padding:28px 20px;"><div class="chat-empty-title">Ask a question or upload materials to begin</div><span style="font-size:11px;">Powered by CogniBridge AI</span></div>
                     </div>
-                    <div style="display:flex;gap:5px;flex-wrap:wrap;">
+                    <div style="display:flex;gap:5px;flex-wrap:wrap;flex-shrink:0;">
                         <button onclick="tutorSendQuick('Evaluate: lim(x→0) sin(x)/x')" class="chip" style="font-size:10px;padding:4px 8px;">lim sin(x)/x</button>
                         <button onclick="tutorSendQuick('Prove that a²+b² ≥ 2ab for all real numbers')" class="chip" style="font-size:10px;padding:4px 8px;">Proof: a²+b²≥2ab</button>
                         <button onclick="tutorSendQuick('Find the eigenvalues of matrix [[2,1],[1,2]]')" class="chip" style="font-size:10px;padding:4px 8px;">Eigenvalues</button>
                         <button onclick="tutorSendQuick('Does the series Σ(1/n²) converge?')" class="chip" style="font-size:10px;padding:4px 8px;">Σ1/n² converge?</button>
                     </div>
-                    <div class="chat-composer" style="padding:10px 14px;">
+                    <div class="chat-composer" style="padding:10px 14px;flex-shrink:0;">
                         <span style="cursor:pointer;color:var(--text-secondary);display:flex;align-items:center;" onclick="tutorUploadMaterial()"><i data-lucide="paperclip" style="width:18px;height:18px;"></i></span>
                         <input id="tutor-input" class="input" style="flex:1;border:none;background:transparent;padding-left:0;" placeholder="Ask a maths question..." onkeypress="if(event.key==='Enter')tutorSend()">
                         <button class="btn-primary" onclick="tutorSend()">Send</button>
