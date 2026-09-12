@@ -1066,25 +1066,25 @@ async def chat(req: ChatRequest):
             if req.task_type in ("math_solve", "general") and len(clean_text) > 50:
                 if is_proof:
                     # Proof questions: Harness V3 ProofVerifier with LLM semantic grading
-                    yield f"data: {json.dumps({'content': '\n\n---\n🔍 **Proof verification** (type: ' + qtype + ')...\n', 'topic': topic, 'verifier': True})}\n\n"
+                    yield f"data: {json.dumps({'content': '\n\n---\n**Proof verification** (type: ' + qtype + ')...\n', 'topic': topic, 'verifier': True})}\n\n"
                     assessment = _verify_proof_v3(question, clean_text)
                     if assessment is not None:
-                        icon = {"pass": "✅", "needs_revision": "⚠️", "fail": "❌"}.get(assessment.overall, "⚠️")
-                        yield f"data: {json.dumps({'content': f"{icon} **Proof verdict: {assessment.overall.upper()}** (score {assessment.score:.2f})\n{assessment.feedback}\n", 'verifier': True})}\n\n"
+                        icon = {"pass": "PASS", "needs_revision": "NEEDS REVISION", "fail": "FAIL"}.get(assessment.overall, "NEEDS REVISION")
+                        yield f"data: {json.dumps({'content': f'**Proof verdict: {icon}** (score {assessment.score:.2f})\n{assessment.feedback}\n', 'verifier': True})}\n\n"
                     else:
-                        yield f"data: {json.dumps({'content': '⚠️ Proof verification unavailable; treat the above with caution.\n', 'verifier': True})}\n\n"
+                        yield f"data: {json.dumps({'content': 'Proof verification unavailable; treat the above with caution.\n', 'verifier': True})}\n\n"
                 elif is_weak:
                     # Weak topics: legacy cross-check verifier
-                    yield f"data: {json.dumps({'content': '\n\n---\n🔍 **Verifier check** (topic: ' + topic + ')...\n', 'topic': topic, 'verifier': True})}\n\n"
+                    yield f"data: {json.dumps({'content': '\n\n---\n**Verifier check** (topic: ' + topic + ')...\n', 'topic': topic, 'verifier': True})}\n\n"
                     verification = run_verifier(
                         question,
                         clean_text,
                         full_messages
                     )
                     if "correct" in verification.lower() or "confirm" in verification.lower():
-                        yield f"data: {json.dumps({'content': '✅ **Verified**: Solution confirmed correct.\n', 'verifier': True})}\n\n"
+                        yield f"data: {json.dumps({'content': '**Verified**: Solution confirmed correct.\n', 'verifier': True})}\n\n"
                     else:
-                        yield f"data: {json.dumps({'content': '⚠️ **Verifier note**: ' + verification[:500] + '\n', 'verifier': True})}\n\n"
+                        yield f"data: {json.dumps({'content': '**Verifier note**: ' + verification[:500] + '\n', 'verifier': True})}\n\n"
 
             yield "data: [DONE]\n\n"
 
@@ -1238,9 +1238,9 @@ async def upload_document(
         (doc_id, current_user["id"], title, file.filename, safe_name, category, "upload", file_size, int(needs_ocr))
     )
     conn.commit(); conn.close()
-    icons = {"pdf": "📄", "pptx": "📊"}
+    icons = {"pdf": "file-text", "pptx": "presentation"}
     return {"id": doc_id, "title": title, "filename": file.filename,
-            "category": category, "icon": icons.get(ext, "📄"),
+            "category": category, "icon": icons.get(ext, "file-text"),
             "fileType": ext, "fileSize": file_size,
             "sizeText": f"{file_size/1024/1024:.1f} MB", "source": "upload",
             "needsOcr": bool(needs_ocr), "parseStatus": "none", "aiDeclined": False}
@@ -1267,9 +1267,9 @@ async def list_documents(
         # Guest: return empty (guest docs stored in frontend memory only)
         rows = []
     conn.close()
-    icons = {"pdf": "📄", "pptx": "📊"}
+    icons = {"pdf": "file-text", "pptx": "presentation"}
     return [{"id": r["id"], "title": r["title"], "category": r["category"],
-             "icon": icons.get(r["file_type"], "📄"), "desc": f"{r['file_size']/1024/1024:.1f} MB",
+             "icon": icons.get(r["file_type"], "file-text"), "desc": f"{r['file_size']/1024/1024:.1f} MB",
              "source": r["source"], "fileType": r["file_type"],
              "filename": r["filename"], "filePath": r["file_path"],
              "createdAt": r["created_at"],
@@ -2396,13 +2396,51 @@ async def get_stats(current_user: Optional[dict] = Depends(get_current_user)):
         (user_id,)
     ).fetchone()["s"]
 
-    # Day Streak: placeholder (future implementation)
+    # Day Streak: consecutive days with at least one recorded activity.
+    # Derived purely from existing tables (no new schema):
+    #   quiz_results.created_at | documents.created_at
+    #   notes.updated_at        | highlights.created_at
+    # SQLite date(...) truncates ISO timestamps to YYYY-MM-DD (UTC).
+    day_rows = conn.execute(
+        """
+        SELECT DISTINCT day FROM (
+            SELECT date(created_at) AS day FROM quiz_results  WHERE user_id=?
+            UNION
+            SELECT date(created_at) AS day FROM documents     WHERE user_id=?
+            UNION
+            SELECT date(updated_at)  AS day FROM notes         WHERE user_id=?
+            UNION
+            SELECT date(created_at) AS day FROM highlights    WHERE user_id=?
+        ) WHERE day IS NOT NULL ORDER BY day DESC
+        """,
+        (user_id, user_id, user_id, user_id)
+    ).fetchall()
     conn.close()
+
+    streak = 0
+    if day_rows:
+        from datetime import date as _date, timedelta as _timedelta
+        days = [row["day"] for row in day_rows]           # 'YYYY-MM-DD', newest first
+        today = _date.today()
+        # The streak anchor is today; a today-gap is tolerated (grace: yesterday
+        # still counts — you haven't "broken" the streak until you miss a full day).
+        anchor = today
+        if days[0] != anchor.isoformat():
+            if days[0] == (today - _timedelta(days=1)).isoformat():
+                anchor = today - _timedelta(days=1)        # last active yesterday
+            else:
+                anchor = None                              # inactive >1 day -> 0
+        if anchor is not None:
+            day_set = set(days)
+            cur = anchor
+            while cur.isoformat() in day_set:
+                streak += 1
+                cur = cur - _timedelta(days=1)
     return {
         "math_proficiency": math_proficiency,
         "documents_read": doc_count,
         "problems_solved": solved,
-        "day_streak": 0,
+        "day_streak": streak,
     }
 
 # ============================================================================
@@ -2419,7 +2457,7 @@ if __name__ == "__main__":
     print(f"Translate Model: {TRANSLATE_MODEL}")
     print(f"Harness: V3 (ToRA + Proof Verifier + Smart Routing)")
     print(f"Fallback: HARNESS_VERSION={harness_version}")
-    print(f"API Key: {DASHSCOPE_API_KEY[:15]}..." if DASHSCOPE_API_KEY else "API Key: ⚠️ NOT SET")
+    print(f"API Key: {DASHSCOPE_API_KEY[:15]}..." if DASHSCOPE_API_KEY else "API Key: [WARN] NOT SET")
     print("=" * 50)
     print("Endpoints:")
     print("  AUTH:")

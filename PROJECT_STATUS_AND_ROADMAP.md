@@ -2,7 +2,7 @@
 # Project Progress & Technical Roadmap
 
 > **用途**：新窗口/新协作者快速了解项目全貌
-> **最后更新**：2026年9月5日（Reader × MinerU 扫描教材 AI 重排上线：重排版阅读/整书引用问答/实时进度条/API Key 三层防护）
+> **最后更新**：2026年9月12日（Aurora Glass 模块化前端上线 + 真实 Day Streak + 后端启动容错；详见 #25-27）
 
 ---
 
@@ -115,12 +115,22 @@
 D:\study\智学桥\
 ├── 产品UI\
 │   ├── code_v2\
-│   │   ├── index.html          ← 主应用前端（所有功能在此文件中，~1600行）
-│   │   ├── server.py            ← 后端服务（FastAPI + Harness，510行）
+│   │   ├── index.html          ← 应用外壳（56KB，引用 app/styles 模块）【2026-09-12 起】
+│   │   ├── index-legacy.html   ← 旧单文件前端备份（355KB 全功能版）
+│   │   ├── app\                ← 16 个 JS 模块 + vendor\ 特效引擎（246 函数）
+│   │   │   ├── auth.js         ← 登录/注册/JWT + apiFetch（AI_BACKEND_URL 在此）
+│   │   │   ├── router.js/cmdk.js ← Hash 路由 + ⌘K 命令面板
+│   │   │   ├── tutor.js/quiz.js/pretest.js/notes.js/plotter.js
+│   │   │   ├── bookshelf.js/reader.js/reader-notes.js/dashboard.js/ui.js/init.js
+│   │   │   ├── mineru.js       ← MinerU 门户/追踪器/配额/docview 渲染
+│   │   │   └── vendor\         ← BorderBeam/LiquidGooey/ThinkingOrb 等 6 特效
+│   │   ├── styles\             ← tokens/base/legacy/components/pages 5 个 CSS
+│   │   ├── server.py            ← 后端服务（FastAPI + Harness，~2500行）
+│   │   ├── rag.py / mineru_client.py ← RAG 检索层 / MinerU 云端客户端
 │   │   ├── requirements.txt    ← Python依赖
 │   │   ├── .env                ← API密钥（不在源码中）
-│   │   ├── cognibridge.db      ← SQLite数据库
-│   │   ├── uploads\            ← 文件存储目录
+│   │   ├── cognibridge.db      ← SQLite数据库（业务 + RAG 知识库同库）
+│   │   ├── uploads\ / mineru_data\ ← 文件存储 / 解析产物
 │   │   ├── PROJECT_STATUS_AND_ROADMAP.md ← 本文档
 │   │   ├── 技术路线A_单模型方案.md
 │   │   └── 技术路线B_多小模型方案.md
@@ -578,6 +588,17 @@ passlib[bcrypt]             # 密码哈希（bcrypt）
 | 22 | **弹窗迷你阅读器 + 划词三件套 + 专属菜单** | 弹窗升级为全教材连续阅读（占位页+滑窗懒渲染）；**弹窗专属浮动菜单**（position:absolute 在弹窗内，弹窗坐标系定位+边界钳制，按钮直调 tbPeekAction）——翻译/高亮（4色+笔记，POST /api/highlights 按教材 docId+弹窗页码，Reader 同步）/笔记（POST /api/notes，Notes 页同步）/Ask AI（Chat 窗开着=追加追问不打断；没开=新引用会话）；**打开时适配列宽后冻结**（浏览器视口语义，拉伸零文字重排）；性能优化：占位页单次 innerHTML 批量构建 + rAF 后再 observe + 弹窗页码追踪器缓存列表；**"🔍 Searching your textbooks…" 检索中提示**（命中→替换为绿色引用条，未命中→300ms 淡出）；Reader docview 虚拟化（react-window/PDF.js 模式）：批量构建+滑窗观察（~40 页）+rAF 延迟注册，深跳秒开 |
 | 23 | **答案概念溯源（Post-Answer Concept Tracing）** | AI 回答完毕后异步提取回答中使用的定理/公式/方法名（qwen-turbo 后置提取，不阻塞答案显示）→ 对每个概念跨书 RAG 检索（双路共识）→ 在答案下方显示 "📚 Key concepts in your textbooks" 紫色区块，每条可点击打开教材浮窗；可见状态条 "🔎 Searching key concepts…" + 失败友好提示；适用范围：Math Tutor（General+Deep）+ Reader Chat AI（exercises/exam-papers 范围）；后端新增 `POST /api/textbooks/concepts` 端点 |
 | 24 | **Math Tutor UI 紧凑化** | Hero 区域压缩（标题+模式按钮同行、去副标题、减小 padding），chat-shell 加 max-height 限制+overflow 滚动，输入框始终在视口内无需下拉；快捷 chips 字号缩小 |
+| 25 | **Aurora Glass 模块化前端（2026-09-12 上线）** | 355KB 单文件 index.html 重构为模块化架构：`index.html`(56KB 外壳) + `app\` 16 个 JS 模块（auth/nav/router/cmdk/tutor/quiz/pretest/notes/plotter/bookshelf-data/bookshelf/reader/reader-notes/dashboard/ui/init/mineru，共 246 函数）+ `styles\` 5 个 CSS（tokens/base/legacy/components/pages，token 单一真源，:root 浅色 + body.dark 深色默认）+ `app\vendor\` 6 个视觉特效引擎（BorderBeam 流光边框/LiquidGooey 液态指示器/ThinkingOrb 思考球等，全部带 prefers-reduced-motion 降级）。**新特性**：Hash 路由（#/dashboard 12 条，后退/深链/路由守卫）；⌘K 命令面板（模糊搜索+键盘导航）；极光场深色玻璃拟态设计系统（三方 UI 对决评审 8.5/9.2 第一名）；bento 式 Dashboard（掌握度圆环+滚动快照 delta+本地活动日志+Continue 续读卡）；登录/表单按钮流光特效。**全功能等价移植**：docview 虚拟化+滑窗+错峰渲染、瞬时落页（scrollBehavior:'auto' 双保险）、±1 锚定修正、锚定/概念溯源/浮窗三件套、MinerU 全家桶（gate/追踪器/配额/换Key回路）、游客模式+内置指南——逐项契约验证通过（47 处 apiFetch + 8 处直连全落点）。旧版备份为 `index-legacy.html` |
+| 26 | **真实 Day Streak（去假数据）** | `GET /api/stats` 后端纯 SQL 从既有四表（quiz_results/documents/notes/highlights 的日期列）UNION 去重得活跃日集合，倒推连续天数（今日未活跃宽限昨日）；前端 ui.js 删除 `\|\|14`/`\|\|156` 演示兜底——登录用户所见即真实数据（游客仍见 DOM 演示值）。实测：当日建笔记 → streak=1；间隔>1 天 → 0 |
+| 27 | **后端启动容错（书架重试横幅）** | 修复"后端启动窗口期刷新页面→数据像丢了"的静默吞错问题：bookshelf.js 区分网络层失败（后端启动中）与 HTTP 错误——网络层失败自动重试 3 次（2s/4s/6s 退避+toast 提示 Backend starting）；最终失败在书架/Dashboard 网格内联渲染 "Backend not reachable — your data is safe. [Retry now]" 横幅（替代空白格），点击立即重拉。配合 2026-09-08 诊断的根因（catch 只弹一次 toast 即放弃），彻底消除"数据消失"错觉 |
+
+### 2026-09-12：用户后端微调（集成前已完成）
+
+| # | 修改 | 说明 |
+|---|------|------|
+| a | `/api/chat` 验证器输出 12 处去 emoji | ✅→PASS、⚠️→NEEDS REVISION、❌→FAIL、🔍 移除——与新 UI 无 emoji 规范统一（纯文案，不改逻辑） |
+| b | documents upload/list 响应 icon 字段改为 Lucide 图标名 | 📄→`file-text`、📊→`presentation`——新 bookshelf.js `iconHtml()` 直接消费；旧前端用自带 categoryIcon() 不受影响 |
+| c | server.py 全文 UTF-8 乱码修复 | 鈥?→—、馃挕→💡 等 mojibake 清理；备份 `server.py.bak_去emoji前` |
 
 ### 2026-08-13 ~ 2026-08-14：修复迭代
 
@@ -709,6 +730,6 @@ API密钥：.env文件中 DASHSCOPE_API_KEY
 
 ---
 
-*最后更新：2026年8月17日*
-*版本：code_v2 + server.py + harness_v3.py（Harness V3 + deepseek UI 重构）*
-*状态：功能迭代阶段（前端 UI 重构完成，用户认证+资料页完成，Harness V3 已接入）*
+*最后更新：2026年9月12日*
+*版本：code_v2 + server.py + harness_v3.py + Aurora Glass 模块化前端（app\ 16 模块 + styles\ 5 CSS）*
+*状态：Aurora Glass 前端上线 + 真实 Streak + 后端启动容错（未推送 GitHub——待用户验证后推送）*

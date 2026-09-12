@@ -1,0 +1,85 @@
+/* ============================================================
+   CogniBridge · Aurora Glass — Base layer
+   reset / body / aurora field / utilities (ex-Tailwind) / selection
+   ============================================================ */
+*{margin:0;padding:0;box-sizing:border-box}
+html{
+    -webkit-font-smoothing:antialiased;
+    -moz-osx-font-smoothing:grayscale;
+    text-rendering:optimizeLegibility;
+}
+body{
+    font-family:var(--font-sans);
+    background:var(--bg-app);
+    color:var(--text-primary);
+    line-height:1.55;
+    font-size:var(--fs-body);
+    transition:background-color var(--t),color var(--t);
+    min-height:100vh;
+}
+
+/* ---- Aurora field: two drifting blob layers + film grain ---- */
+body::before{
+    content:"";
+    position:fixed;inset:-12%;
+    z-index:-1;
+    pointer-events:none;
+    background:
+        radial-gradient(44% 38% at 20% 10%, var(--aurora-a) 0%, transparent 68%),
+        radial-gradient(40% 34% at 84% 20%, var(--aurora-b) 0%, transparent 64%),
+        radial-gradient(52% 44% at 66% 96%, var(--aurora-c) 0%, transparent 68%);
+    animation:auroraDriftA 46s ease-in-out infinite alternate;
+    will-change:transform;
+}
+body::after{
+    content:"";
+    position:fixed;inset:-12%;
+    z-index:-1;
+    pointer-events:none;
+    background:
+        radial-gradient(36% 30% at 12% 72%, var(--aurora-c) 0%, transparent 62%),
+        radial-gradient(34% 28% at 92% 78%, var(--aurora-a) 0%, transparent 60%);
+    animation:auroraDriftB 64s ease-in-out infinite alternate;
+    will-change:transform;
+}
+/* film grain — kills gradient banding, adds texture */
+body .aurora-noise{
+    position:fixed;inset:0;
+    z-index:-1;
+    pointer-events:none;
+    opacity:var(--noise-opacity);
+    background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='160' height='160'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='2' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+}
+@keyframes auroraDriftA{
+    from{transform:translate3d(-1.5%,-1%,0) scale(1)}
+    to{transform:translate3d(1.5%,1.5%,0) scale(1.05)}
+}
+@keyframes auroraDriftB{
+    from{transform:translate3d(1.2%,1%,0) scale(1.04)}
+    to{transform:translate3d(-1.2%,-1.2%,0) scale(1)}
+}
+@media (prefers-reduced-motion: reduce){
+    body::before,body::after{animation:none}
+    *,*::before,*::after{animation-duration:.01ms!important;animation-iteration-count:1!important;transition-duration:.01ms!important}
+}
+
+/* ---- Selection ---- */
+::selection{background:rgba(122,107,255,.24)}
+body.dark ::selection{background:rgba(122,107,255,.32)}
+
+/* ---- Global scrollbar ---- */
+::-webkit-scrollbar{width:8px;height:8px}
+::-webkit-scrollbar-thumb{background:var(--scrollbar-thumb);border-radius:999px;border:2px solid transparent;background-clip:content-box}
+::-webkit-scrollbar-thumb:hover{background:var(--scrollbar-thumb-hover);background-clip:content-box}
+::-webkit-scrollbar-track{background:transparent}
+
+/* ---- Utilities (replace Tailwind CDN — only these 9 are used) ---- */
+.flex{display:flex}
+.flex-1{flex:1 1 0%}
+.flex-col{flex-direction:column}
+.flex-shrink-0{flex-shrink:0}
+.h-screen{height:100vh}
+.overflow-hidden{overflow:hidden}
+.overflow-y-auto{overflow-y:auto}
+.transition-all{transition-property:all;transition-timing-function:var(--t)}
+.duration-200{transition-duration:200ms}

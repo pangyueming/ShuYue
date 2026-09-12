@@ -1,0 +1,132 @@
+/* ============================================================
+   CogniBridge · Aurora Glass Design System — Tokens
+   Dark-first identity. Mechanism kept from legacy:
+   :root = light values, body.dark = dark values (default body.dark)
+   ============================================================ */
+:root{
+    /* ---- Brand · Iris ---- */
+    --iris-300:#A79AFF;
+    --iris-400:#8578FF;
+    --iris-500:#6E5BFF;
+    --iris-600:#5D4DF2;
+    --iris-700:#4A3AD1;
+    --cyan-400:#4FD8E8;
+    --cyan-500:#38B6FF;
+    --grad-brand:linear-gradient(135deg,#6E5BFF 0%,#38B6FF 100%);
+    --link:#4263EB;
+
+    /* ---- Surfaces (light) ---- */
+    --bg-app:#F3F4FA;
+    --bg-sidebar:rgba(246,247,251,.72);
+    --bg-card:#FFFFFF;
+    --bg-hover:rgba(25,27,38,.05);
+    --bg-input:#FFFFFF;
+    --bg-tag:rgba(25,27,38,.055);
+    --bg-topbar:rgba(243,244,250,.72);
+
+    /* ---- Glass (light) ---- */
+    --glass-blur:20px;
+    --glass-sat:170%;
+    --glass-bg:rgba(255,255,255,.55);
+    --glass-bg-strong:rgba(255,255,255,.74);
+    --glass-bg-soft:rgba(255,255,255,.38);
+    --glass-border:rgba(25,27,38,.08);
+    --glass-highlight:rgba(255,255,255,.9);
+
+    /* ---- Text (light) ---- */
+    --text-primary:#191B26;
+    --text-secondary:rgba(25,27,38,.64);
+    --text-muted:rgba(25,27,38,.42);
+
+    /* ---- Borders (light) ---- */
+    --border:rgba(25,27,38,.10);
+    --border-light:rgba(25,27,38,.06);
+
+    /* ---- Accent & status (light) ---- */
+    --accent:#5D4DF2;
+    --accent-hover:#4A3AD1;
+    --red:#E5484D;--green:#2FA96E;--orange:#E8871E;--yellow:#D99A00;--purple:#7C5CE0;--pink:#D9468E;
+    --tutor-liquid:#67718A;   /* Tutor Send liquid-metal fill (light: steel) */
+
+    /* ---- Aurora field (light · subtle) ---- */
+    --aurora-a:rgba(110,91,255,.15);
+    --aurora-b:rgba(56,182,255,.13);
+    --aurora-c:rgba(200,107,255,.10);
+    --noise-opacity:.05;
+
+    /* ---- Elevation (light) ---- */
+    --shadow-xs:0 1px 2px rgba(25,27,38,.05);
+    --shadow-sm:0 1px 3px rgba(25,27,38,.08),0 1px 2px rgba(25,27,38,.05);
+    --shadow-md:0 4px 14px rgba(25,27,38,.08),0 2px 4px rgba(25,27,38,.05);
+    --shadow-lg:0 16px 40px rgba(25,27,38,.13),0 6px 12px rgba(25,27,38,.06);
+    --shadow-glass:0 8px 32px rgba(90,80,200,.12),inset 0 1px 0 var(--glass-highlight);
+    --shadow-glow:0 4px 20px rgba(93,77,242,.28);
+
+    /* ---- Scrollbar (light) ---- */
+    --scrollbar-thumb:rgba(25,27,38,.18);
+    --scrollbar-thumb-hover:rgba(25,27,38,.32);
+
+    /* ---- Typography ---- */
+    --font-sans:'Inter',-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;
+    --font-mono:'JetBrains Mono','Cascadia Code',Consolas,monospace;
+    --fs-display:34px;--fs-title:22px;--fs-heading:17px;--fs-body:14px;--fs-sm:13px;--fs-caption:12px;--fs-micro:11px;
+    --track-display:-0.02em;--track-tight:-0.01em;
+
+    /* ---- Radius / motion ---- */
+    --r-xs:6px;--r-sm:8px;--r-md:10px;--r-lg:14px;--r-xl:18px;--r-pill:999px;
+    --t-fast:120ms cubic-bezier(.2,.8,.2,1);
+    --t:180ms cubic-bezier(.2,.8,.2,1);
+    --t-slow:260ms cubic-bezier(.2,.8,.2,1);
+    --spring:cubic-bezier(.34,1.56,.64,1);
+}
+body.dark{
+    /* ---- Surfaces (dark · deep space) ---- */
+    --bg-app:#0A0C15;
+    --bg-sidebar:rgba(15,18,32,.55);
+    --bg-card:#12151F;
+    --bg-hover:rgba(151,166,255,.07);
+    --bg-input:#161A28;
+    --bg-tag:rgba(151,166,255,.08);
+    --bg-topbar:rgba(10,12,21,.58);
+
+    /* ---- Glass (dark) ---- */
+    --glass-bg:rgba(148,163,255,.055);
+    --glass-bg-strong:rgba(148,163,255,.10);
+    --glass-bg-soft:rgba(148,163,255,.035);
+    --glass-border:rgba(160,176,255,.15);
+    --glass-highlight:rgba(255,255,255,.09);
+
+    /* ---- Text (dark) ---- */
+    --text-primary:#EEF0FA;
+    --text-secondary:rgba(238,240,250,.62);
+    --text-muted:rgba(238,240,250,.40);
+
+    /* ---- Borders (dark) ---- */
+    --border:rgba(160,176,255,.13);
+    --border-light:rgba(160,176,255,.07);
+
+    /* ---- Accent & status (dark · luminous) ---- */
+    --accent:#7A6BFF;
+    --accent-hover:#8D80FF;
+    --link:#8FA7FF;
+    --red:#FF6B7A;--green:#45D483;--orange:#FFA24D;--yellow:#FFD666;--purple:#9F87FF;--pink:#FF7AB8;
+    --tutor-liquid:#C4CDDE;   /* Tutor Send liquid-metal fill (dark: mercury) */
+
+    /* ---- Aurora field (dark · vivid) ---- */
+    --aurora-a:rgba(110,91,255,.30);
+    --aurora-b:rgba(56,182,255,.20);
+    --aurora-c:rgba(200,107,255,.18);
+    --noise-opacity:.035;
+
+    /* ---- Elevation (dark) ---- */
+    --shadow-xs:0 1px 2px rgba(4,6,16,.4);
+    --shadow-sm:0 1px 3px rgba(4,6,16,.5),0 1px 2px rgba(4,6,16,.35);
+    --shadow-md:0 4px 14px rgba(4,6,16,.5),0 2px 4px rgba(4,6,16,.35);
+    --shadow-lg:0 16px 40px rgba(4,6,16,.6),0 6px 12px rgba(4,6,16,.4);
+    --shadow-glass:0 8px 32px rgba(4,6,16,.45),inset 0 1px 0 var(--glass-highlight);
+    --shadow-glow:0 4px 24px rgba(122,107,255,.35);
+
+    /* ---- Scrollbar (dark) ---- */
+    --scrollbar-thumb:rgba(160,176,255,.18);
+    --scrollbar-thumb-hover:rgba(160,176,255,.32);
+}
