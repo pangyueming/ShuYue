@@ -38,6 +38,9 @@ function showPage(id){
     if(id==='quiz'){
         quizPageInit();
     }
+    if(id==='graph'&&typeof graphPageEnter==='function'){
+        graphPageEnter();
+    }
     if(id==='reader'&&!readerCurrentDocId&&!window.__guideShown){
         // First visit to Reader this session: open the built-in guide
         window.__guideShown=true;

@@ -559,15 +559,35 @@
                 <div class="page-eyebrow">Insight</div>
                 <h1 class="page-title">Knowledge Graph</h1>
             </div>
-            <div class="legend-row">
-                <span class="legend-item"><span class="legend-dot" style="background:var(--green);"></span>Mastered</span>
-                <span class="legend-item"><span class="legend-dot" style="background:var(--yellow);"></span>Learning</span>
-                <span class="legend-item"><span class="legend-dot" style="background:var(--red);"></span>Not started</span>
-            </div>
-            <div class="empty-stage">
+
+            <!-- Empty state: pre-assessment gate -->
+            <div id="kg-empty" class="empty-stage">
                 <div class="empty-disc empty-disc-xl"><i data-lucide="network"></i></div>
                 <div class="empty-title">Interactive knowledge graph</div>
                 <div class="empty-sub">Complete pre-assessment to unlock — your mastery map grows with every session</div>
+            </div>
+
+            <!-- Graph app (revealed after pre-assessment) -->
+            <div id="kg-app" class="kg-wrap" style="display:none;">
+                <div class="kg-toolbar">
+                    <div id="kg-progress" class="kg-progress"></div>
+                    <div class="kg-toolbar-right">
+                        <div id="kg-filters" class="chip-row kg-filters"></div>
+                        <div class="seg kg-view-toggle">
+                            <button id="kg-btn-graph" class="kg-toggle-btn active" onclick="kgSetView('graph')" title="Graph view">Graph</button>
+                            <button id="kg-btn-list" class="kg-toggle-btn" onclick="kgSetView('list')" title="Accessible list view">List</button>
+                        </div>
+                    </div>
+                </div>
+                <div id="kg-legend" class="kg-legend"></div>
+                <div class="kg-stage">
+                    <div id="kg-canvas-wrap" class="kg-canvas-wrap scrollbar">
+                        <svg id="kg-svg" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1180 960" role="group" aria-label="Knowledge map: foundation topics feed bridge topics, which feed the two university tracks"></svg>
+                    </div>
+                    <div id="kg-list-view" class="kg-list-view" style="display:none;"></div>
+                    <aside id="kg-panel" class="kg-panel glass-panel" style="display:none;" role="dialog" aria-label="Topic details"></aside>
+                    <div id="kg-tooltip" class="kg-tooltip" style="display:none;" role="tooltip"></div>
+                </div>
             </div>
         </div>
 
@@ -732,6 +752,7 @@
 <script src="app/tutor.js"></script>
 <script src="app/notes.js"></script>
 <script src="app/pretest.js"></script>
+<script src="app/graph.js"></script>
 <script src="app/plotter.js"></script>
 <script src="app/bookshelf-data.js"></script>
 <script src="app/quiz.js"></script>

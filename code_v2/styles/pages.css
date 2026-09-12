@@ -543,6 +543,107 @@ body:not(.dark) .tutor-send-liquid{color:#fff}
 .profile-name{font-size:20px;font-weight:650;letter-spacing:-.01em}
 .profile-email{font-size:13px;color:var(--text-muted);margin-top:4px}
 
+/* ---------------- Knowledge Graph ---------------- */
+/* Skill-informed (ui-ux-pro-max): triple-encoded states (color+shape+Lucide icon),
+   amber path highlight, keyboard focus, adjacency list fallback.
+   All node/edge colors are token-driven via [data-state] classes so they flip
+   with the theme (SVG presentation attributes cannot resolve var(); CSS can). */
+:root{--kg-amber:#B45309;--kg-edge:rgba(25,27,38,.24)}
+body.dark{--kg-amber:#F59E0B;--kg-edge:rgba(160,176,255,.32)}
+.kg-wrap{display:flex;flex-direction:column;gap:12px}
+.kg-toolbar{display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap}
+.kg-progress{font-family:var(--font-mono);font-size:13px;color:var(--text-secondary)}
+.kg-progress b{color:var(--text-primary);font-weight:600}
+.kg-toolbar-right{display:flex;align-items:center;gap:10px;flex-wrap:wrap}
+.kg-filters{gap:6px}
+.kg-filters .chip{padding:4px 12px;font-size:11px}
+.kg-view-toggle{display:flex;background:var(--bg-input);border:1px solid var(--border);border-radius:8px;overflow:hidden}
+.kg-toggle-btn{padding:5px 14px;font-size:12px;font-weight:600;border:none;background:transparent;color:var(--text-muted);cursor:pointer}
+.kg-toggle-btn.active{background:var(--accent);color:#fff}
+.kg-legend{display:flex;gap:14px;flex-wrap:wrap;font-size:11px;color:var(--text-muted);padding:8px 12px;border:1px solid var(--border);border-radius:10px;background:var(--bg-card)}
+.kg-legend-item{display:inline-flex;align-items:center;gap:6px}
+.kg-legend-swatch{width:12px;height:12px;border-radius:3px;flex-shrink:0}
+.kg-legend-swatch.round{border-radius:50%}
+.kg-legend-swatch.diamond{transform:rotate(45deg);border-radius:2px}
+.kg-stage{position:relative;min-height:320px}
+.kg-canvas-wrap{overflow:auto;border:1px solid var(--border);border-radius:14px;background:var(--bg-card)}
+.kg-canvas-wrap svg{display:block;width:100%;min-width:980px;height:auto}
+
+/* SVG node/edge classes (state colors are triple-encoded: fill pattern + Lucide icon + color) */
+.kg-band-label{font-family:var(--font-mono);font-size:10px;letter-spacing:.14em;fill:var(--text-muted)}
+.kg-node{cursor:pointer;outline:none}
+.kg-node:focus-visible .kg-focus-ring{opacity:1}
+.kg-focus-ring{opacity:0;transition:opacity var(--t-fast)}
+.kg-node-label{font-size:11px;font-weight:500;fill:var(--text-primary)}
+.kg-node-sub{font-family:var(--font-mono);font-size:9px;fill:var(--text-secondary)}
+/* --- state theming (tokens; solid/hollow = shape encoding) --- */
+.kg-node[data-state="mastered"] .kg-shape,.kg-node[data-state="covered"] .kg-shape{stroke:var(--green);fill:var(--green)}
+.kg-node[data-state="learning"] .kg-shape{stroke:var(--yellow);fill:none}
+.kg-node[data-state="current"] .kg-shape{stroke:var(--kg-amber);fill:none}
+.kg-node[data-state="weak"] .kg-shape{stroke:var(--red);fill:none}
+.kg-node[data-state="new"] .kg-shape,.kg-node[data-state="upcoming"] .kg-shape{stroke:var(--text-muted);fill:none}
+.kg-weak-ring{stroke:var(--red)}
+.kg-week-ring{fill:none;stroke:var(--kg-amber);stroke-width:2;stroke-dasharray:4 5;animation:kgWeekBreath 2.4s ease-in-out infinite}
+/* --- Lucide badge (14px, optical stroke weight; white on solid fills) --- */
+.kg-badge{fill:none;stroke-width:2.4;stroke-linecap:round;stroke-linejoin:round}
+.kg-node[data-state="mastered"] .kg-badge,.kg-node[data-state="covered"] .kg-badge{stroke:#fff}
+.kg-node[data-state="learning"] .kg-badge{stroke:var(--yellow)}
+.kg-node[data-state="current"] .kg-badge{stroke:var(--kg-amber)}
+.kg-node[data-state="weak"] .kg-badge{stroke:var(--red)}
+.kg-node[data-state="new"] .kg-badge,.kg-node[data-state="upcoming"] .kg-badge{stroke:var(--text-secondary)}
+/* --- edges --- */
+.kg-edge{stroke:var(--kg-edge);fill:none;stroke-width:1.5;transition:stroke var(--t-fast),stroke-opacity var(--t-fast)}
+.kg-edge.dashed{stroke-dasharray:5 4}
+.kg-edge.hl{stroke:var(--kg-amber);stroke-opacity:1;stroke-width:2}
+.kg-edge.dim{stroke-opacity:.18}
+.kg-node.dim{opacity:.28}
+.kg-node.dimmed-out,.kg-hidden{display:none}
+.kg-node .kg-shape{stroke-width:2;transition:filter var(--t-fast)}
+.kg-node:hover .kg-shape,.kg-node:focus-visible .kg-shape{filter:drop-shadow(0 0 6px color-mix(in srgb,var(--kg-amber) 45%,transparent))}
+/* weak pulse + current-week breathing (disabled under reduced motion) */
+@keyframes kgWeakPulse{0%,100%{stroke-opacity:.9}50%{stroke-opacity:.25}}
+@keyframes kgWeekBreath{0%,100%{stroke-opacity:.85}50%{stroke-opacity:.3}}
+.kg-weak-ring{animation:kgWeakPulse 2s ease-in-out infinite}
+/* staggered entrance: 300ms fade + y8 (skill motion tier: subtle) */
+@keyframes kgIn{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:none}}
+.kg-in{animation:kgIn .3s cubic-bezier(.33,1,.68,1) both}
+.kg-in.d1{animation-delay:.08s}
+.kg-in.d2{animation-delay:.16s}
+
+/* Detail panel (glass layer) + tooltip */
+.kg-panel{position:absolute;top:12px;right:12px;bottom:12px;width:320px;max-width:calc(100% - 24px);border-radius:14px;padding:18px;overflow-y:auto;display:flex;flex-direction:column;gap:12px;z-index:5}
+.kg-panel-head{display:flex;align-items:flex-start;justify-content:space-between;gap:8px}
+.kg-panel-title{font-size:15px;font-weight:650;letter-spacing:-.01em;color:var(--text-primary)}
+.kg-layer-chip{display:inline-block;font-family:var(--font-mono);font-size:9px;letter-spacing:.1em;padding:2px 8px;border-radius:999px;border:1px solid var(--border);color:var(--text-muted);margin-bottom:4px}
+.kg-panel-close{background:none;border:none;color:var(--text-muted);cursor:pointer;padding:4px;border-radius:6px}
+.kg-panel-close:hover{color:var(--text-primary);background:var(--bg-hover)}
+.kg-mastery-bar{height:6px;border-radius:3px;background:var(--bg-input);overflow:hidden}
+.kg-mastery-fill{height:100%;border-radius:3px;transition:width .4s ease}
+.kg-evidence{display:flex;gap:6px;flex-wrap:wrap}
+.kg-evidence-chip{font-family:var(--font-mono);font-size:10px;padding:3px 8px;border-radius:6px;background:var(--bg-tag);color:var(--text-secondary);border:1px solid var(--border)}
+.kg-prereq-row{display:flex;align-items:center;gap:8px;font-size:12px;color:var(--text-secondary);padding:5px 8px;border-radius:6px}
+.kg-prereq-row:hover{background:var(--bg-hover)}
+.kg-dot{width:8px;height:8px;border-radius:50%;flex-shrink:0}
+.kg-panel-actions{display:flex;flex-direction:column;gap:8px;margin-top:auto}
+.kg-tooltip{position:absolute;z-index:20;max-width:240px;padding:8px 12px;border-radius:10px;font-size:12px;line-height:1.5;color:var(--text-primary);pointer-events:none;background:var(--glass-bg);backdrop-filter:blur(var(--glass-blur)) saturate(var(--glass-sat));border:1px solid var(--glass-border);box-shadow:var(--shadow-glass)}
+
+/* List view (a11y source of truth: adjacency table) */
+.kg-list-view{border:1px solid var(--border);border-radius:14px;background:var(--bg-card);overflow-x:auto}
+.kg-table{width:100%;border-collapse:collapse;font-size:12px}
+.kg-table th{font-family:var(--font-mono);font-size:10px;letter-spacing:.1em;text-align:left;color:var(--text-muted);padding:10px 14px;border-bottom:1px solid var(--border);background:var(--bg-tag);white-space:nowrap}
+.kg-table td{padding:9px 14px;border-bottom:1px solid var(--border);color:var(--text-secondary);vertical-align:top}
+.kg-table tr:last-child td{border-bottom:none}
+.kg-table tr:hover td{background:var(--bg-hover)}
+.kg-status{display:inline-flex;align-items:center;gap:6px;white-space:nowrap}
+.kg-table .mono{font-family:var(--font-mono);font-size:11px}
+.kg-sec-label{font-family:var(--font-mono);font-size:10px;letter-spacing:.12em;padding:8px 14px;color:var(--text-muted);background:var(--bg-tag)}
+
+@media (prefers-reduced-motion:reduce){
+    .kg-weak-ring,.kg-week-ring{animation:none;stroke-opacity:.8}
+    .kg-in{animation:none}
+    .kg-edge,.kg-node .kg-shape{transition:none}
+}
+
 /* ---------------- Responsive ---------------- */
 @media (max-width:880px){
     .page-form,.page-mid,.page-chat,.page-wide{padding:32px 28px}
