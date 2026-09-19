@@ -133,6 +133,10 @@ class SmartRouter:
             signals.append(f"Complex structure ({complexity_count} markers)")
 
         # Decision
+        # Proof verification follows the QUESTION TYPE, not the lane: an ε-δ
+        # proof on a non-weak topic (e.g. Limits) may still route to Lane A —
+        # the keyword-checklist verifier is cheap and must always run for proofs.
+        wants_proof_verifier = (qtype == QuestionType.PROOF or topic == "Proof_Techniques")
         if lane_b_score >= self.LANE_B_THRESHOLD:
             return RouteDecision(
                 lane="B",
@@ -141,7 +145,7 @@ class SmartRouter:
                 temperature=0.7,
                 n_samples=5,
                 use_tora=self._should_use_tora(topic, qtype),
-                use_proof_verifier=(qtype == QuestionType.PROOF or topic == "Proof_Techniques")
+                use_proof_verifier=wants_proof_verifier
             )
         else:
             return RouteDecision(
@@ -151,7 +155,7 @@ class SmartRouter:
                 temperature=0.0,
                 n_samples=1,
                 use_tora=False,
-                use_proof_verifier=False
+                use_proof_verifier=wants_proof_verifier
             )
 
     def _should_use_tora(self, topic: str, qtype: QuestionType) -> bool:
