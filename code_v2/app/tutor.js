@@ -64,8 +64,8 @@ async function tutorSend(){
     if(tutorChatHistory.length===0)chat.innerHTML='';
     // User message
     const sysMsg=tutorMode==='general'?
-        'You are CogniBridge, an expert UK university mathematics tutor. Solve the problem step by step with clear working. Use British mathematical notation. Put the final answer in **bold**. If asked in Chinese, respond in Chinese; if English, respond in English.':
-        'You are CogniBridge, a Socratic maths tutor. Help students discover answers through guided questioning.';
+        '你是智学桥 CogniBridge，中外合办大学（北邮-QMUL式）一年级数学辅导老师，学生来自高考体系、学习英文授课的大学数学。逐步解题、过程清晰，关键术语首次出现附英文对照（如 极限 limit），记号遵循英文教材并在需要时对照高考习惯。最终答案用**加粗**标出。中文提问用中文回答，英文提问用英文回答。':
+        '你是智学桥 CogniBridge，一位苏格拉底式引导老师（Socratic tutor）。不直接给答案，通过引导式提问帮助学生自己发现答案。跟随学生提问语言（默认中文）。';
     // Build messages with history
     let msgs=[{role:'system',content:sysMsg}];
     if(tutorMaterials.length>0){
@@ -119,18 +119,18 @@ async function tutorSend(){
         full=>{try{if(stopOrb){stopOrb();stopOrb=null;}}catch(e){}try{if(bubbleBeam){bubbleBeam.destroy();bubbleBeam=null;}}catch(e){bubbleBeam=null;}if(typeof aiBusy==='function')aiBusy(false);const el=document.getElementById(bubbleId);if(el)el.innerHTML=full?mdToHtmlTutor(full):'<span style="color:var(--yellow);">Empty response — please retry.</span>';tutorChatHistory.push({role:'assistant',content:full});chat.scrollTop=chat.scrollHeight;
             // Post-answer concept tracing: locate theorems in user's textbooks
             traceConcepts(full,aiDiv);
-            // Suggest practice + A-Level connections in General mode
+            // Suggest practice + Gaokao bridging in General mode
             if(tutorMode==='general'){
                 const sug=document.createElement('div');sug.style.cssText='display:flex;gap:8px;margin-top:4px;flex-wrap:wrap;';
                 sug.innerHTML='<div style="width:28px;flex-shrink:0;"></div>'+
-                    '<button onclick="tutorSendQuick(\'Generate 3 similar practice problems with solutions\')" style="display:inline-flex;align-items:center;gap:5px;font-size:11px;padding:4px 10px;border-radius:6px;background:rgba(82,196,26,.1);border:1px solid rgba(82,196,26,.3);color:#52c41a;cursor:pointer;white-space:nowrap;">'+iconHtml('target',12)+'Practice problems</button>'+
-                    '<button onclick="tutorSendQuick(\'Explain how this concept connects to A-Level Mathematics. What specific A-Level topics are the prerequisites? How does the university-level treatment differ from A-Level? Give concrete examples of the bridge between A-Level and university understanding.\')" style="display:inline-flex;align-items:center;gap:5px;font-size:11px;padding:4px 10px;border-radius:6px;background:rgba(76,141,255,.1);border:1px solid rgba(76,141,255,.3);color:#4C8DFF;cursor:pointer;white-space:nowrap;">'+iconHtml('link',12)+'Show A-Level connections</button>';
+                    '<button onclick="tutorSendQuick(\'生成3道类似的练习题并附解答（题目用英文，解析用中文）\')" style="display:inline-flex;align-items:center;gap:5px;font-size:11px;padding:4px 10px;border-radius:6px;background:rgba(82,196,26,.1);border:1px solid rgba(82,196,26,.3);color:#52c41a;cursor:pointer;white-space:nowrap;">'+iconHtml('target',12)+'同类练习</button>'+
+                    '<button onclick="tutorSendQuick(\'请说明这个概念与高考数学的衔接：它对应高考哪些具体知识点作前置？大学（英文授课）的处理方式与高考有何不同？请给出从高考理解过渡到大学理解的具体例子，关键术语中英对照。\')" style="display:inline-flex;align-items:center;gap:5px;font-size:11px;padding:4px 10px;border-radius:6px;background:rgba(76,141,255,.1);border:1px solid rgba(76,141,255,.3);color:#4C8DFF;cursor:pointer;white-space:nowrap;">'+iconHtml('link',12)+'高考衔接</button>';
                 chat.appendChild(sug);refreshIcons();chat.scrollTop=chat.scrollHeight;
             }else if(tutorMode==='deep'){
                 const sug=document.createElement('div');sug.style.cssText='display:flex;gap:8px;margin-top:4px;flex-wrap:wrap;';
                 sug.innerHTML='<div style="width:28px;flex-shrink:0;"></div>'+
-                    '<button onclick="tutorSendQuick(\'I need a hint\')" style="font-size:11px;padding:4px 10px;border-radius:6px;background:rgba(250,172,22,.1);border:1px solid rgba(250,172,22,.3);color:#faad14;cursor:pointer;white-space:nowrap;">Need a hint</button>'+
-                    '<button onclick="tutorSendQuick(\'I am stuck, can you walk me through this?\')" style="font-size:11px;padding:4px 10px;border-radius:6px;background:rgba(255,107,107,.1);border:1px solid rgba(255,107,107,.3);color:#ff6b6b;cursor:pointer;white-space:nowrap;">I am stuck</button>';
+                    '<button onclick="tutorSendQuick(\'我需要一点提示\')" style="font-size:11px;padding:4px 10px;border-radius:6px;background:rgba(250,172,22,.1);border:1px solid rgba(250,172,22,.3);color:#faad14;cursor:pointer;white-space:nowrap;">给我提示</button>'+
+                    '<button onclick="tutorSendQuick(\'我卡住了，能带我一步步走一遍吗？\')" style="font-size:11px;padding:4px 10px;border-radius:6px;background:rgba(255,107,107,.1);border:1px solid rgba(255,107,107,.3);color:#ff6b6b;cursor:pointer;white-space:nowrap;">我卡住了</button>';
                 chat.appendChild(sug);chat.scrollTop=chat.scrollHeight;
             }
         },

@@ -1,4 +1,4 @@
-// ===== AUTH & API =====
+﻿// ===== AUTH & API =====
 // Default points at the duel-review backend (localhost:8000).
 // Override for local testing: localStorage.setItem('cb_api_base','http://localhost:8010')
 const AI_BACKEND_URL=(function(){try{return localStorage.getItem('cb_api_base')||'http://localhost:8000';}catch(e){return 'http://localhost:8000';}})();
@@ -165,7 +165,7 @@ function renderProfile(){
     
     // Form fields
     document.getElementById('profile-input-name').value=user.name||'';
-    document.getElementById('profile-input-uni').value=user.university||'Queen Mary University of London';
+    document.getElementById('profile-input-uni').value=user.university||'北京邮电大学（中外合办）';
     document.getElementById('profile-input-major').value=user.major||'Computer Science';
     document.getElementById('profile-input-year').value=user.year||'freshman';
     document.getElementById('profile-input-alevel').value=user.a_level_grade||'';

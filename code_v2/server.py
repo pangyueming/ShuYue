@@ -1,4 +1,4 @@
-"""
+﻿"""
 CogniBridge Backend Server — FastAPI + Harness V3 Engine
 Runs the UK Math Harness V3 (with V2 fallback capability) for AI-powered math tutoring.
 
@@ -162,7 +162,7 @@ def init_db():
         email TEXT UNIQUE NOT NULL,
         password_hash TEXT NOT NULL,
         name TEXT,
-        university TEXT DEFAULT 'Queen Mary University of London',
+        university TEXT DEFAULT '北京邮电大学（中外合办）',
         major TEXT DEFAULT 'Computer Science',
         year TEXT DEFAULT 'freshman',
         a_level_grade TEXT,

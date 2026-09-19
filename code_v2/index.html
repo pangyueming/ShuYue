@@ -1,4 +1,4 @@
-<!DOCTYPE html>
+﻿<!DOCTYPE html>
 <html lang="en">
 <head>
     <meta charset="UTF-8">
@@ -235,16 +235,16 @@
                 <div class="step-head"><h2 class="step-title">Basic Information</h2><span class="tag tag-step">Step 1/4</span></div>
                 <div class="progress-bar" style="margin-bottom:24px;"><div class="progress-fill" style="width:25%;"></div></div>
                 <div class="card" style="display:flex;flex-direction:column;gap:20px;">
-                    <div><label class="field-label">A-Level Mathematics Grade</label>
-                        <select id="pt-alevel" class="input" style="width:100%;"><option value="">Select...</option><option>A*</option><option>A</option><option>B</option><option>C</option><option>D</option><option>E</option></select></div>
-                    <div><label class="field-label">Further Mathematics?</label>
-                        <div class="radio-row"><label><input type="radio" name="pt-fm" value="yes"> Yes</label><label><input type="radio" name="pt-fm" value="no" checked> No</label></div></div>
+                    <div><label class="field-label">高考数学分数段</label>
+                        <select id="pt-alevel" class="input" style="width:100%;"><option value="">请选择…</option><option>≥140</option><option>120-139</option><option>100-119</option><option>&lt;100</option></select></div>
+                    <div><label class="field-label">强基计划 / 数学竞赛经历？</label>
+                        <div class="radio-row"><label><input type="radio" name="pt-fm" value="yes"> 有</label><label><input type="radio" name="pt-fm" value="no" checked> 无</label></div></div>
                     <div><label class="field-label">University</label>
-                        <input id="pt-uni" class="input" style="width:100%;" value="Queen Mary University of London"></div>
+                        <input id="pt-uni" class="input" style="width:100%;" value="北京邮电大学（中外合办）"></div>
                     <div><label class="field-label">Major</label>
-                        <select id="pt-major" class="input" style="width:100%;"><option value="math">Mathematics</option><option value="cs" selected>Computer Science / Info &amp; Computing</option><option value="engineering">Engineering</option><option value="physics">Physics</option><option value="economics">Economics</option></select></div>
+                        <select id="pt-major" class="input" style="width:100%;"><option value="cs" selected>计算机类（中外合办）</option><option value="math">信息与计算科学</option><option value="telecom">通信工程（中外合办）</option><option value="ee">电子信息类</option><option value="other">其他</option></select></div>
                     <div><label class="field-label">Year</label>
-                        <div class="radio-row"><label><input type="radio" name="pt-year" value="freshman" checked> First Year</label><label><input type="radio" name="pt-year" value="senior"> Second Year+</label></div></div>
+                        <div class="radio-row"><label><input type="radio" name="pt-year" value="freshman" checked> 大一</label><label><input type="radio" name="pt-year" value="senior"> 大二及以上</label></div></div>
                     <div><label class="field-label">Current Teaching Week <span class="field-hint">(drives your curriculum-aligned plan)</span></label>
                         <select id="pt-week" class="input" style="width:100%;"></select></div>
                 </div>
@@ -304,10 +304,10 @@
             </div>
             <!-- Quick examples -->
             <div class="chip-row">
-                <button class="chip" onclick="tutorSendQuick('Evaluate: lim(x→0) sin(x)/x')">lim sin(x)/x</button>
-                <button class="chip" onclick="tutorSendQuick('Prove that a²+b² ≥ 2ab for all real numbers')">Proof: a²+b²≥2ab</button>
-                <button class="chip" onclick="tutorSendQuick('Find the eigenvalues of matrix [[2,1],[1,2]]')">Eigenvalues</button>
-                <button class="chip" onclick="tutorSendQuick('Does the series Σ(1/n²) converge?')">Σ1/n² converge?</button>
+                <button class="chip" onclick="tutorSendQuick('Evaluate: lim(x→0) sin(x)/x')">求极限 sin(x)/x</button>
+                <button class="chip" onclick="tutorSendQuick('Prove that a²+b² ≥ 2ab for all real numbers')">证明 a²+b²≥2ab</button>
+                <button class="chip" onclick="tutorSendQuick('Find the eigenvalues of matrix [[2,1],[1,2]]')">求特征值</button>
+                <button class="chip" onclick="tutorSendQuick('Does the series Σ(1/n²) converge?')">Σ1/n² 收敛吗？</button>
             </div>
             <!-- Input -->
             <div class="composer card glass">
@@ -664,7 +664,7 @@
                         </select>
                     </div>
                     <div>
-                        <label class="field-label" for="profile-input-alevel">A-Level Mathematics Grade</label>
+                        <label class="field-label" for="profile-input-alevel">高考数学分数段</label>
                         <select id="profile-input-alevel" class="input" style="width:100%;">
                             <option value="">Not specified</option>
                             <option value="A*">A*</option>
@@ -676,7 +676,7 @@
                     </div>
                     <div class="verify-row">
                         <input type="checkbox" id="profile-input-fm" class="verify-check">
-                        <label for="profile-input-fm" class="verify-label">I took Further Mathematics</label>
+                        <label for="profile-input-fm" class="verify-label">我有强基计划 / 数学竞赛经历</label>
                     </div>
                     <div>
                         <div class="field-label">Current Teaching Week <span class="field-hint">(aligns your study plan with lectures)</span></div>
@@ -715,9 +715,9 @@
     </div>
     <!-- Quick buttons -->
     <div class="ai-quick-row">
-        <button onclick="aiChatQuick(this)" data-q="Explain this in simple terms for a first-year student" class="chip">Explain</button>
-        <button onclick="aiChatQuick(this)" data-q="Give me a concrete example of this concept" class="chip">Example</button>
-        <button onclick="aiChatQuick(this)" data-q="How does this relate to high school mathematics?" class="chip">HS Link</button>
+        <button onclick="aiChatQuick(this)" data-q="用大一新生能懂的方式解释一下（术语中英对照）" class="chip">Explain</button>
+        <button onclick="aiChatQuick(this)" data-q="给一个这个概念的具体例子" class="chip">Example</button>
+        <button onclick="aiChatQuick(this)" data-q="这和高考数学有什么联系？前置知识点是什么？" class="chip">HS Link</button>
     </div>
     <!-- Input -->
     <div class="ai-input-row">

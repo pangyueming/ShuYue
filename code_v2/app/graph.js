@@ -1,4 +1,4 @@
-// ===== KNOWLEDGE GRAPH (layered tech-tree) =====
+﻿// ===== KNOWLEDGE GRAPH (layered tech-tree) =====
 // Nodes: L1 hsKnowledge (10, rounded squares) → L2 transitionTopics (5, diamonds)
 //        → L3 CURRICULUM chapters (16, circles; Analysis + Algebra tracks).
 // Edges: CURRICULUM deps (L1→L3) + prev (L2→L3); dashed while the prerequisite
@@ -10,31 +10,33 @@
 // Accessible fallback: adjacency table ("List" view) is the source of truth.
 
 const KG_QUIZ_TOPIC={
-    // L1 (reverse of QUIZ_TOPIC_TO_HS where unambiguous)
-    'Differentiation':'Differentiation','Integration':'Integration',
-    'Probability & Statistics':'Probability','Sequences & Series':'Series_Convergence',
-    'Vectors (Basic)':'Linear_Algebra','Proof Basics':'Proof_Techniques',
+    // keys = 中文主题/章节新名（与 pretest.js 同步）；values = 后端 quiz 主题 ID（不变）
+    '函数与导数（含指数对数）':'Differentiation',
+    '数列（含数学归纳法初步）':'Series_Convergence',
+    '概率与统计（含排列组合）':'Probability',
+    '平面向量与复数':'Linear_Algebra',
+    '推理与证明基础':'Proof_Techniques',
     // L2
-    'Discrete Mathematics':'Discrete_Math',
-    // L3 (natural mappings)
-    'Limits of Sequences (ε-N)':'Limits','Function Limits & Continuity (ε-δ)':'Limits',
-    'Derivatives & Differentials':'Differentiation',
-    'Mean Value Theorems, Taylor, L\'Hôpital':'Series_Convergence',
-    'Indefinite Integrals':'Integration','Definite Integrals & FTC':'Integration',
-    'Determinants (Cramer)':'Linear_Algebra','Matrices (inverse/elementary)':'Linear_Algebra',
-    'Matrix Rank & Block Techniques':'Linear_Algebra','Vector Spaces (basis/dimension)':'Linear_Algebra',
+    '离散数学':'Discrete_Math',
+    // L3（章名 → quiz 主题）
+    '数列极限（ε-N 语言）':'Limits','函数极限与连续（ε-δ）':'Limits',
+    '导数与微分':'Differentiation',
+    '中值定理、泰勒与洛必达':'Series_Convergence',
+    '不定积分':'Integration','定积分与微积分基本定理':'Integration',
+    '行列式（克拉默法则）':'Linear_Algebra','矩阵（逆与初等变换）':'Linear_Algebra',
+    '矩阵的秩与分块技巧':'Linear_Algebra','向量空间（基与维数）':'Linear_Algebra',
 };
 const KG_STYLES={
     // css: token-driven color for HTML contexts (legend/list/panel/tooltip).
     // SVG shapes/badges are themed via [data-state] CSS classes (pages.css) —
     // SVG presentation attributes cannot resolve var(), CSS properties can.
-    mastered:{css:'var(--green)',lucide:'check',label:'Mastered'},
-    learning:{css:'var(--yellow)',lucide:'contrast',label:'Learning'},
-    weak:{css:'var(--red)',lucide:'triangle-alert',label:'Weak spot'},
-    new:{css:'var(--text-muted)',lucide:'circle',label:'Not started'},
-    covered:{css:'var(--green)',lucide:'check-check',label:'Covered in course'},
-    current:{css:'var(--kg-amber)',lucide:'refresh-cw',label:'Current weeks'},
-    upcoming:{css:'var(--text-muted)',lucide:'circle-dashed',label:'Upcoming'},
+    mastered:{css:'var(--green)',lucide:'check',label:'已掌握'},
+    learning:{css:'var(--yellow)',lucide:'contrast',label:'学习中'},
+    weak:{css:'var(--red)',lucide:'triangle-alert',label:'弱项'},
+    new:{css:'var(--text-muted)',lucide:'circle',label:'未开始'},
+    covered:{css:'var(--green)',lucide:'check-check',label:'课程已覆盖'},
+    current:{css:'var(--kg-amber)',lucide:'refresh-cw',label:'当前教学周'},
+    upcoming:{css:'var(--text-muted)',lucide:'circle-dashed',label:'待学习'},
 };
 
 // Lucide (ISC license) inner markup on the 24x24 grid — verbatim from
@@ -152,9 +154,9 @@ function kgRenderProgress(){
     const weak=n.filter(x=>x.state==='weak').length;
     const week=typeof getCurrentWeek==='function'?getCurrentWeek():1;
     document.getElementById('kg-progress').innerHTML=
-        '<b>'+done+'</b>/'+n.length+' mastered &middot; <span style="color:var(--red);">'+weak+' weak</span> &middot; week '+week+'/16';
+        '<b>'+done+'</b>/'+n.length+' 已掌握 &middot; <span style="color:var(--red);">'+weak+' 弱项</span> &middot; 第 '+week+'/16 周';
 }
-const KG_FILTERS=[['all','All'],['weak','Weak only'],['foundation','Foundation'],['bridge','Bridge'],['analysis','Analysis'],['algebra','Algebra']];
+const KG_FILTERS=[['all','全部'],['weak','仅弱项'],['foundation','高中基础'],['bridge','衔接断层'],['analysis','数学分析'],['algebra','高等代数']];
 function kgRenderFilters(){
     const c=document.getElementById('kg-filters');
     c.innerHTML=KG_FILTERS.map(([k,l])=>
@@ -216,7 +218,7 @@ function kgEdgePath(e){
 function kgRenderGraph(){
     const svg=document.getElementById('kg-svg');
     const bands=[
-        ['FOUNDATION · HS',110,20],['BRIDGE',520,20],['ANALYSIS TRACK',770,20],['ALGEBRA TRACK',1030,20]
+        ['高中基础',60,20],['衔接断层',480,20],['数学分析轨',760,20],['高等代数轨',1010,20]
     ].map(b=>'<text class="kg-band-label" x="'+b[1]+'" y="'+b[2]+'">'+b[0]+'</text>').join('');
     const edges=kgModel.edges.map((e,i)=>
         '<path id="kg-e-'+i+'" class="kg-edge'+(['mastered','covered'].includes(e.from.state)?'':' dashed')+'" d="'+kgEdgePath(e)+'"/>').join('');
@@ -301,37 +303,37 @@ function kgClosePanel(){document.getElementById('kg-panel').style.display='none'
 function kgOpenPanel(n){
     const p=document.getElementById('kg-panel');
     const s=kgStyle(n.state);
-    const layerName={foundation:'FOUNDATION',bridge:'BRIDGE',analysis:'ANALYSIS TRACK',algebra:'ALGEBRA TRACK'}[n.layer];
+    const layerName={foundation:'高中基础',bridge:'衔接断层',analysis:'数学分析轨',algebra:'高等代数轨'}[n.layer];
     const pct=kgMasteryPct(n);
     const prereqs=kgModel.edges.filter(e=>e.to.id===n.id).map(e=>e.from);
     const feeds=kgModel.edges.filter(e=>e.from.id===n.id).map(e=>e.to);
     const evChips=[];
     if(n.layer==='foundation'){
         const r=kgRating(n.name);
-        evChips.push('self: '+(r||'—'));
-        if(n.ev){if(n.ev.latest!==null)evChips.push('quiz '+Math.round(n.ev.latest*100)+'%');evChips.push('strong ×'+n.ev.strongCount);}
+        evChips.push('自评：'+(r?{master:'精通',ok:'尚可',fuzzy:'模糊',none:'不会'}[r]||r:'—'));
+        if(n.ev){if(n.ev.latest!==null)evChips.push('快测 '+Math.round(n.ev.latest*100)+'%');evChips.push('连续达标 ×'+n.ev.strongCount);}
     }else if(n.layer==='bridge'){
-        evChips.push('familiarity');
+        evChips.push('熟悉度自评');
     }else{
-        evChips.push('weeks '+n.weeks[0]+'–'+n.weeks[1]);
-        if(n.gaps&&n.gaps.total)evChips.push('gaps '+n.gaps.done+'/'+n.gaps.total+' closed');
-        else evChips.push('no gaps flagged');
+        evChips.push('周次 '+n.weeks[0]+'–'+n.weeks[1]);
+        if(n.gaps&&n.gaps.total)evChips.push('缺口闭合 '+n.gaps.done+'/'+n.gaps.total);
+        else evChips.push('无标记缺口');
     }
     p.innerHTML=
         '<div class="kg-panel-head"><div><span class="kg-layer-chip">'+layerName+'</span>'
         +'<div class="kg-panel-title">'+escapeHtml(n.name)+'</div></div>'
-        +'<button class="kg-panel-close" onclick="kgClosePanel()" aria-label="Close details">✕</button></div>'
+        +'<button class="kg-panel-close" onclick="kgClosePanel()" aria-label="关闭详情">✕</button></div>'
         +'<div><div style="display:flex;justify-content:space-between;font-size:11px;color:var(--text-muted);margin-bottom:6px;"><span style="color:'+s.css+';display:inline-flex;align-items:center;gap:5px;">'+iconHtml(s.lucide,11)+s.label+'</span><span class="mono" style="font-family:var(--font-mono)">'+pct+'%</span></div>'
         +'<div class="kg-mastery-bar"><div class="kg-mastery-fill" style="width:'+pct+'%;background:'+s.css+';"></div></div></div>'
         +'<div class="kg-evidence">'+evChips.map(c=>'<span class="kg-evidence-chip">'+escapeHtml(c)+'</span>').join('')+'</div>'
         +(n.desc?'<div style="font-size:12px;color:var(--text-muted);line-height:1.6;">'+escapeHtml(n.desc)+'</div>':'')
-        +(prereqs.length?'<div><div style="font-size:11px;color:var(--text-muted);margin-bottom:4px;">Prerequisites</div>'
+        +(prereqs.length?'<div><div style="font-size:11px;color:var(--text-muted);margin-bottom:4px;">前置知识</div>'
             +prereqs.map(pr=>'<div class="kg-prereq-row" onclick="kgOpenPanelById(\''+pr.id+'\')" role="button" tabindex="0"><span class="kg-dot" style="background:'+kgStyle(pr.state).css+';"></span>'+escapeHtml(pr.name)+'<span style="margin-left:auto;font-size:10px;color:var(--text-muted);">'+kgStyle(pr.state).label+'</span></div>').join('')+'</div>':'')
-        +(feeds.length?'<div><div style="font-size:11px;color:var(--text-muted);margin-bottom:4px;">Feeds into</div>'
+        +(feeds.length?'<div><div style="font-size:11px;color:var(--text-muted);margin-bottom:4px;">衔接去向</div>'
             +'<div style="font-size:12px;color:var(--text-secondary);line-height:1.8;">'+feeds.map(f=>escapeHtml(f.name)).join(' · ')+'</div></div>':'')
         +'<div class="kg-panel-actions">'
-        +'<button class="btn-primary" style="padding:9px;font-size:13px;" onclick="kgQuizTopic(\''+n.id+'\')">Quiz this topic</button>'
-        +'<button class="btn-secondary" style="padding:9px;font-size:13px;" onclick="kgFindInTextbook(\''+n.id+'\')">Find in textbook</button>'
+        +'<button class="btn-primary" style="padding:9px;font-size:13px;" onclick="kgQuizTopic(\''+n.id+'\')">本主题快测</button>'
+        +'<button class="btn-secondary" style="padding:9px;font-size:13px;" onclick="kgFindInTextbook(\''+n.id+'\')">在教材中定位</button>'
         +'</div>';
     p.style.display='flex';
     p.setAttribute('tabindex','-1');
@@ -384,12 +386,12 @@ function kgRenderList(){
                 +'<td>'+kgListStatus(n)+'</td><td>'+ev+'</td></tr>';
         }).join('');
         return '<div class="kg-sec-label">'+title+'</div><table class="kg-table"><thead><tr>'
-            +'<th>TOPIC</th><th>WEEKS</th><th>PREREQUISITES</th><th>STATUS</th><th>EVIDENCE</th>'
+            +'<th>主题</th><th>周次</th><th>前置</th><th>状态</th><th>证据</th>'
             +'</tr></thead><tbody>'+rows+'</tbody></table>';
     };
     document.getElementById('kg-list-view').innerHTML=
-        sec('FOUNDATION — HIGH SCHOOL','foundation')+sec('BRIDGE — TRANSITION WARNINGS','bridge')
-        +sec('ANALYSIS TRACK','analysis')+sec('ALGEBRA TRACK','algebra');
+        sec('高中基础（新高考课标）','foundation')+sec('衔接断层预警','bridge')
+        +sec('数学分析轨','analysis')+sec('高等代数轨','algebra');
     if(typeof refreshIcons==='function')refreshIcons();
 }
 function kgSetView(v){
