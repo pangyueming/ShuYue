@@ -1,4 +1,4 @@
-"""
+﻿"""
 Lane B: Complex Questions — Multi-sample voting + ToRA tool use
 For proofs, complex calculations, and weak topics.
 """
@@ -178,11 +178,12 @@ class LaneB(BaseLane):
             return m.group(1).strip()
 
         m = re.search(
-            r"(?:answer is|answer:|therefore|hence|thus|the result is)\s*:?\s*([^\n.]{1,100})",
+            r"(?:answer is|answer:|therefore|hence|thus|the result is"
+            r"|答案是|答案为|答案:|所以|因此|故|于是|得到|其值为|即为)\s*[:：]?\s*([^\n.。]{1,100})",
             text, re.IGNORECASE,
         )
         if m:
-            ans = m.group(1).strip().rstrip(".,;")
+            ans = m.group(1).strip().strip(".,;，。；：: ")
             if len(ans) > 1:
                 return ans
 

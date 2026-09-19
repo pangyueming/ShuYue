@@ -609,17 +609,29 @@ class ResetPassword(BaseModel):
 # ============================================================================
 
 TOPIC_LEXICON = [
-    ("Limits", ["limit", "lim", "epsilon-delta", "squeeze theorem", "l'hôpital", "continuity", "0/0"]),
-    ("Differentiation", ["derivative", "differentiat", "tangent", "chain rule", "stationary point"]),
-    ("Integration", ["integral", "integrate", "antiderivative", "integration by parts", "Riemann"]),
-    ("Series_Convergence", ["series", "converge", "diverge", "ratio test", "Taylor series", "Σ"]),
-    ("Differential_Equations", ["differential equation", "ODE", "separable"]),
-    ("Linear_Algebra", ["matrix", "eigenvalue", "vector space", "basis", "linear independence"]),
-    ("Discrete_Math", ["set theory", "union", "intersection", "propositional logic", "graph theory", "combinatorics"]),
-    ("Probability", ["probability", "Bayes", "random variable", "distribution", "normal"]),
-    ("Proof_Techniques", ["prove", "proof", "show that", "by contradiction", "by induction", "contrapositive"]),
-    ("Complex_Numbers", ["complex number", "modulus", "argument", "De Moivre"]),
-    ("Vector_Calculus", ["curl", "divergence", "gradient", "line integral", "Green's theorem"]),
+    # China-track: English keywords kept + zh aliases appended (topic IDs unchanged)
+    ("Limits", ["limit", "lim", "epsilon-delta", "squeeze theorem", "l'hôpital", "continuity", "0/0",
+                "极限", "洛必达", "夹逼", "无穷小", "连续性", "渐近"]),
+    ("Differentiation", ["derivative", "differentiat", "tangent", "chain rule", "stationary point",
+                         "导数", "求导", "微分", "链式法则", "切线", "极值", "驻点", "拐点"]),
+    ("Integration", ["integral", "integrate", "antiderivative", "integration by parts", "Riemann",
+                     "积分", "原函数", "分部积分", "换元", "定积分", "不定积分"]),
+    ("Series_Convergence", ["series", "converge", "diverge", "ratio test", "Taylor series", "Σ",
+                            "级数", "泰勒", "麦克劳林", "等比级数", "调和级数", "敛散", "幂级数"]),
+    ("Differential_Equations", ["differential equation", "ODE", "separable",
+                                "微分方程", "通解", "特解", "齐次方程"]),
+    ("Linear_Algebra", ["matrix", "eigenvalue", "vector space", "basis", "linear independence",
+                        "矩阵", "行列式", "特征值", "特征向量", "线性无关", "向量空间", "线性方程组", "秩", "逆矩阵"]),
+    ("Discrete_Math", ["set theory", "union", "intersection", "propositional logic", "graph theory", "combinatorics",
+                       "离散", "集合论", "命题逻辑", "真值表", "图论", "排列组合", "递推", "抽屉原理"]),
+    ("Probability", ["probability", "Bayes", "random variable", "distribution", "normal",
+                     "概率", "贝叶斯", "条件概率", "随机变量", "期望", "方差", "正态分布", "二项分布", "泊松"]),
+    ("Proof_Techniques", ["prove", "proof", "show that", "by contradiction", "by induction", "contrapositive",
+                          "证明", "求证", "试证", "反证", "数学归纳法", "归纳法", "充要", "当且仅当", "证毕"]),
+    ("Complex_Numbers", ["complex number", "modulus", "argument", "De Moivre",
+                         "复数", "实部", "虚部", "辐角", "共轭", "棣莫弗"]),
+    ("Vector_Calculus", ["curl", "divergence", "gradient", "line integral", "Green's theorem",
+                         "旋度", "散度", "梯度", "曲线积分", "曲面积分", "格林公式", "斯托克斯", "高斯公式"]),
 ]
 
 WEAK_TOPICS = {"Proof_Techniques", "Discrete_Math", "Series_Convergence", "Linear_Algebra", "Vector_Calculus"}

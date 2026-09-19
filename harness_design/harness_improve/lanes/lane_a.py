@@ -1,4 +1,4 @@
-"""
+﻿"""
 Lane A: Simple Questions — Single call, temperature=0
 Fast and cheap for straightforward problems.
 """
@@ -49,7 +49,7 @@ class LaneA(BaseLane):
         return re.sub(r"<thinking>.*?</thinking>", "", text, flags=re.DOTALL).strip()
 
     def _extract_answer(self, text: str) -> str:
-        """Extract answer from response."""
+        """Extract answer from response (bilingual EN/zh cues)."""
         # Try <answer> tag
         m = re.search(r"<answer>(.*?)</answer>", text, re.DOTALL)
         if m:
@@ -60,15 +60,17 @@ class LaneA(BaseLane):
         if m:
             return m.group(1).strip()
 
-        # Try "Answer:" or "Therefore"
+        # Try "Answer:" or "Therefore" — zh cues: 答案是/所以/因此/故/得到/为
         m = re.search(
-            r"(?:answer is|answer:|therefore|hence|thus|the result is)\s*:?\s*([^\n.]{1,100})",
+            r"(?:answer is|answer:|therefore|hence|thus|the result is"
+            r"|答案是|答案为|答案:|所以|因此|故|于是|得到|其值为|即为)\s*[:：]?\s*([^\n.。]{1,100})",
             text, re.IGNORECASE,
         )
         if m:
-            ans = m.group(1).strip().rstrip(".,;")
+            ans = m.group(1).strip().strip(".,;，。；：: ")
             if len(ans) > 1 and not any(w in ans.lower() for w in
-                ["we have", "it follows", "by the", "from the", "since"]):
+                ["we have", "it follows", "by the", "from the", "since",
+                 "我们", "由此", "根据", "由于"]):
                 return ans
 
         # Fallback: last number/expression

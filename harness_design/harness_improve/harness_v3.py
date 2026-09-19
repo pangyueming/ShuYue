@@ -40,15 +40,15 @@ def build_prompt(
         option_lines = [f"  {chr(65+i)}. {opt}" for i, opt in enumerate(options)]
         option_text = "\n".join(option_lines)
 
-    # Determine instruction based on type
+    # Determine instruction based on type (bilingual: zh-first, EN kept for exam prep)
     if qtype == "MCQ":
-        rule = "Select the single correct option (A/B/C/D)."
+        rule = "Select the single correct option (A/B/C/D). 选出唯一正确选项。"
     elif qtype == "Proof":
-        rule = "Provide a rigorous mathematical proof with clear logical steps."
+        rule = "Provide a rigorous mathematical proof with clear logical steps. 给出严谨、逻辑清晰的数学证明。"
     elif qtype == "Long":
-        rule = "Provide a detailed explanation with mathematical justification."
+        rule = "Provide a detailed explanation with mathematical justification. 给出详细解释并附数学依据。"
     else:
-        rule = "Provide the final answer in simplified form."
+        rule = "Provide the final answer in simplified form. 给出最简形式的最终答案。"
 
     if use_tora:
         tool_note = (
@@ -59,7 +59,8 @@ def build_prompt(
         tool_note = ""
 
     prompt = (
-        f"Solve the following UK university mathematics problem.{tool_note}\n\n"
+        f"Solve the following first-year university mathematics problem "
+        f"(中外合办大学一年级数学题).{tool_note}\n\n"
         f"Question Type: {qtype}\n"
         f"Topic: {topic}\n\n"
         f"Question:\n{question_text}\n"
@@ -70,7 +71,7 @@ def build_prompt(
 
     prompt += (
         f"\n{rule}\n"
-        f"Show your working clearly.\n"
+        f"Show your working clearly. 过程完整清晰。\n"
         f"Put your final answer in <answer>...</answer> tags."
     )
 

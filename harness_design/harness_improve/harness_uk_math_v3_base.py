@@ -101,8 +101,36 @@ TOPIC_LEXICON = [
                            "Euler method", "Runge-Kutta",
                            "truncation error", "round-off"]),
     ("Optimisation", ["optimise", "optimize", "linear programming",
-                      "Lagrange multiplier", "constraint",
-                      "objective function", "simplex"]),
+                       "Lagrange multiplier", "constraint",
+                       "objective function", "simplex"]),
+]
+
+# --- China-track zh keyword aliases (appended in place; topic IDs unchanged).
+# Without these, Chinese questions fall through to "Other" and mis-route.
+_ZH_ALIASES = {
+    "Limits": ["极限", "洛必达", "夹逼", "无穷小", "连续性", "渐近"],
+    "Differentiation": ["导数", "求导", "微分", "链式法则", "切线", "极值", "驻点", "拐点"],
+    "Integration": ["积分", "原函数", "分部积分", "换元", "定积分", "不定积分", "被积"],
+    "Series_Convergence": ["级数", "泰勒", "麦克劳林", "等比级数", "调和级数", "敛散", "幂级数"],
+    "Differential_Equations": ["微分方程", "通解", "特解", "齐次方程", "初值问题"],
+    "Linear_Algebra": ["矩阵", "行列式", "特征值", "特征向量", "线性无关", "线性相关",
+                        "向量空间", "线性方程组", "秩", "逆矩阵", "转置", "相似对角化"],
+    "Discrete_Math": ["离散", "集合论", "命题逻辑", "真值表", "图论", "排列组合",
+                       "递推", "鸽巢", "抽屉原理", "生成函数"],
+    "Probability": ["概率", "贝叶斯", "条件概率", "随机变量", "期望", "方差",
+                     "正态分布", "二项分布", "泊松", "均匀分布", "独立"],
+    "Statistics": ["统计", "假设检验", "置信区间", "回归", "最小二乘", "抽样", "显著性"],
+    "Proof_Techniques": ["证明", "求证", "试证", "反证", "数学归纳法", "归纳法",
+                          "充要", "当且仅当", "证毕", "得证", "任取"],
+    "Complex_Numbers": ["复数", "实部", "虚部", "辐角", "共轭", "棣莫弗", "复平面"],
+    "Vector_Calculus": ["旋度", "散度", "梯度", "曲线积分", "曲面积分",
+                         "格林公式", "斯托克斯", "高斯公式", "向量场"],
+    "Numerical_Methods": ["数值", "牛顿迭代", "龙格库塔", "插值", "截断误差", "差分"],
+    "Optimisation": ["最优化", "线性规划", "拉格朗日乘数", "约束", "目标函数", "凸函数"],
+}
+TOPIC_LEXICON = [
+    (name, list(kws) + _ZH_ALIASES.get(name, []))
+    for (name, kws) in TOPIC_LEXICON
 ]
 
 # --- UK Weak Topics (Qwen3.6 struggles with these in UK context) ---
@@ -194,14 +222,16 @@ def extract_answer_uk(response: str, qtype: str) -> str:
     if m:
         return m.group(1).strip()
 
-    # Try "Answer:" or "The answer is" or "Therefore"
-    m = re.search(r"(?:answer is|answer:|therefore|hence|thus|the result is)\s*:?\s*([^\n.]{1,60})",
+    # Try "Answer:" or "The answer is" or "Therefore" — zh: 答案是/所以/因此/故
+    m = re.search(r"(?:answer is|answer:|therefore|hence|thus|the result is"
+                  r"|答案是|答案为|答案:|所以|因此|故|于是|得到|其值为|即为)\s*[:：]?\s*([^\n.。]{1,60})",
                   text, re.IGNORECASE)
     if m:
-        ans = m.group(1).strip().rstrip(".,;")
+        ans = m.group(1).strip().rstrip(".,;，。；")
         # Filter out non-answer phrases
         if ans and len(ans) > 1 and not any(w in ans.lower() for w in
-            ["we have", "it follows", "by the", "from the", "since"]):
+            ["we have", "it follows", "by the", "from the", "since",
+             "我们", "由此", "根据", "由于"]):
             return ans
 
     # For MCQ: find single letter A/B/C/D
@@ -310,7 +340,9 @@ def build_prompt_uk(row: dict, few_shot: bool = False) -> str:
         rule = "Provide the final answer in simplified form."
 
     instruction = (
-        "You are a UK university mathematics tutor solving an exam question.\n"
+        "You are a tutor for first-year mathematics at a Chinese Sino-foreign joint "
+        "university (中外合办大学), solving an exam question. "
+        "Respond in the language of the question (默认中文，术语中英对照).\n"
         "Follow these steps:\n"
         "1. Identify the key concepts and theorems involved.\n"
         "2. Show clear step-by-step working with proper mathematical notation.\n"
@@ -331,7 +363,8 @@ def build_verify_prompt_uk(row: dict, reasoning: str) -> str:
     option_text = "\n".join(f"  {chr(65+i)}. {opt}" for i, opt in enumerate(options)) if options else ""
 
     instruction = (
-        "You are a UK university mathematics examiner (moderator). "
+        "You are a university mathematics examiner (moderator) for a Chinese "
+        "Sino-foreign joint university. "
         "Review the student's solution below for correctness:\n\n"
         "1. Check each step of the calculation/reasoning.\n"
         "2. Identify any errors and provide corrections.\n"
@@ -344,16 +377,20 @@ def build_verify_prompt_uk(row: dict, reasoning: str) -> str:
 
 
 # ============================================================================
-# SYSTEM PROMPT (replaces "你是严谨的高考数学解题模型")
+# SYSTEM PROMPT (China track: Sino-foreign joint programme bridging tutor)
 # ============================================================================
 
 SYSTEM_PROMPT_UK = (
-    "You are CogniBridge, an expert UK university mathematics tutor. "
-    "You specialise in first-year undergraduate mathematics including: "
-    "calculus (limits, differentiation, integration), linear algebra, "
-    "discrete mathematics, probability, and mathematical proofs. "
-    "You solve problems with rigorous step-by-step reasoning, "
-    "using standard British mathematical notation and conventions. "
+    "You are CogniBridge (智学桥), an expert tutor for first-year students at a "
+    "Chinese Sino-foreign joint university (BUPT-QMUL style) bridging from the "
+    "Gaokao to English-medium university mathematics: "
+    "calculus / mathematical analysis (极限、微分、积分、级数), linear algebra / "
+    "advanced algebra (矩阵、行列式、向量空间), discrete mathematics, probability, "
+    "and mathematical proofs. "
+    "Respond in the language of the question (默认中文); gloss key terms bilingually "
+    "(e.g. 极限 limit, 特征值 eigenvalue); notation follows the English course "
+    "textbooks, with Gaokao-habit correspondences shown when helpful. "
+    "You solve problems with rigorous step-by-step reasoning. "
     "Always show your full working and clearly indicate your final answer."
 )
 

@@ -87,7 +87,9 @@ class SmartRouter:
 
         # Signal 3: Proof Keywords (even if not classified as Proof)
         text_lower = question_text.lower()
-        proof_kws = ["prove", "show that", "deduce", "hence show", "prove by"]
+        proof_kws = ["prove", "show that", "deduce", "hence show", "prove by",
+                     # zh proof signals (中国赛道)
+                     "证明", "求证", "试证", "反证", "归纳法证明"]
         if any(kw in text_lower for kw in proof_kws):
             if qtype != QuestionType.PROOF:
                 lane_b_score += 0.2
@@ -104,21 +106,26 @@ class SmartRouter:
             signals.append(f"Student strong topic: {topic}")
 
         # Signal 5: Question Length
+        # zh: CJK text has no spaces — split() undercounts; count chars too
         word_count = len(question_text.split())
-        if word_count > 150:
+        char_count = len(question_text)
+        effective_len = max(word_count, char_count // 2)  # 2 chars ≈ 1 word
+        if effective_len > 150:
             lane_b_score += 0.15
-            signals.append(f"Very long question ({word_count} words)")
-        elif word_count > 80:
+            signals.append(f"Very long question ({effective_len} words~)")
+        elif effective_len > 80:
             lane_b_score += 0.05
-            signals.append(f"Long question ({word_count} words)")
-        elif word_count < 30:
+            signals.append(f"Long question ({effective_len} words~)")
+        elif effective_len < 12:
             lane_b_score -= 0.1
-            signals.append(f"Short question ({word_count} words)")
+            signals.append(f"Short question ({effective_len} words~)")
 
         # Signal 6: Complexity indicators
         complexity_markers = [
             "hence", "therefore", "using", "by considering",
-            "first", "then", "finally", "subsequently"
+            "first", "then", "finally", "subsequently",
+            # zh complexity markers
+            "因此", "所以", "利用", "考虑", "首先", "然后", "最后", "进而", "从而",
         ]
         complexity_count = sum(1 for m in complexity_markers if m in text_lower)
         if complexity_count >= 3:

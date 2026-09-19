@@ -1,6 +1,10 @@
 """
-Question Type Classifier for UK Mathematics
+Question Type Classifier for university mathematics (bilingual EN/zh)
 Detects MCQ / Short Answer / Proof / Long Answer / Multi-part
+
+China-track: Chinese keyword patterns are appended so 证明/解释/下列 questions
+classify correctly (a Chinese proof question MUST reach the Proof lane +
+ProofVerifier — falling through to "Short" silently skips verification).
 """
 import re
 from enum import Enum
@@ -25,7 +29,7 @@ class ClassificationResult:
 
 
 class QuestionClassifier:
-    """Classifies UK math questions by type."""
+    """Classifies math questions by type (bilingual EN/zh)."""
 
     # Proof indicators (strong signal)
     PROOF_KEYWORDS = [
@@ -34,6 +38,9 @@ class QuestionClassifier:
         r"\bprove\s+by\s+contradiction\b", r"\bprove\s+by\s+induction\b",
         r"\busing\s+the\s+method\s+of\s+\w+\b",
         r"\bq\.?e\.?d\b",  # QED
+        # zh: proof directives (Chinese exam phrasing)
+        r"证明", r"求证", r"试证", r"验证.{0,6}成立",
+        r"反证", r"数学归纳法", r"用归纳法", r"证毕", r"充要条件.{0,4}证明",
     ]
 
     # MCQ indicators
@@ -43,6 +50,9 @@ class QuestionClassifier:
         r"which\s+of\s+the\s+following",
         r"select\s+(?:the\s+)?correct\s+(?:option|answer)",
         r"\bchoose\b.*\bfrom\b",
+        # zh MCQ phrasing (选择题 conventions)
+        r"下列", r"正确的是", r"不正确的是", r"错误的是", r"选择题",
+        r"选项", r"[A-D]､", r"（[A-D]）",
     ]
 
     # Long answer indicators
@@ -52,6 +62,9 @@ class QuestionClassifier:
         r"\bjustify\s+your\s+answer\b", r"\bgive\s+reasons\b",
         r"\bwhat\s+is\s+meant\s+by\b", r"\bstate\s+and\s+explain\b",
         r"\boutline\b", r"\bevaluate\b",
+        # zh long-answer phrasing
+        r"解释", r"说明", r"简述", r"阐述", r"讨论", r"比较", r"分析",
+        r"为什么", r"论述", r"举例说明",
     ]
 
     # Multi-part indicators
@@ -59,8 +72,10 @@ class QuestionClassifier:
         r"\n\s*\([a-d]\)\s+",           # (a) ... (b) ...
         r"\n\s*\([i-v]+\)\s+",           # (i) ... (ii) ...
         r"\bPart\s+[A-D][:.]?\s+",       # Part A ...
-        r"\b\([0-9]+\)\s+",              # (1) ... (2) ...
+        r"(?:\n|^)\s*\([0-9]+\)\s*",     # (1) ... (2) ... (line start; \b fails before '(' at BOL)
         r"\([a-d]\)\s*[-–]\s*",          # (a) - ...
+        r"(?:\n|^)\s*（[0-9]+）\s*",     # （1）（2） full-width zh
+        r"(?:\n|^)\s*[（(][一二三四五六][）)]\s*",  # (一)(二) zh conventions
     ]
 
     def classify(self, text: str, options: Optional[List[str]] = None) -> ClassificationResult:

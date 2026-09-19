@@ -1,4 +1,4 @@
-"""
+﻿"""
 Step Checker: Verify intermediate steps in solutions
 Uses SymPy to check symbolic equivalence of key intermediate expressions.
 """
@@ -98,7 +98,7 @@ class StepChecker:
                 continue
 
             # Skip non-math lines
-            if line.startswith(("Proof", "Solution", "Therefore", "Hence", "Thus", "So")):
+            if line.startswith(("Proof", "Solution", "Therefore", "Hence", "Thus", "So", "证明", "解", "所以", "因此", "故", "于是", "证毕", "即", "则")):
                 # But may contain equation after colon
                 if "=" not in line and "→" not in line:
                     continue

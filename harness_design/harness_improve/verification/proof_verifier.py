@@ -44,43 +44,64 @@ class ProofVerifier:
     Uses checklist-based assessment (can be enhanced with LLM grading).
     """
 
+    # Bilingual rubrics: English keywords kept (QMUL-style English courses) +
+    # Chinese aliases so a proof written in Chinese scores its true structure.
+    # (Without zh keywords a correct Chinese induction proof scores 0 → "fail".)
     RUBRICS = {
         ProofType.INDUCTION: {
             "sections": [
-                ("base_case", ["base case", "n = 1", "n = 0", "first case", "initial case"]),
-                ("inductive_hypothesis", ["assume", "inductive hypothesis", "suppose", "p(k)", "hypothesis"]),
-                ("inductive_step", ["therefore", "thus", "hence", "p(k+1)", "inductive step", "show that"]),
-                ("conclusion", ["by induction", "principle of mathematical induction", "qed", "proved"]),
+                ("base_case", ["base case", "n = 1", "n = 0", "first case", "initial case",
+                               "n=1", "当n=1", "奠基", "第一步", "验证n"]),
+                ("inductive_hypothesis", ["assume", "inductive hypothesis", "suppose", "p(k)", "hypothesis",
+                                          "假设", "归纳假设", "设n=k", "当n=k", "命题成立"]),
+                ("inductive_step", ["therefore", "thus", "hence", "p(k+1)", "inductive step", "show that",
+                                    "n=k+1", "当n=k+1", "归纳步骤", "即证", "也成立"]),
+                ("conclusion", ["by induction", "principle of mathematical induction", "qed", "proved",
+                                "由归纳法", "数学归纳法", "证毕", "得证", "命题得证"]),
             ]
         },
         ProofType.CONTRADICTION: {
             "sections": [
-                ("assumption", ["suppose not", "assume", "for contradiction", "contrary"]),
-                ("derivation", ["then", "therefore", "implies", "follows that", "thus"]),
-                ("contradiction", ["contradiction", "which contradicts", "absurd", "impossible"]),
-                ("conclusion", ["must be true", "therefore", "qed", "proved", "established"]),
+                ("assumption", ["suppose not", "assume", "for contradiction", "contrary",
+                                "反设", "反证", "假设不成立", "假设命题不", "用反证法"]),
+                ("derivation", ["then", "therefore", "implies", "follows that", "thus",
+                                "那么", "于是", "从而", "推出", "由此"]),
+                ("contradiction", ["contradiction", "which contradicts", "absurd", "impossible",
+                                   "矛盾"]),
+                ("conclusion", ["must be true", "therefore", "qed", "proved", "established",
+                                "故命题", "原命题成立", "证毕", "得证"]),
             ]
         },
         ProofType.EPSILON_DELTA: {
             "sections": [
-                ("given_epsilon", ["let ε", "given ε", "for any ε > 0", "arbitrary ε", "∀ε > 0"]),
-                ("find_delta", ["choose δ", "let δ", "set δ", "define δ", "take δ"]),
-                ("verification", ["|f(x)", "< ε", "whenever", "implies", "|x -", "distance"]),
-                ("conclusion", ["therefore", "lim", "= l", "qed", "proved"]),
+                ("given_epsilon", ["let ε", "given ε", "for any ε > 0", "arbitrary ε", "∀ε > 0",
+                                   "任取ε", "任意ε", "对任意ε", "对于任意ε", "对一切ε", "给定ε"]),
+                ("find_delta", ["choose δ", "let δ", "set δ", "define δ", "take δ",
+                                "取δ", "令δ", "设δ", "选δ", "只需取"]),
+                ("verification", ["|f(x)", "< ε", "whenever", "implies", "|x -", "distance",
+                                  "恒有", "只要", "便有", "时有", "小于ε"]),
+                ("conclusion", ["therefore", "lim", "= l", "qed", "proved",
+                                "故", "所以", "证毕", "得证", "极限为"]),
             ]
         },
         ProofType.DIRECT: {
             "sections": [
-                ("setup", ["let", "suppose", "given", "since", "as"]),
-                ("derivation", ["then", "therefore", "thus", "hence", "it follows"]),
-                ("conclusion", ["therefore", "thus", "hence", "qed", "proved"]),
+                ("setup", ["let", "suppose", "given", "since", "as",
+                           "设", "令", "已知", "由", "因为", "由于"]),
+                ("derivation", ["then", "therefore", "thus", "hence", "it follows",
+                                "则", "于是", "从而", "得到", "可得"]),
+                ("conclusion", ["therefore", "thus", "hence", "qed", "proved",
+                                "所以", "故", "证毕", "得证", "即证"]),
             ]
         },
         ProofType.CONTRAPOSITIVE: {
             "sections": [
-                ("statement", ["contrapositive", "equivalent to", "instead prove"]),
-                ("proof_body", ["assume", "then", "therefore"]),
-                ("conclusion", ["contrapositive", "therefore", "qed"]),
+                ("statement", ["contrapositive", "equivalent to", "instead prove",
+                               "逆否命题", "等价于", "改证"]),
+                ("proof_body", ["assume", "then", "therefore",
+                                "假设", "则", "因此"]),
+                ("conclusion", ["contrapositive", "therefore", "qed",
+                                "逆否", "故", "证毕"]),
             ]
         },
     }
@@ -102,22 +123,25 @@ class ProofVerifier:
             ProofType.DIRECT: 0,
         }
 
-        # Indication keywords
-        if any(k in text for k in ["induction", "inductive", "base case", "inductive step"]):
+        # Indication keywords (bilingual)
+        if any(k in text for k in ["induction", "inductive", "base case", "inductive step",
+                                   "归纳法", "归纳假设", "数学归纳"]):
             scores[ProofType.INDUCTION] += 3
-        if any(k in text for k in ["contradiction", "assume not", "suppose not"]):
+        if any(k in text for k in ["contradiction", "assume not", "suppose not",
+                                   "反证", "矛盾", "假设不成立"]):
             scores[ProofType.CONTRADICTION] += 3
-        if any(k in text for k in ["ε-δ", "epsilon-delta", "limit", "given ε", "choose δ"]):
+        if any(k in text for k in ["ε-δ", "epsilon-delta", "limit", "given ε", "choose δ",
+                                   "极限", "任取ε", "取δ"]):
             scores[ProofType.EPSILON_DELTA] += 3
-        if "contrapositive" in text:
+        if any(k in text for k in ["contrapositive", "逆否"]):
             scores[ProofType.CONTRAPOSITIVE] += 3
-        if "prove" in text and scores[ProofType.INDUCTION] == 0 and scores[ProofType.CONTRADICTION] == 0:
+        if any(k in text for k in ["prove", "证明", "求证"]) and scores[ProofType.INDUCTION] == 0 and scores[ProofType.CONTRADICTION] == 0:
             scores[ProofType.DIRECT] += 1
 
         # Solution-based clues
-        if "assume p(k)" in text or "inductive hypothesis" in text:
+        if any(k in text for k in ["assume p(k)", "inductive hypothesis", "归纳假设"]):
             scores[ProofType.INDUCTION] += 2
-        if "contradiction" in text and "therefore" in text:
+        if ("contradiction" in text or "矛盾" in text) and ("therefore" in text or "因此" in text or "所以" in text):
             scores[ProofType.CONTRADICTION] += 2
         if "δ =" in text and "ε" in text:
             scores[ProofType.EPSILON_DELTA] += 2
@@ -199,17 +223,17 @@ class ProofVerifier:
         else:
             overall = "fail"
 
-        # Generate feedback
+        # Generate feedback (zh-first: this branch serves Chinese students)
         missing = [s.name for s in sections if s.quality == "missing"]
         partial = [s.name for s in sections if s.quality == "partial"]
 
         feedback_parts = []
         if missing:
-            feedback_parts.append(f"Missing sections: {', '.join(missing)}.")
+            feedback_parts.append(f"缺失环节：{', '.join(missing)}。")
         if partial:
-            feedback_parts.append(f"Sections needing improvement: {', '.join(partial)}.")
+            feedback_parts.append(f"待加强环节：{', '.join(partial)}。")
         if not missing and not partial:
-            feedback_parts.append("Well-structured proof with all required elements.")
+            feedback_parts.append("证明结构完整，各环节齐备。")
 
         feedback = " ".join(feedback_parts)
 
@@ -225,10 +249,12 @@ class ProofVerifier:
         """Generic proof verification when type is unknown."""
         solution_lower = solution.lower()
 
-        # Check for basic proof elements
-        has_logic = any(w in solution_lower for w in ["therefore", "thus", "hence", "since"])
+        # Check for basic proof elements (bilingual)
+        has_logic = any(w in solution_lower for w in ["therefore", "thus", "hence", "since",
+                                                      "因此", "所以", "故", "由于", "于是", "从而"])
         has_structure = len(solution.split("\n")) >= 3
-        has_conclusion = any(w in solution_lower for w in ["qed", "proved", "therefore"])
+        has_conclusion = any(w in solution_lower for w in ["qed", "proved", "therefore",
+                                                           "证毕", "得证", "所以", "故原命题"])
 
         score = 0
         if has_logic:
@@ -250,8 +276,8 @@ class ProofVerifier:
             sections=[],
             overall=overall,
             score=round(score, 3),
-            feedback="Generic assessment: " + (
-                "Basic proof structure present." if score > 0.5 else "Proof structure unclear."
+            feedback="综合评估：" + (
+                "已具备基本证明结构。" if score > 0.5 else "证明结构不清晰。"
             ),
         )
 
@@ -358,8 +384,8 @@ class ProofVerifier:
         ]
 
         for section in assessment.sections:
-            icon = "✅" if section.quality == "strong" else "⚠️" if section.quality == "partial" else "❌"
-            lines.append(f"{icon} {section.name}: {section.quality.upper()} — {section.comment}")
+            tag = "PASS" if section.quality == "strong" else "NEEDS REVISION" if section.quality == "partial" else "FAIL"
+            lines.append(f"[{tag}] {section.name}: {section.quality.upper()} — {section.comment}")
 
         lines.append("")
         lines.append(f"Feedback: {assessment.feedback}")
