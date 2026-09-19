@@ -1,4 +1,4 @@
-// ===== BOOKSHELF PAGE =====
+﻿// ===== BOOKSHELF PAGE =====
 async function bsPageInit(){
     renderSkeletonGrid('dash-bs-grid',5);
     renderSkeletonGrid('bs-page-grid',5);
@@ -22,9 +22,9 @@ function _bsShowRetryBanner(){
         const b=document.createElement('div');
         b.style.cssText='grid-column:1/-1;display:flex;flex-direction:column;align-items:center;gap:10px;padding:28px 16px;color:var(--text-muted);font-size:13px;';
         b.innerHTML='<div style="font-size:22px;">&#9888;</div>'
-            +'<div>Backend not reachable — your data is safe.</div>'
-            +'<button class="btn-primary" style="padding:8px 22px;font-size:13px;" onclick="bsRetryLoad()">Retry now</button>'
-            +'<span style="font-size:11px;opacity:.7;">Auto-retrying…</span>';
+            +'<div>后端未就绪——数据是安全的。</div>'
+            +'<button class="btn-primary" style="padding:8px 22px;font-size:13px;" onclick="bsRetryLoad()">立即重试</button>'
+            +'<span style="font-size:11px;opacity:.7;">自动重试中…</span>';
         g.innerHTML='';g.appendChild(b);refreshIcons();
     });
 }
@@ -66,10 +66,10 @@ async function loadDocumentsFromBackend(){
         const networkLevel=(e instanceof TypeError)||(e.message&&e.message.includes('Failed to fetch'));
         if(networkLevel&&_bsLoadAttempt<3){
             _bsLoadAttempt++;
-            showNotification('Backend starting… retrying ('+_bsLoadAttempt+'/3)','error');
+            showNotification('后端启动中… 自动重试 ('+_bsLoadAttempt+'/3)','error');
             setTimeout(()=>{loadDocumentsFromBackend().then(()=>{bsPageRenderTabs();bsPageRenderGrid('slides');bsRenderDashboard(bsPageCat);});},2000*_bsLoadAttempt);
         }else{
-            showNotification('Could not load bookshelf from server','error');
+            showNotification('无法从服务器加载书架','error');
             if(localStorage.getItem('cb_token'))_bsShowRetryBanner();
         }
     }
@@ -88,7 +88,7 @@ function bsRenderDashboard(cat){
     const contTile=(typeof dashContinueTileHtml==='function')?dashContinueTileHtml(cat):'';
     if(docs.length===0){
         if(contTile){grid.innerHTML=contTile;refreshIcons();return;}
-        grid.innerHTML='<div style="grid-column:1/-1;text-align:center;padding:20px;color:var(--text-muted);font-size:12px;">No documents in this category</div>';return;}
+        grid.innerHTML='<div style="grid-column:1/-1;text-align:center;padding:20px;color:var(--text-muted);font-size:12px;">该分类下暂无文档</div>';return;}
     grid.innerHTML=contTile+docs.map((d,i)=>{const origIdx=(bsData[cat]||[]).indexOf(d);
         const showMineru=(d.fileType==='pdf'&&d.needsOcr&&d.parseStatus!=='done');
         const aiBadge=d.parseStatus==='done'?'<span style="position:absolute;top:2px;left:2px;font-size:8px;padding:1px 5px;border-radius:4px;background:rgba(82,196,26,.18);color:#52c41a;font-weight:600;z-index:2;">MinerU</span>':'';
@@ -126,14 +126,14 @@ function bsPageRenderGrid(cat){
     if(cat==='recycle-bin'){
         const docs=Object.values(bsData).flat().filter(d=>d.isDeleted);
         if(c)c.textContent=`${docs.length} document(s) in Recycle Bin`;
-        if(docs.length===0){g.innerHTML=`<div class="placeholder-box" style="grid-column:1/-1;">Recycle Bin is empty<br><span style="font-size:12px;">Deleted documents will appear here</span></div>`;return;}
+        if(docs.length===0){g.innerHTML=`<div class="placeholder-box" style="grid-column:1/-1;">回收站是空的<br><span style="font-size:12px;">Deleted documents will appear here</span></div>`;return;}
         g.innerHTML=docs.map(d=>`<div style="border:1px solid var(--border);border-radius:10px;padding:12px;transition:all .15s;background:var(--bg-card);position:relative;opacity:.6;" onmouseenter="this.style.opacity='1'" onmouseleave="this.style.opacity='.6'">
             <div style="text-align:center;margin-bottom:8px;"><div style="width:48px;height:56px;border-radius:8px;display:inline-flex;align-items:center;justify-content:center;color:var(--text-secondary);background:var(--bg-tag);">${iconHtml(d.icon,22)}</div></div>
             <div style="font-size:13px;font-weight:600;text-align:center;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${d.title}</div>
             <div style="font-size:11px;color:var(--text-muted);text-align:center;">Deleted ${d.deletedAt?new Date(d.deletedAt).toLocaleDateString():''}</div>
             <div style="display:flex;gap:6px;margin-top:10px;justify-content:center;">
-                <button onclick="bsRestoreDocument('${d.id}')" style="font-size:11px;padding:4px 10px;border-radius:6px;background:rgba(82,196,26,.1);border:1px solid rgba(82,196,26,.3);color:#52c41a;cursor:pointer;">Restore</button>
-                <button onclick="bsPermanentlyDeleteDocument('${d.id}')" style="font-size:11px;padding:4px 10px;border-radius:6px;background:rgba(255,107,107,.1);border:1px solid rgba(255,107,107,.3);color:#ff6b6b;cursor:pointer;">Delete Forever</button>
+                <button onclick="bsRestoreDocument('${d.id}')" style="font-size:11px;padding:4px 10px;border-radius:6px;background:rgba(82,196,26,.1);border:1px solid rgba(82,196,26,.3);color:#52c41a;cursor:pointer;">恢复</button>
+                <button onclick="bsPermanentlyDeleteDocument('${d.id}')" style="font-size:11px;padding:4px 10px;border-radius:6px;background:rgba(255,107,107,.1);border:1px solid rgba(255,107,107,.3);color:#ff6b6b;cursor:pointer;">彻底删除</button>
             </div></div>`).join('');refreshIcons();
         return;
     }
@@ -148,7 +148,7 @@ function bsPageRenderGrid(cat){
         const prog=(isParsing&&mineruTracker.progress&&mineruTracker.progress[d.id])||null;
         let statusLine='';
         if(d.parseStatus==='done'){
-            statusLine='<div style="font-size:10px;color:#52c41a;text-align:center;margin-top:6px;">MinerU parsed</div>';
+            statusLine='<div style="font-size:10px;color:#52c41a;text-align:center;margin-top:6px;">MinerU 已解析</div>';
         }else if(isParsing){
             if(d.parseStatus==='indexing'){
                 statusLine='<div data-mineru-progress="'+d.id+'">'+
@@ -229,7 +229,7 @@ async function bsConfirmUpload(){if(!bsPendingFile||!bsPendingCat)return;
         }
     }catch(e){
         console.error('Upload failed:',e);
-        showNotification('Upload failed: '+e.message,'error');
+        showNotification('上传失败：'+e.message,'error');
     }finally{if(typeof formBusy==='function')formBusy('bs-upload',false);}
 }
 

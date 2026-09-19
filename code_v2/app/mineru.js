@@ -1,4 +1,4 @@
-// ===== [MinerU] global parse tracker + confirmation modal =====
+﻿// ===== [MinerU] global parse tracker + confirmation modal =====
 const mineruTracker={pending:{},progress:{},queue:[],busy:false};
 
 function mineruTrackerFetch(path){
@@ -16,7 +16,7 @@ function mineruUpdateProgressWidgets(){
             const pctEl=box.querySelector('.mineru-prog-pct');
             const pct=p.total_pages?Math.min(99,Math.round(p.pages_done*100/p.total_pages)):0;
             if(fill&&!fill.style.animation){fill.style.width=pct+'%';}   // animated (indexing) bars keep full width
-            if(text)text.textContent=p.status==='queued'?'Queued…':(p.status==='indexing'?'Building search index…':(pct+'% · '+p.pages_done+'/'+p.total_pages+' pages'));
+            if(text)text.textContent=p.status==='queued'?'Queued…':(p.status==='indexing'?'构建检索索引中…':(pct+'% · '+p.pages_done+'/'+p.total_pages+' pages'));
             if(pctEl)pctEl.textContent=p.status==='indexing'?'idx':(p.status==='queued'?'…':pct+'%');
         });
     });
@@ -52,7 +52,7 @@ function mineruTrackerTick(){
     .catch(()=>{});
 }
 
-const MINERU_STATUS_LABELS={done:'MinerU parsed',failed:'Parsing failed',parsing:'MinerU parsing…',indexing:'Building index…',queued:'Queued',none:'Not parsed'};
+const MINERU_STATUS_LABELS={done:'MinerU 已解析',failed:'Parsing failed',parsing:'MinerU 解析中…',indexing:'构建索引中…',queued:'Queued',none:'未解析'};
 
 function mineruSyncDoc(id,status){
     let changed=false;
@@ -90,21 +90,21 @@ function mineruShowNextDone(){
     if(item.ok){
         icon.style.color='#52c41a';
         icon.innerHTML=iconHtml('check-circle',40);
-        title.textContent='AI Re-layout Complete';
+        title.textContent='AI 重排完成';
         body.innerHTML='"'+escapeHtml(item.title)+'" is ready — formatted text, rendered formulas and Q&A are now unlocked.';
         openBtn.style.display='inline-block';
         openBtn.textContent='Open Book';
     }else if(mineruIsAuthError(item)){
         icon.style.color='var(--yellow)';
         icon.innerHTML=iconHtml('key-round',40);
-        title.textContent='MinerU API Key Rejected';
+        title.textContent='MinerU API Key 被拒绝';
         body.innerHTML='Your MinerU API key was rejected while parsing "'+escapeHtml(item.title)+'".<br><span style="font-size:11px;color:var(--text-muted);">Update your key to continue — completed parts are cached.</span>';
         openBtn.style.display='inline-block';
         openBtn.textContent='Update Key';
     }else{
         icon.style.color='#ff6b6b';
         icon.innerHTML=iconHtml('alert-circle',40);
-        title.textContent='AI Re-layout Failed';
+        title.textContent='AI 重排失败';
         body.innerHTML='"'+escapeHtml(item.title)+'" could not be parsed.<br><span style="font-size:11px;color:var(--text-muted);">'+escapeHtml(item.error||'Unknown error')+'</span>';
         openBtn.style.display='none';
     }
@@ -216,7 +216,7 @@ function mineruGateRenderOnboarding(){
     </div>
     <input id="mineru-key-input" type="password" placeholder="Paste your API key (starts with sk-)" class="input" style="width:100%;font-size:13px;">
     <div id="mineru-key-error" style="color:#ff6b6b;font-size:12px;min-height:16px;margin-top:4px;"></div>
-    <button id="mineru-key-save" onclick="mineruGateSaveKey()" style="width:100%;margin-top:8px;padding:10px;border-radius:8px;border:none;background:var(--accent);color:#fff;font-size:13px;font-weight:600;cursor:pointer;">Save Key & Continue</button>
+    <button id="mineru-key-save" onclick="mineruGateSaveKey()" style="width:100%;margin-top:8px;padding:10px;border-radius:8px;border:none;background:var(--accent);color:#fff;font-size:13px;font-weight:600;cursor:pointer;">保存 Key 并继续</button>
     <button onclick="mineruGateOpenGuide()" style="width:100%;margin-top:10px;padding:6px;border:none;background:transparent;color:var(--accent);font-size:12px;cursor:pointer;text-decoration:underline;">What is MinerU? — read the 1-minute guide</button>
     <button onclick="mineruGateChooseOriginal()" style="width:100%;margin-top:4px;padding:8px;border-radius:8px;border:none;background:transparent;color:var(--text-muted);font-size:12px;cursor:pointer;">${mineruGateOpensReader?'Skip — show original pages only':'Not now'}</button>
     <div id="mineru-quota-line" style="font-size:11px;color:var(--text-muted);text-align:center;margin-top:10px;"></div>`;
@@ -231,7 +231,7 @@ async function mineruFillQuota(elId){
         const r=await apiFetch('/api/user/mineru-usage');
         if(!r.ok)return;
         const u=await r.json();
-        el.textContent='MinerU Today: '+u.used+' / '+u.limit.toLocaleString()+' pages · resets daily';
+        el.textContent='今日 MinerU：'+u.used+' / '+u.limit.toLocaleString()+' pages · resets daily';
     }catch(e){/* offline: leave blank */}
 }
 
@@ -240,7 +240,7 @@ function mineruGateRenderQuota(d){
     body.innerHTML=`
     <div style="text-align:center;padding:10px 0;">
         <div style="color:var(--yellow);margin-bottom:10px;display:flex;justify-content:center;">${iconHtml('hourglass',34)}</div>
-        <div style="font-size:14px;font-weight:700;color:var(--text-primary);margin-bottom:6px;">Daily MinerU limit reached</div>
+        <div style="font-size:14px;font-weight:700;color:var(--text-primary);margin-bottom:6px;">今日 MinerU 配额已用完</div>
         <p style="font-size:13px;color:var(--text-secondary);line-height:1.6;">
             This book needs <b>${d.needed}</b> pages, but only <b>${d.remaining}</b> of today's
             ${d.limit.toLocaleString()} free pages remain.<br>
@@ -266,9 +266,9 @@ async function mineruGateSaveKey(){
     const errEl=document.getElementById('mineru-key-error');
     const btn=document.getElementById('mineru-key-save');
     const key=(input&&input.value||'').trim();
-    if(!key.startsWith('sk-')||key.length<20){errEl.textContent='Invalid key — it should start with "sk-".';return;}
+    if(!key.startsWith('sk-')||key.length<20){errEl.textContent='Key 无效——应以 "sk-" 开头。';return;}
     errEl.textContent='';
-    if(btn){btn.disabled=true;btn.textContent='Validating key…';}
+    if(btn){btn.disabled=true;btn.textContent='正在验证 Key…';}
     try{
         const r=await apiFetch('/api/user/mineru-token',{method:'PUT',body:JSON.stringify({token:key})});
         if(!r.ok){
@@ -304,11 +304,11 @@ function mineruGateOfferRetry(){
     body.innerHTML=`
     <div style="text-align:center;padding:10px 0;">
         <div style="color:var(--green);margin-bottom:8px;display:flex;justify-content:center;">${iconHtml('key-round',34)}</div>
-        <div style="font-size:15px;font-weight:700;color:var(--text-primary);margin-bottom:6px;">Key Updated</div>
-        <p style="font-size:13px;color:var(--text-secondary);margin:0 0 16px;">Your new MinerU key is saved.<br>Retry parsing "${title}" now?</p>
+        <div style="font-size:15px;font-weight:700;color:var(--text-primary);margin-bottom:6px;">Key 已更新</div>
+        <p style="font-size:13px;color:var(--text-secondary);margin:0 0 16px;">Your new MinerU key is saved.<br>现在重试解析 "${title}" 吗？</p>
         <div style="display:flex;gap:10px;">
             <button onclick="mineruGateStart()" style="flex:1;display:inline-flex;align-items:center;justify-content:center;gap:6px;padding:10px;border-radius:8px;border:none;background:var(--accent);color:#fff;font-size:13px;font-weight:600;cursor:pointer;">${iconHtml('rotate-ccw',14)}Retry Parse</button>
-            <button onclick="mineruGateChooseOriginal()" style="flex:1;padding:10px;border-radius:8px;border:1px solid var(--border);background:var(--bg-input);color:var(--text-secondary);font-size:13px;cursor:pointer;">Not now</button>
+            <button onclick="mineruGateChooseOriginal()" style="flex:1;padding:10px;border-radius:8px;border:1px solid var(--border);background:var(--bg-input);color:var(--text-secondary);font-size:13px;cursor:pointer;">暂不启用</button>
         </div>
         <p style="font-size:11px;color:var(--text-muted);margin-top:10px;">Completed parts are cached — retrying won't re-spend those pages.</p>
     </div>`;
@@ -363,7 +363,7 @@ async function mineruGateStart(){
         mineruGateRenderProgress();
     }catch(e){
         body.innerHTML='<div style="color:#ff6b6b;font-size:13px;padding:12px;">'+escapeHtml(e.message)+'</div>'+
-            '<button onclick="mineruGateRenderConsent()" style="width:100%;margin-top:8px;padding:9px;border-radius:8px;border:1px solid var(--border);background:var(--bg-input);color:var(--text-secondary);font-size:13px;cursor:pointer;">Back</button>';
+            '<button onclick="mineruGateRenderConsent()" style="width:100%;margin-top:8px;padding:9px;border-radius:8px;border:1px solid var(--border);background:var(--bg-input);color:var(--text-secondary);font-size:13px;cursor:pointer;">返回</button>';
     }
 }
 
@@ -407,9 +407,9 @@ function mineruGateRenderProgress(){
                         return;
                     }
                     const pages=s.total_pages?(' · '+s.pages_done+'/'+s.total_pages+' pages'):'';
-                    t.textContent=s.status==='indexing'?'Building search index…':'Parsing on MinerU cloud'+pages;
+                    t.textContent=s.status==='indexing'?'构建检索索引中…':'Parsing on MinerU cloud'+pages;
                     if(quotaEl&&typeof s.mineru_used==='number'){
-                        quotaEl.textContent='MinerU Today: '+s.mineru_used+' / '+(s.mineru_limit||2000).toLocaleString()+' pages · resets daily';
+                        quotaEl.textContent='今日 MinerU：'+s.mineru_used+' / '+(s.mineru_limit||2000).toLocaleString()+' pages · resets daily';
                     }
                 }
             }

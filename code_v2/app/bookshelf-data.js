@@ -1,11 +1,11 @@
-// ===== SHARED BOOKSHELF DATA =====
+﻿// ===== SHARED BOOKSHELF DATA =====
 const BS_CATS=[
-    {key:'slides',icon:'presentation',label:'Slides'},
-    {key:'textbooks',icon:'book-open',label:'Textbooks'},
-    {key:'exercises',icon:'pen-line',label:'Exercises'},
-    {key:'exam-papers',icon:'file-text',label:'Exam Papers'},
-    {key:'research-papers',icon:'scroll-text',label:'Research Papers'},
-    {key:'notes',icon:'notebook-pen',label:'Notes'}
+    {key:'slides',icon:'presentation',label:'课件'},
+    {key:'textbooks',icon:'book-open',label:'教材'},
+    {key:'exercises',icon:'pen-line',label:'习题'},
+    {key:'exam-papers',icon:'file-text',label:'真题卷'},
+    {key:'research-papers',icon:'scroll-text',label:'文献'},
+    {key:'notes',icon:'notebook-pen',label:'笔记'}
 ];
 function iconHtml(name,size){size=size||16;return `<i data-lucide="${name}" style="width:${size}px;height:${size}px;flex-shrink:0;"></i>`;}
 function refreshIcons(){if(window.lucide)lucide.createIcons();}

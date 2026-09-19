@@ -1,4 +1,4 @@
-// ===== Dashboard bento modules (hero head / activity feed / continue tile) =====
+﻿// ===== Dashboard bento modules (hero head / activity feed / continue tile) =====
 // Lightweight local event log (localStorage, capped 30 entries). User-action
 // call sites (open doc / note / highlight / upload) append via logActivity();
 // renderActivity() merges the log with recent notes for the feed. Guests get
@@ -14,7 +14,7 @@ function logActivity(type, text) {
 
 function relTime(ts) {
     const s = Math.max(1, Math.floor((Date.now() - ts) / 1000));
-    if (s < 60) return 'just now';
+    if (s < 60) return '刚刚';
     const m = Math.floor(s / 60); if (m < 60) return m + (m === 1 ? ' min ago' : ' mins ago');
     const h = Math.floor(m / 60); if (h < 24) return h + (h === 1 ? ' hour ago' : ' hours ago');
     const d = Math.floor(h / 24); if (d < 7) return d + (d === 1 ? ' day ago' : ' days ago');
@@ -37,7 +37,7 @@ function renderActivity() {
     (typeof notesData !== 'undefined' ? notesData : []).forEach(function (n) {
         if (n.isDeleted) return;
         const ts = new Date(n.updatedAt || n.createdAt || 0).getTime();
-        if (ts) events.push({ t: ts, type: 'note', text: 'Note · ' + (n.title || 'Untitled') });
+        if (ts) events.push({ t: ts, type: 'note', text: '笔记 · ' + (n.title || 'Untitled') });
     });
     events.sort(function (a, b) { return b.t - a.t; });
     // Dedupe same type+text within a minute (log entry + merged note)
@@ -76,7 +76,7 @@ function renderDashHead() {
         var user = {};
         try { user = JSON.parse(localStorage.getItem('cb_user') || '{}'); } catch (e) {}
         var h = new Date().getHours();
-        var part = h < 5 ? 'Late night' : h < 12 ? 'Good morning' : h < 18 ? 'Good afternoon' : 'Good evening';
+        var part = h < 5 ? '夜深了' : h < 12 ? '早上好' : h < 18 ? '下午好' : '晚上好';
         greet.textContent = part + ', ' + (user.name || 'User');
     }
     var sub = document.getElementById('dash-hero-sub');
@@ -84,7 +84,7 @@ function renderDashHead() {
         var date = new Date().toLocaleDateString('en-GB', { weekday: 'long', month: 'short', day: 'numeric' });
         var week = (typeof getCurrentWeek === 'function') ? getCurrentWeek() : 1;
         sub.innerHTML = '<span>' + date + '</span>'
-            + '<span class="dash-week-chip">' + iconHtml('calendar-range', 11) + 'Teaching week ' + week + '/16</span>';
+            + '<span class="dash-week-chip">' + iconHtml('calendar-range', 11) + '教学周 ' + week + '/16</span>';
         refreshIcons();
     }
 }
@@ -101,7 +101,7 @@ function dashContinueTileHtml(cat) {
     return '<div class="dash-doc dash-doc-continue" onclick="bsOpenFromDash(\'' + cat + '\',' + last.idx + ')">'
         + '<div class="dash-doc-cover">' + iconHtml(doc.icon || 'book-open', 20) + '</div>'
         + '<div class="dash-doc-name">' + escapeHtml(doc.title) + '</div>'
-        + '<div class="dash-doc-tag">' + iconHtml('play', 9) + 'Continue' + (last.page ? ' · p.' + last.page : '') + '</div>'
+        + '<div class="dash-doc-tag">' + iconHtml('play', 9) + '继续阅读' + (last.page ? ' · p.' + last.page : '') + '</div>'
         + '</div>';
 }
 

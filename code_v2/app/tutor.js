@@ -1,4 +1,4 @@
-// ===== MATH TUTOR =====
+﻿// ===== MATH TUTOR =====
 let tutorMode='general';
 let tutorChatHistory=[];
 let tutorMaterials=[];
@@ -11,7 +11,7 @@ function tutorSwitchMode(m){
     if(m==='general'){
         bd.style.background='transparent';bd.style.color='var(--text-secondary)';
         bg.style.color='#fff';
-        desc.textContent='Direct answers with knowledge sources, method breakdowns & easy explanations';
+        desc.textContent='直接解答：知识来源、方法拆解、通俗讲解（术语中英对照）';
     }else{
         bg.style.background='transparent';bg.style.color='var(--text-secondary)';
         bd.style.color='#fff';

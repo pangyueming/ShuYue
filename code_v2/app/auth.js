@@ -13,7 +13,7 @@ async function apiFetch(url,options={}){
     if(res.status===401){
         localStorage.removeItem('cb_token');
         localStorage.removeItem('cb_user');
-        showNotification('Session expired. Please log in again.','warning');
+        showNotification('会话已过期，请重新登录。','warning');
         showPage('login');
         throw new Error('Unauthorized');
     }
@@ -45,8 +45,8 @@ function authShowLogin(){
 async function authLogin(){
     const email=document.getElementById('login-email').value.trim();
     const password=document.getElementById('login-password').value;
-    if(!email||!password){showNotification('Please enter email and password','warning');return;}
-    if(typeof formBusy==='function')formBusy('login-form',true,'Logging in…');
+    if(!email||!password){showNotification('请输入邮箱和密码','warning');return;}
+    if(typeof formBusy==='function')formBusy('login-form',true,'登录中…');
     try{
         const res=await fetch(AI_BACKEND_URL+'/api/auth/login',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({email,password})});
         if(!res.ok){const err=await res.json();throw new Error(err.detail||'Login failed');}
@@ -62,7 +62,7 @@ async function authLogin(){
         await restorePretestData();
         await loadUserStats();
         animateCountUp();
-        showNotification('Welcome back, '+data.user.name,'success');
+        showNotification('欢迎回来，'+data.user.name,'success');
         showPage('dashboard');
     }catch(e){showNotification(e.message,'error');}
     finally{if(typeof formBusy==='function')formBusy('login-form',false);}
@@ -72,9 +72,9 @@ async function authRegister(){
     const name=document.getElementById('reg-name').value.trim();
     const email=document.getElementById('reg-email').value.trim();
     const password=document.getElementById('reg-password').value;
-    if(!email||!password){showNotification('Please fill in all fields','warning');return;}
-    if(password.length<6){showNotification('Password must be at least 6 characters','warning');return;}
-    if(!/[a-zA-Z]/.test(password)||!/\d/.test(password)){showNotification('Password must contain at least one letter and one number','warning');return;}
+    if(!email||!password){showNotification('请填写完整','warning');return;}
+    if(password.length<6){showNotification('密码至少 6 位','warning');return;}
+    if(!/[a-zA-Z]/.test(password)||!/\d/.test(password)){showNotification('密码需包含至少一个字母和一个数字','warning');return;}
     if(typeof formBusy==='function')formBusy('register-form',true,'Creating account…');
     try{
         const res=await fetch(AI_BACKEND_URL+'/api/auth/register',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({email,password,name})});
@@ -84,7 +84,7 @@ async function authRegister(){
         localStorage.setItem('cb_user',JSON.stringify(data.user));
         await migrateGuestData();
         renderSidebarUser();
-        showNotification('Account created! Welcome, '+data.user.name,'success');
+        showNotification('账号创建成功！欢迎，'+data.user.name,'success');
         showPage('dashboard');
     }catch(e){showNotification(e.message,'error');}
     finally{if(typeof formBusy==='function')formBusy('register-form',false);}
@@ -97,9 +97,9 @@ async function authForgotPassword(){
     try{
         const res=await fetch(AI_BACKEND_URL+'/api/auth/forgot-password',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({email})});
         if(!res.ok)throw new Error('Failed');
-        showNotification('Reset link generated. Check server console.');
+        showNotification('重置链接已生成，请查看服务器控制台。');
         authShowLogin();
-    }catch(e){showNotification('Failed to generate reset link','error');}
+    }catch(e){showNotification('生成重置链接失败','error');}
     finally{if(typeof formBusy==='function')formBusy('forgot-form',false);}
 }
 
@@ -113,7 +113,7 @@ function authLogout(){
     tutorChatHistory=[];tutorMaterials=[];
     aiChatMessages=[];window.aiChatPageContext=null;
     window.pretestResult=null;
-    quizState={count:5,diff:'Medium',qtype:'MCQ',active:false,quizId:null,questions:[],serverIdx:[],current:0,score:0,detail:[]};
+    quizState={count:5,diff:'中',qtype:'MCQ',active:false,quizId:null,questions:[],serverIdx:[],current:0,score:0,detail:[]};
     try{localStorage.removeItem('cb_pretest');localStorage.removeItem('cb_plan');localStorage.removeItem('cb_highlights_'+(readerCurrentDocId||''));}catch(e){}
     // Reset visible surfaces
     const ph=document.getElementById('math-skill-placeholder');const phc=document.getElementById('math-skill-content');
@@ -199,8 +199,8 @@ async function saveProfile(){
         
         renderProfile();
         renderSidebarUser();
-        showNotification('Profile updated','success');
-    }catch(e){showNotification('Failed to update profile','error');}
+        showNotification('资料已更新','success');
+    }catch(e){showNotification('资料更新失败','error');}
 }
 
 // Password strength meter
@@ -212,10 +212,10 @@ document.addEventListener('DOMContentLoaded',()=>{
             const hasLetter=/[a-zA-Z]/.test(pwd);
             const hasNumber=/\d/.test(pwd);
             const isLongEnough=pwd.length>=6;
-            let strength='Weak';let color='#E5484D';
-            if(pwd.length===0){strength='Enter password';color='var(--text-muted)';}
-            else if(isLongEnough&&hasLetter&&hasNumber&&pwd.length>=10){strength='Strong';color='#52c41a';}
-            else if(isLongEnough&&hasLetter&&hasNumber){strength='Medium';color='#faad14';}
+            let strength='弱';let color='#E5484D';
+            if(pwd.length===0){strength='输入密码';color='var(--text-muted)';}
+            else if(isLongEnough&&hasLetter&&hasNumber&&pwd.length>=10){strength='强';color='#52c41a';}
+            else if(isLongEnough&&hasLetter&&hasNumber){strength='中';color='#faad14';}
             const el=document.getElementById('pwd-strength');
             if(el){el.textContent=strength;el.style.color=color;}
         });
@@ -229,10 +229,10 @@ function renderSidebarUser(){
     const token=localStorage.getItem('cb_token');
     const user=token?JSON.parse(localStorage.getItem('cb_user')||'{}'):null;
     if(!token){
-        container.innerHTML=`<div class="side-user-guest"><button class="btn-primary" style="width:100%;font-size:13px;" onclick="showPage('login')">Log In</button><p class="side-user-hint">Guest Mode · saved locally</p></div>`;refreshIcons();
+        container.innerHTML=`<div class="side-user-guest"><button class="btn-primary" style="width:100%;font-size:13px;" onclick="showPage('login')">登 录</button><p class="side-user-hint">游客模式 · 数据存本地</p></div>`;refreshIcons();
     }else{
         const initial=(user.name||'U')[0].toUpperCase();
-        container.innerHTML=`<div class="side-user"><div class="side-user-row" onclick="document.getElementById('user-dropdown').style.display=document.getElementById('user-dropdown').style.display==='none'?'block':'none';"><div class="side-user-avatar">${initial}</div><div class="side-user-meta"><div class="side-user-name">${escapeHtml(user.name||'User')}</div><div class="side-user-sub">${escapeHtml(user.university||'Student')}</div></div><i data-lucide="chevron-down" class="side-user-caret"></i></div><div id="user-dropdown" class="side-user-dropdown"><div class="nav-item" onclick="showPage('profile')"><i data-lucide="user"></i>Profile</div><div class="nav-item" onclick="authLogout()"><i data-lucide="log-out"></i>Log Out</div></div></div>`;refreshIcons();
+        container.innerHTML=`<div class="side-user"><div class="side-user-row" onclick="document.getElementById('user-dropdown').style.display=document.getElementById('user-dropdown').style.display==='none'?'block':'none';"><div class="side-user-avatar">${initial}</div><div class="side-user-meta"><div class="side-user-name">${escapeHtml(user.name||'User')}</div><div class="side-user-sub">${escapeHtml(user.university||'Student')}</div></div><i data-lucide="chevron-down" class="side-user-caret"></i></div><div id="user-dropdown" class="side-user-dropdown"><div class="nav-item" onclick="showPage('profile')"><i data-lucide="user"></i>个人资料</div><div class="nav-item" onclick="authLogout()"><i data-lucide="log-out"></i>退出登录</div></div></div>`;refreshIcons();
     }
 }
 

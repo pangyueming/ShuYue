@@ -1,4 +1,4 @@
-// ===== AI QUIZ (generative + harness-verified) =====
+﻿// ===== AI QUIZ (generative + harness-verified) =====
 const QUIZ_TOPICS=['Mixed','Limits','Differentiation','Integration','Series_Convergence','Differential_Equations','Linear_Algebra','Discrete_Math','Probability','Proof_Techniques','Complex_Numbers','Vector_Calculus'];
 let quizState={count:5,diff:'Medium',qtype:'MCQ',active:false,quizId:null,questions:[],serverIdx:[],current:0,score:0,detail:[]};
 
@@ -86,15 +86,15 @@ async function quizGenerate(){
     const etaEl=document.getElementById('quiz-gen-eta');
     if(etaEl){
         let est;
-        if(!verify)                    est='Please wait · under 1 minute';
-        else if(quizState.count<=6)    est='Please wait · about 1–2 minutes';
-        else                           est='Please wait · about 2–4 minutes';
+        if(!verify)                    est='请稍候 · 1 分钟内';
+        else if(quizState.count<=6)    est='请稍候 · 约 1–2 分钟';
+        else                           est='请稍候 · 约 2–4 分钟';
         etaEl.textContent=est;
         etaEl.style.display='block';
     }
-    st.textContent='Contacting the examiner…';
+    st.textContent='正在联络出题官…';
     const tick=setInterval(()=>{bar.style.width=(Math.min(85,parseFloat(bar.style.width)+7))+'%';
-        st.textContent=verifyEl&&verifyEl.checked&&parseFloat(bar.style.width)>50?'Cross-checking answers with the solving engine…':'The examiner is writing questions…';},900);
+        st.textContent=verifyEl&&verifyEl.checked&&parseFloat(bar.style.width)>50?'解题引擎正在交叉验证答案…':'出题官正在命题…';},900);
     try{
         const res=await apiFetch('/api/quiz/generate',{method:'POST',body:JSON.stringify({
             topic,count:quizState.count,difficulty:quizState.diff,qtype:quizState.qtype,verify})});
@@ -125,11 +125,11 @@ function quizRenderQuestion(){
     const card=document.getElementById('quiz-question-card');
     const fb=document.getElementById('quiz-feedback');
     fb.style.display='none';
-    const badge=q.verified?'<span style="display:inline-flex;align-items:center;gap:4px;font-size:10px;padding:2px 8px;border-radius:999px;background:rgba(82,196,26,.12);color:#52c41a;font-weight:600;">'+iconHtml('shield-check',11)+'Verified</span>':'';
+    const badge=q.verified?'<span style="display:inline-flex;align-items:center;gap:4px;font-size:10px;padding:2px 8px;border-radius:999px;background:rgba(82,196,26,.12);color:#52c41a;font-weight:600;">'+iconHtml('shield-check',11)+'已验证</span>':'';
     if(q.qtype==='MCQ'){
         card.innerHTML=`
             <div style="display:flex;justify-content:space-between;margin-bottom:10px;">
-                <span style="font-size:11px;color:var(--text-muted);">Multiple choice</span>${badge}
+                <span style="font-size:11px;color:var(--text-muted);">单选题</span>${badge}
             </div>
             <div style="font-size:15px;font-weight:500;margin-bottom:16px;">${markdownToHtml(q.q)}</div>
             <div id="quiz-opts">${q.options.map((o,i)=>`
@@ -137,15 +137,15 @@ function quizRenderQuestion(){
                     <span style="width:22px;height:22px;border-radius:50%;border:1.5px solid var(--border);display:flex;align-items:center;justify-content:center;font-size:11px;flex-shrink:0;">${String.fromCharCode(65+i)}</span>
                     <span style="font-size:13px;">${markdownToHtml(o)}</span>
                 </label>`).join('')}</div>
-            <button class="btn-primary" style="width:100%;margin-top:8px;" id="quiz-submit-btn" disabled onclick="quizSubmitAnswer()">Submit</button>`;
+            <button class="btn-primary" style="width:100%;margin-top:8px;" id="quiz-submit-btn" disabled onclick="quizSubmitAnswer()">提交</button>`;
     }else{
         card.innerHTML=`
             <div style="display:flex;justify-content:space-between;margin-bottom:10px;">
-                <span style="font-size:11px;color:var(--text-muted);">Fill in the answer</span>${badge}
+                <span style="font-size:11px;color:var(--text-muted);">填空题</span>${badge}
             </div>
             <div style="font-size:15px;font-weight:500;margin-bottom:16px;">${markdownToHtml(q.q)}</div>
-            <input id="quiz-short-input" class="input" style="width:100%;" placeholder="Type your answer, e.g. n(n+1)/2 or 42" onkeypress="if(event.key==='Enter')quizSubmitAnswer()">
-            <button class="btn-primary" style="width:100%;margin-top:8px;" onclick="quizSubmitAnswer()">Submit</button>`;
+            <input id="quiz-short-input" class="input" style="width:100%;" placeholder="输入答案，如 n(n+1)/2 或 42" onkeypress="if(event.key==='Enter')quizSubmitAnswer()">
+            <button class="btn-primary" style="width:100%;margin-top:8px;" onclick="quizSubmitAnswer()">提交</button>`;
     }
     refreshIcons();
 }
@@ -193,14 +193,14 @@ async function quizSubmitAnswer(){
         fb.style.display='block';
         fb.innerHTML=`<div class="card" style="border-left:4px solid ${g.correct?'#52c41a':'#ff6b6b'};background:${g.correct?'rgba(82,196,26,.05)':'rgba(255,107,107,.05)'};">
             <div style="font-size:14px;font-weight:700;color:${g.correct?'#52c41a':'#ff6b6b'};margin-bottom:4px;">${g.correct?'Correct!':'Not quite'}</div>
-            ${g.correct?'':`<div style="font-size:13px;margin-bottom:4px;">Correct answer: <strong>${markdownToHtml(g.correct_answer)}</strong></div>`}
+            ${g.correct?'':`<div style="font-size:13px;margin-bottom:4px;">正确答案：<strong>${markdownToHtml(g.correct_answer)}</strong></div>`}
             <div style="font-size:13px;color:var(--text-secondary);">${markdownToHtml(g.explanation||'')}</div>
-            <button class="btn-primary" style="margin-top:12px;" onclick="quizNext()">${quizState.current+1<quizState.questions.length?'Next question →':'See results →'}</button>
+            <button class="btn-primary" style="margin-top:12px;" onclick="quizNext()">${quizState.current+1<quizState.questions.length?'下一题 →':'查看结果 →'}</button>
         </div>`;
         window.scrollTo(0,0);
     }catch(e){
         document.getElementById('quiz-question-card').style.opacity='1';
-        showNotification('Grading failed: '+e.message,'error');
+        showNotification('判分失败：'+e.message,'error');
     }
 }
 
@@ -221,14 +221,14 @@ async function quizFinish(){
     const col=pct>=80?'#52c41a':pct>=50?'#faad14':'#ff6b6b';
     ring.style.borderColor=col;ring.style.color=col;
     ring.textContent=quizState.score+'/'+total;
-    document.getElementById('quiz-score-title').textContent=pct>=80?'Excellent!':pct>=50?'Good effort!':'Keep practising';
-    document.getElementById('quiz-score-sub').textContent=quizState.score+'/'+total+' correct · '+(document.getElementById('quiz-topic')?document.getElementById('quiz-topic').value.replace(/_/g,' '):'');
+    document.getElementById('quiz-score-title').textContent=pct>=80?'出色！':pct>=50?'不错，继续加油！':'多加练习';
+    document.getElementById('quiz-score-sub').textContent=quizState.score+'/'+total+' 题正确 · '+(document.getElementById('quiz-topic')?document.getElementById('quiz-topic').value.replace(/_/g,' '):'');
     document.getElementById('quiz-review-list').innerHTML=quizState.detail.map((d,i)=>`
         <div class="card" style="padding:12px;margin-bottom:8px;border-left:3px solid ${d.correct?'#52c41a':'#ff6b6b'};">
             <div style="display:flex;gap:8px;align-items:center;margin-bottom:4px;flex-wrap:wrap;">
                 <span style="display:inline-flex;align-items:center;gap:4px;font-size:12px;font-weight:600;color:${d.correct?'#52c41a':'#ff6b6b'};">${iconHtml(d.correct?'check':'x',12)}Q${i+1}</span>
-                <span style="font-size:11px;color:var(--text-muted);">Your answer: ${markdownToHtml(d.student_answer)}</span>
-                ${d.correct?'':`<span style="font-size:11px;color:var(--text-muted);">· Correct: <strong>${markdownToHtml(d.correct_answer)}</strong></span>`}
+                <span style="font-size:11px;color:var(--text-muted);">你的答案：${markdownToHtml(d.student_answer)}</span>
+                ${d.correct?'':`<span style="font-size:11px;color:var(--text-muted);">· 正确答案：<strong>${markdownToHtml(d.correct_answer)}</strong></span>`}
             </div>
             <div style="font-size:13px;color:var(--text-secondary);">${markdownToHtml(d.q)}</div>
         </div>    `).join('');

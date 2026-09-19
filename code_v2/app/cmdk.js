@@ -1,9 +1,9 @@
-// ===== ⌘K Command Palette (Aurora Glass) =====
+﻿// ===== ⌘K Command Palette (Aurora Glass) =====
 // Self-contained: injects its own DOM/CSS hooks; pages list sourced from nav.js pageLabels.
 (function(){
     const ACTIONS = [
-        { id:'theme',   label:'Toggle Dark / Light Theme', icon:'moon',      section:'Actions', run:()=>toggleTheme() },
-        { id:'sidebar', label:'Toggle Sidebar',            icon:'panel-left', section:'Actions', run:()=>toggleSidebar() }
+        { id:'theme',   label:'切换深色 / 浅色主题', icon:'moon',      section:'操作', run:()=>toggleTheme() },
+        { id:'sidebar', label:'折叠 / 展开侧栏',            icon:'panel-left', section:'操作', run:()=>toggleSidebar() }
     ];
     let built=false, sel=0, results=[];
 
@@ -16,7 +16,7 @@
             '<div class="cmdk-backdrop"></div>'+
             '<div class="cmdk-panel" role="dialog" aria-label="Command palette">'+
                 '<div class="cmdk-head"><i data-lucide="search"></i>'+
-                    '<input id="cmdk-input" type="text" placeholder="Search pages and actions…" autocomplete="off" spellcheck="false">'+
+                    '<input id="cmdk-input" type="text" placeholder="搜索页面与操作…" autocomplete="off" spellcheck="false">'+
                     '<kbd class="kbd">ESC</kbd></div>'+
                 '<div id="cmdk-list" class="cmdk-list"></div>'+
                 '<div class="cmdk-foot"><span><kbd class="kbd">↑</kbd><kbd class="kbd">↓</kbd> navigate</span>'+
@@ -37,7 +37,7 @@
     function pool(){
         const pages=Object.keys(pageLabels)
             .filter(id=>id!=='login'||!localStorage.getItem('cb_token'))
-            .map(id=>({ id, label:pageLabels[id], icon:iconFor(id), section:'Go to', run:()=>showPage(id) }));
+            .map(id=>({ id, label:pageLabels[id], icon:iconFor(id), section:'前往', run:()=>showPage(id) }));
         return pages.concat(ACTIONS);
     }
     function iconFor(id){
@@ -65,7 +65,7 @@
             '<div class="cmdk-item'+(i===0?' sel':'')+'" data-i="'+i+'">'+
                 '<i data-lucide="'+it.icon+'"></i><span>'+it.label+'</span>'+
                 '<em>'+it.section+'</em></div>').join('')
-            :'<div class="cmdk-empty">No results</div>';
+            :'<div class="cmdk-empty">没有匹配结果</div>';
         list.querySelectorAll('.cmdk-item').forEach(el=>{
             el.addEventListener('click',()=>exec(parseInt(el.dataset.i)));
             el.addEventListener('mousemove',()=>{ const i=parseInt(el.dataset.i); if(i!==sel){sel=i;paint();} });

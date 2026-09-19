@@ -1,4 +1,4 @@
-// ===== RECYCLE BIN & CONFIRM DIALOG =====
+﻿// ===== RECYCLE BIN & CONFIRM DIALOG =====
 function showConfirmDialog(opts){
     const existing=document.getElementById('confirm-dialog-overlay');
     if(existing)existing.remove();
@@ -39,7 +39,7 @@ function bsDeleteDocument(docId){
             // Sync: hide PDF entry on Notes page when its document goes to Recycle Bin
             const pdfNote=notesData.find(n=>n.isPdf&&n.documentId===docId);
             if(pdfNote){pdfNote.isDeleted=true;pdfNote.deletedAt=doc.deletedAt;notesRender();}
-            showNotification('Moved to Recycle Bin','success');
+            showNotification('已移入回收站','success');
         }
     });
 }
@@ -53,7 +53,7 @@ function bsRestoreDocument(docId){
     // Sync: restore PDF entry on Notes page
     const pdfNote=notesData.find(n=>n.isPdf&&n.documentId===docId);
     if(pdfNote){pdfNote.isDeleted=false;pdfNote.deletedAt=null;notesRender();}
-    showNotification('Document restored');
+    showNotification('文档已恢复');
 }
 async function bsPermanentlyDeleteDocument(docId){
     const doc=Object.values(bsData).flat().find(d=>d.id===docId);
@@ -76,7 +76,7 @@ async function bsPermanentlyDeleteDocument(docId){
             bsRenderDashboard(bsPageCat);
             // Sync: fully reload Notes page so the deleted PDF disappears everywhere
             notesInit();
-            showNotification('Permanently deleted','success');
+            showNotification('已永久删除','success');
         }
     });
 }
@@ -94,7 +94,7 @@ function notesDeleteNote(noteId){
             n.isDeleted=true;
             n.deletedAt=new Date().toISOString();
             notesSave();notesRender();
-            showNotification('Note moved to Recycle Bin','success');
+            showNotification('笔记已移入回收站','success');
         }
     });
 }

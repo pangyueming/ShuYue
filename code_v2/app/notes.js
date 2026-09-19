@@ -1,4 +1,4 @@
-// ===== NOTES =====
+﻿// ===== NOTES =====
 let notesData=[];
 let notesFilterTag='all';
 let notesEditingId=null;
@@ -23,7 +23,7 @@ async function notesLoad(){
         }));
     }catch(e){
         console.error('Failed to load notes from server:',e);
-        showNotification('Could not load notes from server','error');
+        showNotification('无法从服务器加载笔记','error');
         notesData=[];
     }
     // Merge PDF notes uploaded to the "notes" category in Bookshelf
@@ -102,7 +102,7 @@ function notesRender(){
     else if(notesFilterTag==='all'){filtered=activeNotes;}
     else{filtered=activeNotes.filter(n=>n.tag===notesFilterTag);}
     if(filtered.length===0){
-        const emptyMsg=notesFilterTag==='__recycle__'?'Recycle Bin is empty':'No notes yet<br><span style="font-size:12px;">Click "+ New Note" to create your first note</span>';
+        const emptyMsg=notesFilterTag==='__recycle__'?'回收站是空的':'还没有笔记<br><span style="font-size:12px;">Click "+ New Note" to create your first note</span>';
         list.innerHTML='<div class="placeholder-box" style="min-height:200px;">'+emptyMsg+'</div>';return;
     }
     // Sort by updated desc
@@ -161,7 +161,7 @@ function notesOpenPdf(id){
     // Locate the doc index inside bookshelf "notes" category, then open in Reader
     const arr=bsData['notes']||[];
     const idx=arr.findIndex(d=>d.id===n.documentId);
-    if(idx===-1){showNotification('PDF not found in bookshelf. Reloading…','warning');bsPageInit();return;}
+    if(idx===-1){showNotification('书架中未找到该 PDF，正在重新加载…','warning');bsPageInit();return;}
     showPage('reader');
     setTimeout(()=>readerOpenDoc('notes',idx),100);
 }
@@ -170,20 +170,20 @@ function notesDeletePdfNote(id){
     const n=notesData.find(x=>x.id===id);
     if(!n||!n.isPdf)return;
     showConfirmDialog({
-        title:'Delete PDF Note?',
+        title:'删除 PDF 笔记？',
         message:`"${n.title}" will be permanently removed from both Notes and Bookshelf.`,
-        confirmText:'Delete',
+        confirmText:'删除',
         confirmColor:'#ff6b6b',
         onConfirm:async()=>{
             try{
-                const res=await apiFetch('/api/documents/'+n.documentId,{method:'DELETE'});
+                const res=await apiFetch('/api/documents/'+n.documentId,{method:'删除'});
                 if(!res.ok)throw new Error('HTTP '+res.status);
                 await notesInit();      // refresh Notes page
                 await bsPageInit();     // refresh Bookshelf (Dashboard/page/Reader modal)
-                showNotification('Deleted from Notes & Bookshelf','success');
+                showNotification('已从笔记本和书架删除','success');
             }catch(e){
                 console.error('Failed to delete PDF note:',e);
-                showNotification('Delete failed: '+e.message,'error');
+                showNotification('删除失败：'+e.message,'error');
             }
         }
     });
@@ -194,7 +194,7 @@ function notesNewNote(){
     document.getElementById('notes-editor-title').value='';
     document.getElementById('notes-editor-tag').value='';
     document.getElementById('notes-editor-content').value='';
-    document.getElementById('notes-editor-meta').textContent='New note';
+    document.getElementById('notes-editor-meta').textContent='新笔记';
     document.getElementById('notes-list-view').style.display='none';
     document.getElementById('notes-editor-view').style.display='';
     document.getElementById('notes-editor-title').focus();
@@ -222,7 +222,7 @@ async function notesSaveFromEditor(){
     const title=document.getElementById('notes-editor-title').value.trim();
     const tag=document.getElementById('notes-editor-tag').value.trim();
     const content=document.getElementById('notes-editor-content').value.trim();
-    if(!content){showNotification('Note content is empty','warning');return;}
+    if(!content){showNotification('笔记内容为空','warning');return;}
     try{
         if(notesEditingId){
             const res=await apiFetch('/api/notes/'+notesEditingId,{
@@ -253,10 +253,10 @@ async function notesSaveFromEditor(){
         }
         notesSave();notesRender();notesCloseEditor();
         if(typeof logActivity==='function')logActivity('note','Note · '+(title||'Untitled'));
-        showNotification('Note saved','success');
+        showNotification('笔记已保存','success');
     }catch(e){
         console.error('Save note failed:',e);
-        showNotification('Save failed: '+e.message,'error');
+        showNotification('保存失败：'+e.message,'error');
     }
 }
 

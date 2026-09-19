@@ -32,21 +32,21 @@
             <div class="brand-badge">CB</div>
             <div class="brand-name"><div class="brand-title">CogniBridge</div><div class="brand-sub">智学桥</div></div>
         </div>
-        <div class="sidebar-search" onclick="openCmdK()"><i data-lucide="search"></i><span>Search...</span><kbd class="kbd">⌘K</kbd></div>
+        <div class="sidebar-search" onclick="openCmdK()"><i data-lucide="search"></i><span>搜索…</span><kbd class="kbd">⌘K</kbd></div>
         <div class="nav-groups">
-            <div class="nav-section-label">Workspace</div>
-            <div class="nav-item active" onclick="showPage('dashboard')"><i data-lucide="layout-dashboard"></i>Dashboard</div>
-            <div class="nav-item" onclick="showPage('pretest')"><i data-lucide="clipboard-check"></i>Pre-Assessment</div>
-            <div class="nav-item" onclick="showPage('tutor')"><i data-lucide="sigma"></i>Math Tutor</div>
-            <div class="nav-item" onclick="showPage('quiz')"><i data-lucide="target"></i>AI Quiz</div>
-            <div class="nav-item" onclick="showPage('plotter')"><i data-lucide="chart-line"></i>Function Plotter</div>
-            <div class="nav-item" onclick="showPage('reader')"><i data-lucide="book-open"></i>Reader</div>
-            <div class="nav-item" onclick="showPage('notes')"><i data-lucide="notebook-pen"></i>Notes</div>
-            <div class="nav-item" onclick="showPage('graph')"><i data-lucide="network"></i>Knowledge Graph</div>
-            <div class="nav-section-label">Community</div>
-            <div class="nav-item" onclick="showPage('forum')"><i data-lucide="messages-square"></i>Student Forum</div>
-            <div class="nav-section-label">Bookshelf</div>
-            <div class="nav-item" onclick="showPage('bookshelf')"><i data-lucide="library"></i>All Materials</div>
+            <div class="nav-section-label">工作区</div>
+            <div class="nav-item active" onclick="showPage('dashboard')"><i data-lucide="layout-dashboard"></i>仪表板</div>
+            <div class="nav-item" onclick="showPage('pretest')"><i data-lucide="clipboard-check"></i>学前诊断</div>
+            <div class="nav-item" onclick="showPage('tutor')"><i data-lucide="sigma"></i>数学辅导</div>
+            <div class="nav-item" onclick="showPage('quiz')"><i data-lucide="target"></i>AI 快测</div>
+            <div class="nav-item" onclick="showPage('plotter')"><i data-lucide="chart-line"></i>函数画板</div>
+            <div class="nav-item" onclick="showPage('reader')"><i data-lucide="book-open"></i>阅读器</div>
+            <div class="nav-item" onclick="showPage('notes')"><i data-lucide="notebook-pen"></i>笔记本</div>
+            <div class="nav-item" onclick="showPage('graph')"><i data-lucide="network"></i>知识图谱</div>
+            <div class="nav-section-label">社区</div>
+            <div class="nav-item" onclick="showPage('forum')"><i data-lucide="messages-square"></i>学习论坛</div>
+            <div class="nav-section-label">书架</div>
+            <div class="nav-item" onclick="showPage('bookshelf')"><i data-lucide="library"></i>全部资料</div>
         </div>
         <div id="sidebar-user-area">
             <!-- Dynamic user profile rendered by renderSidebarUser() -->
@@ -69,49 +69,49 @@
                 <div class="login-brand">
                     <div class="login-logo"><i data-lucide="graduation-cap"></i></div>
                     <div class="login-eyebrow">CogniBridge · 智学桥</div>
-                    <h1 class="login-title">Welcome back</h1>
-                    <p class="login-sub">Bridging A-Level to university mathematics</p>
+                    <h1 class="login-title">欢迎回来</h1>
+                    <p class="login-sub">跨越高考断层，直通大学数学</p>
                 </div>
 
                 <!-- Login Form -->
                 <div id="login-form">
-                    <input id="login-email" class="input login-input" placeholder="Email" type="email">
-                    <input id="login-password" class="input login-input" placeholder="Password" type="password">
-                    <button class="btn-primary login-cta" onclick="authLogin()">Log In</button>
+                    <input id="login-email" class="input login-input" placeholder="邮箱" type="email">
+                    <input id="login-password" class="input login-input" placeholder="密码" type="password">
+                    <button class="btn-primary login-cta" onclick="authLogin()">登 录</button>
                     <p class="login-alt">
-                        Don't have an account? <a href="#" onclick="authToggleMode()" class="login-link">Create one</a>
+                        还没有账号？<a href="#" onclick="authToggleMode()" class="login-link">注册一个</a>
                     </p>
                     <p class="login-alt-sub">
-                        <a href="#" onclick="authShowForgot()" class="login-link-muted">Forgot password?</a>
+                        <a href="#" onclick="authShowForgot()" class="login-link-muted">忘记密码？</a>
                     </p>
                 </div>
 
                 <!-- Register Form (hidden by default) -->
                 <div id="register-form" style="display:none;">
-                    <input id="reg-name" class="input login-input" placeholder="Your name">
-                    <input id="reg-email" class="input login-input" placeholder="Email" type="email">
-                    <input id="reg-password" class="input login-input" placeholder="Password" type="password">
-                    <div class="login-strength">Password strength: <span id="pwd-strength">Enter password</span></div>
-                    <button class="btn-primary login-cta" onclick="authRegister()">Create Account</button>
+                    <input id="reg-name" class="input login-input" placeholder="你的姓名">
+                    <input id="reg-email" class="input login-input" placeholder="邮箱" type="email">
+                    <input id="reg-password" class="input login-input" placeholder="密码" type="password">
+                    <div class="login-strength">密码强度：<span id="pwd-strength">Enter password</span></div>
+                    <button class="btn-primary login-cta" onclick="authRegister()">创建账号</button>
                     <p class="login-alt">
-                        Already have an account? <a href="#" onclick="authToggleMode()" class="login-link">Log in</a>
+                        已有账号？<a href="#" onclick="authToggleMode()" class="login-link">去登录</a>
                     </p>
                 </div>
 
                 <!-- Forgot Password Form (hidden by default) -->
                 <div id="forgot-form" style="display:none;">
-                    <p class="login-note">Enter your email and we'll generate a reset link (check server console).</p>
-                    <input id="forgot-email" class="input login-input" placeholder="Email" type="email">
-                    <button class="btn-primary login-cta" onclick="authForgotPassword()">Send Reset Link</button>
+                    <p class="login-note">输入邮箱，我们将生成重置链接（见服务器控制台）。</p>
+                    <input id="forgot-email" class="input login-input" placeholder="邮箱" type="email">
+                    <button class="btn-primary login-cta" onclick="authForgotPassword()">发送重置链接</button>
                     <p class="login-alt">
-                        <a href="#" onclick="authShowLogin()" class="login-link">Back to login</a>
+                        <a href="#" onclick="authShowLogin()" class="login-link">返回登录</a>
                     </p>
                 </div>
 
                 <!-- Guest Entry -->
                 <div class="login-guest">
-                    <button class="btn-secondary" style="width:100%;" onclick="authContinueAsGuest()">Continue as Guest</button>
-                    <p class="login-guest-hint">Your progress will be saved locally</p>
+                    <button class="btn-secondary" style="width:100%;" onclick="authContinueAsGuest()">游客模式继续</button>
+                    <p class="login-guest-hint">学习进度将保存在本地</p>
                 </div>
             </div>
         </div>
@@ -125,8 +125,8 @@
                     <p class="dash-hero-sub" id="dash-hero-sub"></p>
                 </div>
                 <div class="dash-hero-actions">
-                    <button class="btn-secondary" onclick="showPage('quiz')"><i data-lucide="target" style="width:14px;height:14px;"></i>Quick Quiz</button>
-                    <button class="btn-primary" onclick="showPage('tutor')"><i data-lucide="sigma" style="width:14px;height:14px;"></i>Ask Tutor</button>
+                    <button class="btn-secondary" onclick="showPage('quiz')"><i data-lucide="target" style="width:14px;height:14px;"></i>快速快测</button>
+                    <button class="btn-primary" onclick="showPage('tutor')"><i data-lucide="sigma" style="width:14px;height:14px;"></i>问辅导老师</button>
                 </div>
             </div>
 
@@ -141,7 +141,7 @@
                         <div class="stat-ring-center"><div class="stat-ring-num count-up" id="stat-proj-num" data-count="87" data-suffix="%">0%</div></div>
                     </div>
                     <div class="stat-hero-meta">
-                        <div class="stat-hero-label">Math Proficiency</div>
+                        <div class="stat-hero-label">数学掌握度</div>
                         <div class="stat-hero-delta" id="stat-proj-delta">—</div>
                     </div>
                 </div>
@@ -150,24 +150,24 @@
                     <div class="card dash-tile">
                         <div class="stat-icon"><i data-lucide="book-open"></i></div>
                         <div class="stat-value count-up" data-stat-key="documents" data-count="12">0</div>
-                        <div class="stat-label">Documents Read</div>
+                        <div class="stat-label">已读文档</div>
                     </div>
                     <div class="card dash-tile">
                         <div class="stat-icon"><i data-lucide="circle-check"></i></div>
                         <div class="stat-value count-up" data-stat-key="problems" data-count="156">0</div>
-                        <div class="stat-label">Problems Solved</div>
+                        <div class="stat-label">已解题目</div>
                     </div>
                     <div class="card dash-tile">
                         <div class="stat-icon stat-icon-flame"><i data-lucide="flame"></i></div>
                         <div class="stat-value count-up" data-stat-key="streak" data-count="14">0</div>
-                        <div class="stat-label">Day Streak</div>
+                        <div class="stat-label">连续学习</div>
                     </div>
                 </div>
 
                 <!-- This week plan focus -->
                 <div class="card dash-card dash-plan">
                     <div class="dash-card-head">
-                        <span class="dash-card-title"><i data-lucide="route"></i>This Week</span>
+                        <span class="dash-card-title"><i data-lucide="route"></i>本周重点</span>
                         <span id="dash-plan-chip" class="dash-chip"></span>
                     </div>
                     <div id="dash-plan-body" class="dash-plan-body"></div>
@@ -176,7 +176,7 @@
                 <!-- Recent activity -->
                 <div class="card dash-card dash-activity">
                     <div class="dash-card-head">
-                        <span class="dash-card-title"><i data-lucide="activity"></i>Recent Activity</span>
+                        <span class="dash-card-title"><i data-lucide="activity"></i>最近动态</span>
                     </div>
                     <div id="dash-activity-list" class="activity-list"></div>
                 </div>
@@ -184,30 +184,30 @@
                 <!-- Math skill breakdown -->
                 <div class="card dash-card dash-skill" id="math-skill-card">
                     <div class="dash-card-head">
-                        <span class="dash-card-title"><i data-lucide="bar-chart-3"></i>Math Skill Breakdown</span>
+                        <span class="dash-card-title"><i data-lucide="bar-chart-3"></i>数学能力剖析</span>
                     </div>
-                    <div class="empty-hero" id="math-skill-placeholder"><div class="empty-disc"><i data-lucide="bar-chart-3"></i></div><div class="empty-title">Your math skill analysis will appear here</div><div class="empty-sub">Complete pre-assessment to see your knowledge breakdown</div></div>
+                    <div class="empty-hero" id="math-skill-placeholder"><div class="empty-disc"><i data-lucide="bar-chart-3"></i></div><div class="empty-title">完成学前诊断后，这里将展示你的知识剖析</div><div class="empty-sub">先完成学前诊断，即可查看知识点掌握分布</div></div>
                     <div id="math-skill-content" style="display:none;"></div>
                 </div>
 
                 <!-- Bookshelf preview -->
                 <div class="card dash-card dash-bookshelf">
                     <div class="dash-card-head">
-                        <span class="dash-card-title"><i data-lucide="library"></i>My Bookshelf</span>
-                        <button class="btn-secondary dash-upload-btn" onclick="bsUpload()"><i data-lucide="upload" style="width:13px;height:13px;"></i>Upload PDF / PPTX</button>
+                        <span class="dash-card-title"><i data-lucide="library"></i>我的书架</span>
+                        <button class="btn-secondary dash-upload-btn" onclick="bsUpload()"><i data-lucide="upload" style="width:13px;height:13px;"></i>上传 PDF / PPTX</button>
                     </div>
                     <div id="dash-bs-tabs" class="tab-row"></div>
                     <div id="dash-bs-grid" class="dash-bs-grid"></div>
                 </div>
 
-                <!-- Full study plan (kept) -->
+                <!-- Full 学习计划 (kept) -->
                 <div class="dash-full-plan">
-                    <h2 class="section-title section-title-row">Study Plan
-                        <button class="btn-secondary" style="font-size:11px;padding:2px 10px;margin-left:8px;" onclick="togglePlanEdit()">Edit</button>
+                    <h2 class="section-title section-title-row">学习计划
+                        <button class="btn-secondary" style="font-size:11px;padding:2px 10px;margin-left:8px;" onclick="togglePlanEdit()">编辑</button>
                         <span id="plan-trash" ondragover="allowDrop(event)" ondrop="dropToTrash(event)" ondragenter="this.style.borderColor='#ff6b6b';this.style.background='rgba(255,107,107,.1)'" ondragleave="this.style.borderColor='var(--border)';this.style.background='transparent'" title="Drag a plan card here to remove it"><i data-lucide="trash-2" style="width:14px;height:14px;"></i></span>
                     </h2>
                     <div class="card section-card" id="study-plan-card">
-                        <div class="empty-hero" id="study-plan-placeholder"><div class="empty-disc"><i data-lucide="route"></i></div><div class="empty-title">AI-generated study plan based on your assessment</div><div class="empty-sub">Complete pre-assessment to unlock personalised plan</div></div>
+                        <div class="empty-hero" id="study-plan-placeholder"><div class="empty-disc"><i data-lucide="route"></i></div><div class="empty-title">AI-generated 学习计划 based on your assessment</div><div class="empty-sub">完成学前诊断即可解锁个性化计划</div></div>
                         <div id="study-plan-content" style="display:none;"></div>
                     </div>
                 </div>
@@ -219,88 +219,88 @@
             <!-- Welcome -->
             <div id="pt-welcome" class="pt-welcome">
                 <div class="empty-disc empty-disc-lg"><i data-lucide="clipboard-check"></i></div>
-                <h1 class="page-title">Math Transition Diagnostic</h1>
-                <p class="page-sub">Pre-Assessment · 3 min personalised gap analysis</p>
+                <h1 class="page-title">数学衔接诊断</h1>
+                <p class="page-sub">学前诊断 · 3 分钟个性化断层分析</p>
                 <div class="card pt-perks">
-                    <div class="pt-perk"><i data-lucide="search-check"></i>Weak high school knowledge identified</div>
-                    <div class="pt-perk"><i data-lucide="alert-triangle"></i>University transition warnings</div>
-                    <div class="pt-perk"><i data-lucide="route"></i>Personalised learning path</div>
-                    <div class="pt-perk"><i data-lucide="unlock"></i>Unlock full knowledge graph &amp; AI practice</div>
+                    <div class="pt-perk"><i data-lucide="search-check"></i>定位高中知识薄弱点</div>
+                    <div class="pt-perk"><i data-lucide="alert-triangle"></i>预警大学衔接断层</div>
+                    <div class="pt-perk"><i data-lucide="route"></i>个性化学习路径</div>
+                    <div class="pt-perk"><i data-lucide="unlock"></i>解锁知识图谱与 AI 练习</div>
                 </div>
-                <button class="btn-primary pt-cta" onclick="ptGo(1)">Start Assessment (3 min)</button>
-                <button class="btn-secondary" style="width:100%;padding:9px;" onclick="showPage('dashboard')">Skip for now</button>
+                <button class="btn-primary pt-cta" onclick="ptGo(1)">开始诊断（3 分钟）</button>
+                <button class="btn-secondary" style="width:100%;padding:9px;" onclick="showPage('dashboard')">暂时跳过</button>
             </div>
             <!-- Step 1 -->
             <div id="pt-step1" style="display:none;">
-                <div class="step-head"><h2 class="step-title">Basic Information</h2><span class="tag tag-step">Step 1/4</span></div>
+                <div class="step-head"><h2 class="step-title">基本信息</h2><span class="tag tag-step">步骤 1/4</span></div>
                 <div class="progress-bar" style="margin-bottom:24px;"><div class="progress-fill" style="width:25%;"></div></div>
                 <div class="card" style="display:flex;flex-direction:column;gap:20px;">
                     <div><label class="field-label">高考数学分数段</label>
                         <select id="pt-alevel" class="input" style="width:100%;"><option value="">请选择…</option><option>≥140</option><option>120-139</option><option>100-119</option><option>&lt;100</option></select></div>
                     <div><label class="field-label">强基计划 / 数学竞赛经历？</label>
                         <div class="radio-row"><label><input type="radio" name="pt-fm" value="yes"> 有</label><label><input type="radio" name="pt-fm" value="no" checked> 无</label></div></div>
-                    <div><label class="field-label">University</label>
+                    <div><label class="field-label">大学</label>
                         <input id="pt-uni" class="input" style="width:100%;" value="北京邮电大学（中外合办）"></div>
-                    <div><label class="field-label">Major</label>
+                    <div><label class="field-label">专业</label>
                         <select id="pt-major" class="input" style="width:100%;"><option value="cs" selected>计算机类（中外合办）</option><option value="math">信息与计算科学</option><option value="telecom">通信工程（中外合办）</option><option value="ee">电子信息类</option><option value="other">其他</option></select></div>
-                    <div><label class="field-label">Year</label>
+                    <div><label class="field-label">年级</label>
                         <div class="radio-row"><label><input type="radio" name="pt-year" value="freshman" checked> 大一</label><label><input type="radio" name="pt-year" value="senior"> 大二及以上</label></div></div>
-                    <div><label class="field-label">Current Teaching Week <span class="field-hint">(drives your curriculum-aligned plan)</span></label>
+                    <div><label class="field-label">当前教学周 <span class="field-hint">（驱动课程对齐计划）</span></label>
                         <select id="pt-week" class="input" style="width:100%;"></select></div>
                 </div>
-                <div class="step-nav"><button class="btn-secondary" style="flex:1;" onclick="ptGo(0)">← Back</button><button class="btn-primary" style="flex:1;" onclick="ptGo(2)">Next →</button></div>
+                <div class="step-nav"><button class="btn-secondary" style="flex:1;" onclick="ptGo(0)">← 上一步</button><button class="btn-primary" style="flex:1;" onclick="ptGo(2)">下一步 →</button></div>
             </div>
             <!-- Step 2 -->
             <div id="pt-step2" style="display:none;">
-                <div class="step-head"><h2 class="step-title">High School Knowledge Self-Assessment</h2><span class="tag tag-step">Step 2/4</span></div>
+                <div class="step-head"><h2 class="step-title">高中知识自评</h2><span class="tag tag-step">步骤 2/4</span></div>
                 <div class="progress-bar" style="margin-bottom:16px;"><div class="progress-fill" style="width:50%;"></div></div>
-                <p class="field-hint-lg">Rate your confidence on each topic</p>
+                <p class="field-hint-lg">对每个主题评估你的掌握程度</p>
                 <div id="pt-knowledge-list" style="display:flex;flex-direction:column;gap:8px;"></div>
-                <div class="step-nav"><button class="btn-secondary" style="flex:1;" onclick="ptGo(1)">← Back</button><button class="btn-primary" style="flex:1;" onclick="ptGo(3)">Next →</button></div>
+                <div class="step-nav"><button class="btn-secondary" style="flex:1;" onclick="ptGo(1)">← 上一步</button><button class="btn-primary" style="flex:1;" onclick="ptGo(3)">下一步 →</button></div>
             </div>
             <!-- Step 3 -->
             <div id="pt-step3" style="display:none;">
-                <div class="step-head"><h2 class="step-title">University Transition Warnings</h2><span class="tag tag-step">Step 3/4</span></div>
+                <div class="step-head"><h2 class="step-title">大学衔接断层预警</h2><span class="tag tag-step">步骤 3/4</span></div>
                 <div class="progress-bar" style="margin-bottom:16px;"><div class="progress-fill" style="width:75%;"></div></div>
                 <div class="card pt-warn-card" style="margin-bottom:16px;">
-                    <p style="font-size:14px;">Based on your major <strong>Computer Science</strong>, rate your familiarity:</p>
+                    <p style="font-size:14px;">基于你的专业，评估对以下断层主题的熟悉度：</p>
                 </div>
                 <div id="pt-transition-list" style="display:flex;flex-direction:column;gap:8px;"></div>
-                <div class="step-nav"><button class="btn-secondary" style="flex:1;" onclick="ptGo(2)">← Back</button><button class="btn-primary" style="flex:1;" onclick="ptGo(4)">Next →</button></div>
+                <div class="step-nav"><button class="btn-secondary" style="flex:1;" onclick="ptGo(2)">← 上一步</button><button class="btn-primary" style="flex:1;" onclick="ptGo(4)">下一步 →</button></div>
             </div>
             <!-- Step 4 -->
             <div id="pt-step4" style="display:none;">
-                <div class="step-head"><h2 class="step-title">Quick Assessment</h2><span class="tag tag-step">Step 4/4</span></div>
+                <div class="step-head"><h2 class="step-title">快速测验</h2><span class="tag tag-step">步骤 4/4</span></div>
                 <div class="progress-bar" style="margin-bottom:16px;"><div class="progress-fill" style="width:90%;"></div></div>
-                <p class="field-hint-lg">10 questions (5 Basic + 2 Intermediate + 3 Hard)</p>
+                <p class="field-hint-lg">10 道题（5 基础 + 2 进阶 + 3 挑战）</p>
                 <div id="pt-quiz-list" style="display:flex;flex-direction:column;gap:16px;"></div>
-                <div class="step-nav"><button class="btn-secondary" style="flex:1;" onclick="ptGo(3)">← Back</button><button class="btn-primary" style="flex:1;" onclick="ptGenerateReport()">Generate Report</button></div>
+                <div class="step-nav"><button class="btn-secondary" style="flex:1;" onclick="ptGo(3)">← 上一步</button><button class="btn-primary" style="flex:1;" onclick="ptGenerateReport()">生成报告</button></div>
             </div>
             <!-- Report -->
             <div id="pt-report" style="display:none;">
-                <div class="step-head"><h2 class="step-title">Diagnostic Report</h2><span class="tag tag-done">Complete</span></div>
+                <div class="step-head"><h2 class="step-title">诊断报告</h2><span class="tag tag-done">已完成</span></div>
                 <div class="progress-bar" style="margin-bottom:24px;"><div class="progress-fill progress-fill-done" style="width:100%;"></div></div>
                 <div id="pt-report-content" style="display:flex;flex-direction:column;gap:16px;"></div>
-                <div class="step-nav"><button class="btn-primary" style="flex:1;padding:12px;" onclick="showPage('graph')">View Graph</button><button class="btn-secondary" style="flex:1;padding:12px;" onclick="showPage('tutor')">Start Learning</button></div>
+                <div class="step-nav"><button class="btn-primary" style="flex:1;padding:12px;" onclick="showPage('graph')">查看知识图谱</button><button class="btn-secondary" style="flex:1;padding:12px;" onclick="showPage('tutor')">开始学习</button></div>
             </div>
         </div>
 
         <!-- ===== MATH TUTOR ===== -->
         <div id="page-tutor" class="page-view page-chat">
             <div class="page-head">
-                <div class="page-eyebrow">Math Tutor</div>
-                <h1 class="page-title">AI Problem Solver</h1>
+                <div class="page-eyebrow">数学辅导</div>
+                <h1 class="page-title">AI 解题助手</h1>
             </div>
             <div class="seg" style="margin-bottom:4px;">
-                <button id="tutor-mode-general" style="flex:1;padding:8px;border-radius:8px;border:none;font-size:13px;font-weight:600;background:var(--accent);color:#fff;cursor:pointer;" onclick="tutorSwitchMode('general')">General Mode</button>
-                <button id="tutor-mode-deep" style="flex:1;padding:8px;border-radius:8px;border:none;font-size:13px;font-weight:600;background:transparent;color:var(--text-secondary);cursor:pointer;" onclick="tutorSwitchMode('deep')">Deep Learning Mode</button>
+                <button id="tutor-mode-general" style="flex:1;padding:8px;border-radius:8px;border:none;font-size:13px;font-weight:600;background:var(--accent);color:#fff;cursor:pointer;" onclick="tutorSwitchMode('general')">通用模式</button>
+                <button id="tutor-mode-deep" style="flex:1;padding:8px;border-radius:8px;border:none;font-size:13px;font-weight:600;background:transparent;color:var(--text-secondary);cursor:pointer;" onclick="tutorSwitchMode('deep')">引导模式</button>
             </div>
-            <p id="tutor-mode-desc" class="seg-desc">Direct answers with knowledge sources, method breakdowns &amp; easy explanations</p>
+            <p id="tutor-mode-desc" class="seg-desc">直接解答：知识来源、方法拆解、通俗讲解</p>
             <!-- Uploaded materials -->
             <div id="tutor-materials" style="margin-bottom:12px;"></div>
             <!-- Chat area -->
             <div id="tutor-chat" class="chat-area">
-                <div class="empty-hero"><div class="empty-disc"><i data-lucide="sigma"></i></div><div class="empty-title">Ask a question or upload materials to get started</div><div class="empty-sub">Powered by CogniBridge AI</div></div>
+                <div class="empty-hero"><div class="empty-disc"><i data-lucide="sigma"></i></div><div class="empty-title">提问或上传资料开始学习</div><div class="empty-sub">智学桥 AI 提供支持</div></div>
             </div>
             <!-- Quick examples -->
             <div class="chip-row">
@@ -312,7 +312,7 @@
             <!-- Input -->
             <div class="composer card glass">
                 <span class="composer-attach" onclick="tutorUploadMaterial()" title="Attach material"><i data-lucide="paperclip"></i></span>
-                <input id="tutor-input" class="input composer-input" placeholder="Ask a math question..." onkeypress="if(event.key==='Enter')tutorSend()">
+                <input id="tutor-input" class="input composer-input" placeholder="输入数学问题…" onkeypress="if(event.key==='Enter')tutorSend()">
                 <button class="btn-primary tutor-send-arrow" onclick="tutorSend()" title="Send" aria-label="Send"><i data-lucide="arrow-up" style="width:16px;height:16px;"></i></button>
             </div>
         </div>
@@ -321,11 +321,11 @@
         <div id="page-notes" class="page-view page-mid">
             <div class="page-head-row">
                 <div>
-                    <div class="page-eyebrow">Workspace</div>
-                    <h1 class="page-title">My Notes</h1>
-                    <p class="page-sub" id="notes-count">0 notes</p>
+                    <div class="page-eyebrow">工作区</div>
+                    <h1 class="page-title">我的笔记本</h1>
+                    <p class="page-sub" id="notes-count">0 条笔记</p>
                 </div>
-                <button class="btn-primary" style="font-size:13px;" onclick="notesNewNote()">+ New Note</button>
+                <button class="btn-primary" style="font-size:13px;" onclick="notesNewNote()">+ 新建笔记</button>
             </div>
             <!-- Tags filter -->
             <div id="notes-tags" class="chip-row" style="margin-bottom:16px;"></div>
@@ -335,16 +335,16 @@
             </div>
             <!-- Full-page Editor -->
             <div id="notes-editor-view" style="display:none;">
-                <button onclick="notesCloseEditor()" class="btn-secondary" style="margin-bottom:16px;font-size:13px;">← Back to Notes</button>
-                <input id="notes-editor-title" class="input" style="width:100%;font-size:20px;font-weight:600;margin-bottom:12px;padding:12px 16px;" placeholder="Note title...">
+                <button onclick="notesCloseEditor()" class="btn-secondary" style="margin-bottom:16px;font-size:13px;">← 返回列表</button>
+                <input id="notes-editor-title" class="input" style="width:100%;font-size:20px;font-weight:600;margin-bottom:12px;padding:12px 16px;" placeholder="笔记标题…">
                 <div class="editor-meta-row">
-                    <input id="notes-editor-tag" class="input" style="flex:1;font-size:13px;" placeholder="Tag (e.g. Calculus, Algebra, Reading Note)">
+                    <input id="notes-editor-tag" class="input" style="flex:1;font-size:13px;" placeholder="标签（如：微积分、代数、读书笔记）">
                     <span class="editor-meta" id="notes-editor-meta"></span>
                 </div>
-                <textarea id="notes-editor-content" class="editor-body" placeholder="Write your note here..."></textarea>
+                <textarea id="notes-editor-content" class="editor-body" placeholder="在这里写下笔记…"></textarea>
                 <div class="step-nav" style="margin-top:16px;">
-                    <button class="btn-primary" style="flex:1;padding:10px;" onclick="notesSaveFromEditor()">Save Note</button>
-                    <button class="btn-secondary" style="padding:10px;" onclick="notesCloseEditor()">Cancel</button>
+                    <button class="btn-primary" style="flex:1;padding:10px;" onclick="notesSaveFromEditor()">保存笔记</button>
+                    <button class="btn-secondary" style="padding:10px;" onclick="notesCloseEditor()">取消</button>
                 </div>
             </div>
         </div>
@@ -354,19 +354,19 @@
             <!-- State 1: Config -->
             <div id="quiz-config">
                 <div class="page-head">
-                    <div class="page-eyebrow">Practice</div>
-                    <h1 class="page-title">AI Quiz</h1>
-                    <p class="page-sub-strong">Every question is cross-checked by the CogniBridge solving engine before it reaches you.</p>
+                    <div class="page-eyebrow">练习</div>
+                    <h1 class="page-title">AI 快测</h1>
+                    <p class="page-sub-strong">每道题在到达你面前之前，都经过智学桥解题引擎交叉验证。</p>
                 </div>
                 <div class="card" style="padding:20px;">
                     <div style="margin-bottom:16px;">
-                        <div class="field-label">Topic</div>
+                        <div class="field-label">主题</div>
                         <select id="quiz-topic" class="input" style="width:100%;"></select>
-                        <div id="quiz-weak-hint" style="display:none;font-size:11px;color:var(--yellow);margin-top:4px;">Pre-selected from your weakest diagnostic topic</div>
+                        <div id="quiz-weak-hint" style="display:none;font-size:11px;color:var(--yellow);margin-top:4px;">已根据诊断最弱项预选</div>
                     </div>
                     <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:16px;">
                         <div>
-                            <div class="field-label">Questions <span class="field-hint">(1-15)</span></div>
+                            <div class="field-label">题数 <span class="field-hint">(1-15)</span></div>
                             <div class="chip-row" style="align-items:center;">
                                 <input id="quiz-count-input" type="number" min="1" max="15" value="5" class="input" style="width:64px;padding:6px 8px;font-size:12px;text-align:center;" onchange="quizSetCount(this.value)">
                                 <div class="chip-row" style="gap:4px;">
@@ -377,32 +377,32 @@
                             </div>
                         </div>
                         <div>
-                            <div class="field-label">Difficulty</div>
+                            <div class="field-label">难度</div>
                             <div id="quiz-diff-chips" class="chip-row"></div>
                         </div>
                     </div>
                     <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:16px;">
                         <div>
-                            <div class="field-label">Question type</div>
+                            <div class="field-label">题型</div>
                             <div id="quiz-qtype-chips" class="chip-row" style="gap:6px;"></div>
                         </div>
                         <div>
-                            <div class="field-label">Verification</div>
+                            <div class="field-label">验证</div>
                             <div class="verify-row">
                                 <input type="checkbox" id="quiz-verify" checked class="verify-check">
-                                <label for="quiz-verify" class="verify-label"><i data-lucide="shield-check" style="width:14px;height:14px;"></i>Harness cross-check <span class="field-hint">(slower, recommended)</span></label>
+                                <label for="quiz-verify" class="verify-label"><i data-lucide="shield-check" style="width:14px;height:14px;"></i>引擎交叉验证 <span class="field-hint">（较慢，推荐）</span></label>
                             </div>
                         </div>
                     </div>
-                    <button class="btn-primary" style="width:100%;padding:12px;font-size:15px;" onclick="quizGenerate()"><i data-lucide="sparkles" style="width:15px;height:15px;"></i>Generate Quiz</button>
+                    <button class="btn-primary" style="width:100%;padding:12px;font-size:15px;" onclick="quizGenerate()"><i data-lucide="sparkles" style="width:15px;height:15px;"></i>生成快测</button>
                 </div>
             </div>
 
             <!-- State 2: Generating -->
             <div id="quiz-generating" class="gen-state" style="display:none;">
                 <div class="gen-emoji"><i data-lucide="target"></i></div>
-                <div class="gen-title">Writing your questions…</div>
-                <div id="quiz-gen-status" class="gen-sub">Contacting the examiner…</div>
+                <div class="gen-title">正在出题…</div>
+                <div id="quiz-gen-status" class="gen-sub">正在联络出题官…</div>
                 <div id="quiz-gen-eta" style="display:none;font-size:14px;font-weight:600;margin-top:8px;"></div>
                 <div class="progress-bar" style="margin-top:20px;"><div id="quiz-gen-bar" class="progress-fill" style="width:10%;transition:width .6s ease;"></div></div>
             </div>
@@ -425,8 +425,8 @@
                 <div class="gen-sub" style="margin-bottom:24px;" id="quiz-score-sub"></div>
                 <div style="text-align:left;margin-bottom:24px;" id="quiz-review-list"></div>
                 <div class="step-nav" style="justify-content:center;">
-                    <button id="quiz-retry-btn" class="btn-primary" style="padding:10px 18px;" onclick="quizRetryWrong()"><i data-lucide="rotate-ccw" style="width:14px;height:14px;"></i>Retry wrong ones</button>
-                    <button class="btn-secondary" style="padding:10px 18px;" onclick="quizReset()"><i data-lucide="dices" style="width:14px;height:14px;"></i>New quiz</button>
+                    <button id="quiz-retry-btn" class="btn-primary" style="padding:10px 18px;" onclick="quizRetryWrong()"><i data-lucide="rotate-ccw" style="width:14px;height:14px;"></i>重做错题</button>
+                    <button class="btn-secondary" style="padding:10px 18px;" onclick="quizReset()"><i data-lucide="dices" style="width:14px;height:14px;"></i>新的一轮</button>
                 </div>
             </div>
         </div>
@@ -438,40 +438,40 @@
                     <!-- 2D Panel -->
                     <div id="plot-panel-2d">
                         <div class="wb-section">
-                            <div class="wb-label">Functions f(x)</div>
+                            <div class="wb-label">函数 f(x)</div>
                             <div id="plot-func-list"></div>
-                            <button class="btn-secondary" style="width:100%;margin-top:8px;font-size:13px;" onclick="plotAddFunc()">+ Add Function</button>
+                            <button class="btn-secondary" style="width:100%;margin-top:8px;font-size:13px;" onclick="plotAddFunc()">+ 添加函数</button>
                         </div>
                         <div class="wb-section">
-                            <div class="wb-label">Axis Range</div>
-                            <div class="wb-range-row"><span class="wb-range-axis">X:</span><input type="number" id="plot-xmin" value="-5" step="0.5" class="input wb-range-input"><span class="wb-range-to">to</span><input type="number" id="plot-xmax" value="5" step="0.5" class="input wb-range-input"></div>
-                            <div class="wb-range-row"><span class="wb-range-axis">Y:</span><input type="number" id="plot-ymin" value="" placeholder="auto" step="0.5" class="input wb-range-input"><span class="wb-range-to">to</span><input type="number" id="plot-ymax" value="" placeholder="auto" step="0.5" class="input wb-range-input"></div>
+                            <div class="wb-label">坐标范围</div>
+                            <div class="wb-range-row"><span class="wb-range-axis">X:</span><input type="number" id="plot-xmin" value="-5" step="0.5" class="input wb-range-input"><span class="wb-range-to">至</span><input type="number" id="plot-xmax" value="5" step="0.5" class="input wb-range-input"></div>
+                            <div class="wb-range-row"><span class="wb-range-axis">Y:</span><input type="number" id="plot-ymin" value="" placeholder="auto" step="0.5" class="input wb-range-input"><span class="wb-range-to">至</span><input type="number" id="plot-ymax" value="" placeholder="auto" step="0.5" class="input wb-range-input"></div>
                         </div>
                         <div class="wb-section">
-                            <div class="wb-label">Quick Examples</div>
+                            <div class="wb-label">快速示例</div>
                             <div id="plot-examples" style="display:flex;flex-wrap:wrap;gap:6px;"></div>
                         </div>
                         <div class="wb-section">
-                            <div class="wb-label">Conic Sections</div>
+                            <div class="wb-label">圆锥曲线</div>
                             <div id="plot-conics" style="display:flex;flex-wrap:wrap;gap:6px;margin-bottom:8px;"></div>
-                            <div id="plot-conic-params" style="display:none;"><div id="plot-conic-fields"></div><button class="btn-primary" style="width:100%;font-size:12px;padding:6px;margin-top:8px;" onclick="plotDrawConic(currentPlotConicType)">Render Conic</button></div>
+                            <div id="plot-conic-params" style="display:none;"><div id="plot-conic-fields"></div><button class="btn-primary" style="width:100%;font-size:12px;padding:6px;margin-top:8px;" onclick="plotDrawConic(currentPlotConicType)">绘制圆锥曲线</button></div>
                         </div>
                         <div class="wb-section wb-section-last">
-                            <button class="btn-primary" style="width:100%;margin-bottom:8px;" onclick="plotRender()">Render</button>
-                            <div style="display:flex;gap:8px;"><button class="btn-secondary" style="flex:1;font-size:13px;" onclick="plotReset()">Reset</button><button class="btn-secondary" style="flex:1;font-size:13px;color:var(--red);" onclick="plotClear()">Clear</button></div>
+                            <button class="btn-primary" style="width:100%;margin-bottom:8px;" onclick="plotRender()">绘制</button>
+                            <div style="display:flex;gap:8px;"><button class="btn-secondary" style="flex:1;font-size:13px;" onclick="plotReset()">重置</button><button class="btn-secondary" style="flex:1;font-size:13px;color:var(--red);" onclick="plotClear()">清空</button></div>
                         </div>
                     </div>
                 </aside>
                 <div class="workbench-main">
                     <div class="workbench-toolbar">
                         <div class="seg">
-                            <button id="plot-mode-2d" style="padding:8px 20px;border-radius:8px;border:none;font-size:13px;font-weight:600;background:var(--accent);color:#fff;cursor:pointer;" onclick="plotSwitchMode('2d')">2D Mode</button>
-                            <button id="plot-mode-3d" style="padding:8px 20px;border-radius:8px;border:none;font-size:13px;font-weight:600;background:transparent;color:var(--text-secondary);cursor:pointer;" onclick="plotSwitchMode('3d')">3D Mode</button>
+                            <button id="plot-mode-2d" style="padding:8px 20px;border-radius:8px;border:none;font-size:13px;font-weight:600;background:var(--accent);color:#fff;cursor:pointer;" onclick="plotSwitchMode('2d')">2D 模式</button>
+                            <button id="plot-mode-3d" style="padding:8px 20px;border-radius:8px;border:none;font-size:13px;font-weight:600;background:transparent;color:var(--text-secondary);cursor:pointer;" onclick="plotSwitchMode('3d')">3D 模式</button>
                         </div>
-                        <span id="plot-info" class="workbench-info">2D · Enter f(x) and click Render</span>
+                        <span id="plot-info" class="workbench-info">2D · 输入 f(x) 后点击绘制</span>
                     </div>
                     <div id="plot-canvas" class="workbench-canvas"></div>
-                    <div class="workbench-status"><span id="plot-status">Ready · Enter a function and click Render</span><span class="workbench-brand">CogniBridge Function Plotter</span></div>
+                    <div class="workbench-status"><span id="plot-status">就绪 · 输入函数后点击绘制</span><span class="workbench-brand">智学桥函数画板</span></div>
                 </div>
             </div>
         </div>
@@ -480,45 +480,45 @@
         <div id="page-reader" class="page-view">
             <div class="workbench">
                 <aside class="workbench-aside reader-aside scrollbar">
-                    <button onclick="readerOpenBookshelf()" class="btn-secondary" style="width:100%;margin-bottom:12px;font-size:13px;">Open Bookshelf</button>
+                    <button onclick="readerOpenBookshelf()" class="btn-secondary" style="width:100%;margin-bottom:12px;font-size:13px;">打开书架</button>
                     <div id="reader-sidebar-info">
-                        <div class="wb-label">Document</div>
-                        <div class="reader-doc-title" id="reader-doc-title">No document open</div>
-                        <div class="reader-doc-meta" id="reader-doc-meta">Open from bookshelf</div>
+                        <div class="wb-label">文档</div>
+                        <div class="reader-doc-title" id="reader-doc-title">暂未打开文档</div>
+                        <div class="reader-doc-meta" id="reader-doc-meta">从书架打开</div>
                     </div>
                 </aside>
                 <div class="workbench-main">
-                    <div class="reader-toolbar"><span class="reader-toolbar-hint" id="reader-toolbar">Select text to translate, annotate or ask AI</span><button id="reader-enable-ai" class="btn-ai" style="display:none;" onclick="mineruGateReopen()"><i data-lucide="sparkles" style="width:14px;height:14px;"></i>Enable AI</button><button id="reader-view-toggle" class="btn-ghost-sm" style="display:none;" onclick="readerToggleView()">Original Pages</button><button onclick="openAIChatFree()" class="btn-ai"><i data-lucide="sparkles" style="width:14px;height:14px;"></i>Chat AI</button></div>
+                    <div class="reader-toolbar"><span class="reader-toolbar-hint" id="reader-toolbar">划选文字即可翻译、批注或问 AI</span><button id="reader-enable-ai" class="btn-ai" style="display:none;" onclick="mineruGateReopen()"><i data-lucide="sparkles" style="width:14px;height:14px;"></i>启用 AI</button><button id="reader-view-toggle" class="btn-ghost-sm" style="display:none;" onclick="readerToggleView()">原书页</button><button onclick="openAIChatFree()" class="btn-ai"><i data-lucide="sparkles" style="width:14px;height:14px;"></i>AI 问答</button></div>
                     <div id="reader-content-area" class="reader-content scrollbar">
                         <div class="reader-empty placeholder-box" style="max-width:600px;margin:0 auto;min-height:calc(100vh - 250px);background:var(--bg-card);">
                             <div class="empty-disc empty-disc-lg"><i data-lucide="book-open"></i></div>
-                            <div class="empty-title">Reading Area</div>
-                            <div class="empty-sub">Open a document from the bookshelf to start reading</div>
-                            <button class="btn-primary" style="margin-top:8px;" onclick="readerOpenBookshelf()">Open Bookshelf</button>
+                            <div class="empty-title">阅读区</div>
+                            <div class="empty-sub">从书架打开一份文档开始阅读</div>
+                            <button class="btn-primary" style="margin-top:8px;" onclick="readerOpenBookshelf()">打开书架</button>
                         </div>
                     </div>
                     <div id="reader-float-menu" class="float-menu" style="display:none;">
-                        <button onclick="readerAction('translate')" class="float-btn float-btn-blue"><i data-lucide="languages" style="width:13px;height:13px;"></i>Translate</button>
-                        <button onclick="readerAction('highlight')" class="float-btn float-btn-yellow"><i data-lucide="highlighter" style="width:13px;height:13px;"></i>Highlight</button>
-                        <button onclick="readerAction('note')" class="float-btn float-btn-green"><i data-lucide="sticky-note" style="width:13px;height:13px;"></i>Note</button>
-                        <button onclick="readerAction('ai')" class="float-btn float-btn-iris"><i data-lucide="sparkles" style="width:13px;height:13px;"></i>Ask AI</button>
+                        <button onclick="readerAction('translate')" class="float-btn float-btn-blue"><i data-lucide="languages" style="width:13px;height:13px;"></i>翻译</button>
+                        <button onclick="readerAction('highlight')" class="float-btn float-btn-yellow"><i data-lucide="highlighter" style="width:13px;height:13px;"></i>高亮</button>
+                        <button onclick="readerAction('note')" class="float-btn float-btn-green"><i data-lucide="sticky-note" style="width:13px;height:13px;"></i>笔记</button>
+                        <button onclick="readerAction('ai')" class="float-btn float-btn-iris"><i data-lucide="sparkles" style="width:13px;height:13px;"></i>问 AI</button>
                     </div>
                     <div id="reader-action-panel" style="display:none;max-width:600px;margin:0 auto;padding:0 16px 16px;"></div>
                 </div>
                 <aside id="reader-notes-aside" class="reader-notes-panel scrollbar" style="width:280px;">
                     <div class="reader-notes-head">
-                        <h3 class="reader-notes-title">Notes</h3>
+                        <h3 class="reader-notes-title">笔记</h3>
                         <span class="reader-notes-count" id="reader-note-count">0 notes</span>
                         <button onclick="toggleNotesPanel()" id="notes-toggle-btn" class="reader-notes-collapse" title="Collapse notes"><i data-lucide="chevron-right" style="width:14px;height:14px;"></i></button>
                     </div>
                     <div id="reader-notes-content">
                         <div style="margin-bottom:12px;">
-                            <textarea id="reader-quick-note" placeholder="Quick note..." class="reader-quick-note" rows="2"></textarea>
-                            <button class="btn-secondary" style="width:100%;font-size:12px;padding:4px;margin-top:4px;" onclick="readerSaveQuickNote()">+ Add Note</button>
+                            <textarea id="reader-quick-note" placeholder="快速笔记…" class="reader-quick-note" rows="2"></textarea>
+                            <button class="btn-secondary" style="width:100%;font-size:12px;padding:4px;margin-top:4px;" onclick="readerSaveQuickNote()">+ 添加笔记</button>
                         </div>
                         <div id="reader-notes-list" style="display:flex;flex-direction:column;gap:8px;margin-bottom:16px;"></div>
                         <div class="reader-highlights-block">
-                            <h3 class="wb-label">Highlights</h3>
+                            <h3 class="wb-label">高亮</h3>
                             <div id="reader-highlights-list" style="display:flex;flex-direction:column;gap:4px;"></div>
                         </div>
                     </div>
@@ -530,9 +530,9 @@
         <div id="reader-bs-modal" class="modal-veil" style="display:none;z-index:50;" onclick="if(event.target===this)readerCloseBookshelf()">
             <div class="modal-card modal-card-wide">
                 <div class="modal-head">
-                    <div><h3 class="modal-title">My Bookshelf</h3><p class="modal-sub">Click a document to open it</p></div>
+                    <div><h3 class="modal-title">我的书架</h3><p class="modal-sub">点击文档即可打开</p></div>
                     <div style="display:flex;align-items:center;gap:8px;">
-                        <button class="btn-secondary" style="font-size:13px;" onclick="bsUpload()">Upload</button>
+                        <button class="btn-secondary" style="font-size:13px;" onclick="bsUpload()">上传</button>
                         <button onclick="readerCloseBookshelf()" class="modal-close"><i data-lucide="x" style="width:15px;height:15px;"></i></button>
                     </div>
                 </div>
@@ -546,25 +546,25 @@
         <!-- Upload Category Modal -->
         <div id="bs-upload-modal" class="modal-veil" style="display:none;z-index:60;" onclick="if(event.target===this)bsCloseUpload()">
             <div class="modal-card" style="max-width:400px;width:100%;">
-                <h3 class="modal-title" style="margin-bottom:4px;">Select Category</h3>
+                <h3 class="modal-title" style="margin-bottom:4px;">选择分类</h3>
                 <p class="modal-sub" style="margin-bottom:16px;" id="bs-upload-filename">file.pdf</p>
                 <div id="bs-upload-cats" style="display:flex;flex-direction:column;gap:8px;margin-bottom:16px;"></div>
-                <div class="step-nav"><button class="btn-primary" style="flex:1;padding:8px;" onclick="bsConfirmUpload()">Confirm</button><button class="btn-secondary" onclick="bsCloseUpload()">Cancel</button></div>
+                <div class="step-nav"><button class="btn-primary" style="flex:1;padding:8px;" onclick="bsConfirmUpload()">确认</button><button class="btn-secondary" onclick="bsCloseUpload()">取消</button></div>
             </div>
         </div>
 
         <!-- ===== KNOWLEDGE GRAPH ===== -->
         <div id="page-graph" class="page-view page-mid">
             <div class="page-head">
-                <div class="page-eyebrow">Insight</div>
-                <h1 class="page-title">Knowledge Graph</h1>
+                <div class="page-eyebrow">洞察</div>
+                <h1 class="page-title">知识图谱</h1>
             </div>
 
             <!-- Empty state: pre-assessment gate -->
             <div id="kg-empty" class="empty-stage">
                 <div class="empty-disc empty-disc-xl"><i data-lucide="network"></i></div>
                 <div class="empty-title">Interactive knowledge graph</div>
-                <div class="empty-sub">Complete pre-assessment to unlock — your mastery map grows with every session</div>
+                <div class="empty-sub">完成学前诊断解锁——掌握度地图随学习不断成长</div>
             </div>
 
             <!-- Graph app (revealed after pre-assessment) -->
@@ -595,20 +595,20 @@
         <div id="page-forum" class="page-view">
             <div class="workbench">
                 <aside class="workbench-aside forum-aside scrollbar">
-                    <div class="wb-label">Community</div>
-                    <div class="nav-item active" style="font-size:13px;">All Posts</div>
-                    <div class="nav-item" style="font-size:13px;">Following</div>
-                    <div class="wb-label" style="margin-top:16px;">UK Students</div>
-                    <div class="nav-item" style="font-size:13px;">Queen Mary</div>
-                    <div class="wb-label" style="margin-top:16px;">International</div>
-                    <div class="nav-item" style="font-size:13px;">Chinese Students</div>
+                    <div class="wb-label">社区</div>
+                    <div class="nav-item active" style="font-size:13px;">全部帖子</div>
+                    <div class="nav-item" style="font-size:13px;">我的关注</div>
+                    <div class="wb-label" style="margin-top:16px;">本校同学</div>
+                    <div class="nav-item" style="font-size:13px;">北邮国院</div>
+                    <div class="wb-label" style="margin-top:16px;">跨校交流</div>
+                    <div class="nav-item" style="font-size:13px;">中国学生</div>
                 </aside>
                 <div class="forum-main scrollbar">
-                    <div class="page-head-row" style="margin-bottom:16px;"><h1 class="page-title" style="font-size:22px;">Trending Discussions</h1><button class="btn-primary" style="font-size:13px;">New Post</button></div>
+                    <div class="page-head-row" style="margin-bottom:16px;"><h1 class="page-title" style="font-size:22px;">热门讨论</h1><button class="btn-primary" style="font-size:13px;">发帖</button></div>
                     <div class="empty-stage" style="min-height:300px;">
                         <div class="empty-disc"><i data-lucide="messages-square"></i></div>
-                        <div class="empty-title">Forum posts will appear here</div>
-                        <div class="empty-sub">Ask questions, share proofs, and learn together with UK STEM students</div>
+                        <div class="empty-title">论坛帖子将显示在这里</div>
+                        <div class="empty-sub">提问、分享证明，与中外同学一起学习</div>
                     </div>
                 </div>
             </div>
@@ -618,11 +618,11 @@
         <div id="page-bookshelf" class="page-view page-wide">
             <div class="page-head-row" style="margin-bottom:24px;">
                 <div>
-                    <div class="page-eyebrow">Library</div>
+                    <div class="page-eyebrow">资料库</div>
                     <h1 class="page-title">My Bookshelf</h1>
-                    <p class="page-sub" id="bs-page-count">All your study materials</p>
+                    <p class="page-sub" id="bs-page-count">你的全部学习资料</p>
                 </div>
-                <button class="btn-secondary" style="border-style:dashed;" onclick="bsUpload()">Upload PDF</button>
+                <button class="btn-secondary" style="border-style:dashed;" onclick="bsUpload()">上传 PDF</button>
             </div>
             <div id="bs-page-tabs" class="tab-row" style="margin-bottom:16px;"></div>
             <div id="bs-page-grid" style="display:grid;grid-template-columns:repeat(5,1fr);gap:12px;min-height:300px;"></div>
@@ -631,8 +631,8 @@
         <!-- ===== PROFILE ===== -->
         <div id="page-profile" class="page-view page-form">
             <div class="page-head">
-                <div class="page-eyebrow">Account</div>
-                <h1 class="page-title">Profile</h1>
+                <div class="page-eyebrow">账号</div>
+                <h1 class="page-title">个人资料</h1>
             </div>
             <div class="card profile-hero">
                 <div id="profile-avatar" class="profile-avatar">U</div>
@@ -640,22 +640,22 @@
                 <div id="profile-email" class="profile-email">email@example.com</div>
             </div>
             <div class="card section-card">
-                <h2 class="section-title" style="margin-bottom:16px;">Basic Information</h2>
+                <h2 class="section-title" style="margin-bottom:16px;">基本信息</h2>
                 <div style="display:flex;flex-direction:column;gap:16px;">
                     <div>
-                        <label class="field-label" for="profile-input-name">Name</label>
-                        <input id="profile-input-name" class="input" style="width:100%;" placeholder="Your name">
+                        <label class="field-label" for="profile-input-name">姓名</label>
+                        <input id="profile-input-name" class="input" style="width:100%;" placeholder="你的姓名">
                     </div>
                     <div>
-                        <label class="field-label" for="profile-input-uni">University</label>
-                        <input id="profile-input-uni" class="input" style="width:100%;" placeholder="Your university">
+                        <label class="field-label" for="profile-input-uni">大学</label>
+                        <input id="profile-input-uni" class="input" style="width:100%;" placeholder="你的大学">
                     </div>
                     <div>
-                        <label class="field-label" for="profile-input-major">Major</label>
-                        <input id="profile-input-major" class="input" style="width:100%;" placeholder="Your major">
+                        <label class="field-label" for="profile-input-major">专业</label>
+                        <input id="profile-input-major" class="input" style="width:100%;" placeholder="你的专业">
                     </div>
                     <div>
-                        <label class="field-label" for="profile-input-year">Year</label>
+                        <label class="field-label" for="profile-input-year">年级</label>
                         <select id="profile-input-year" class="input" style="width:100%;">
                             <option value="freshman">First Year</option>
                             <option value="sophomore">Second Year</option>
@@ -679,11 +679,11 @@
                         <label for="profile-input-fm" class="verify-label">我有强基计划 / 数学竞赛经历</label>
                     </div>
                     <div>
-                        <div class="field-label">Current Teaching Week <span class="field-hint">(aligns your study plan with lectures)</span></div>
+                        <div class="field-label">当前教学周 <span class="field-hint">(aligns your 学习计划 with lectures)</span></div>
                         <select id="profile-input-week" class="input" style="width:100%;" onchange="setCurrentWeek(this.value)"></select>
                     </div>
                 </div>
-                <button class="btn-primary" style="width:100%;margin-top:20px;padding:10px;" onclick="saveProfile()">Save Changes</button>
+                <button class="btn-primary" style="width:100%;margin-top:20px;padding:10px;" onclick="saveProfile()">保存修改</button>
             </div>
         </div>
 
@@ -697,8 +697,8 @@
         <div style="display:flex;align-items:center;gap:8px;">
             <div class="float-logo"><i data-lucide="sparkles" style="width:16px;height:16px;"></i></div>
             <div>
-                <div class="float-title">AI Tutor</div>
-                <div class="float-sub">CogniBridge AI Tutor</div>
+                <div class="float-title">AI 导师</div>
+                <div class="float-sub">智学桥 AI 导师</div>
             </div>
         </div>
         <button onclick="closeAIChat()" class="modal-close"><i data-lucide="x" style="width:15px;height:15px;"></i></button>
@@ -709,19 +709,19 @@
     <div id="ai-chat-messages" class="float-body scrollbar"></div>
     <!-- Whole-book mode toggle (only rendered when the open doc is MinerU-parsed) -->
     <div id="ai-chat-mode-row" class="ai-mode-row" style="display:none;">
-        <span class="ai-mode-label">Source</span>
-        <button id="ai-mode-page" onclick="aiChatSetMode('page')" class="chip"><i data-lucide="file-text" style="width:12px;height:12px;"></i>Page</button>
-        <button id="ai-mode-book" onclick="aiChatSetMode('book')" class="chip"><i data-lucide="book-open" style="width:12px;height:12px;"></i>Whole book</button>
+        <span class="ai-mode-label">范围</span>
+        <button id="ai-mode-page" onclick="aiChatSetMode('page')" class="chip"><i data-lucide="file-text" style="width:12px;height:12px;"></i>本页</button>
+        <button id="ai-mode-book" onclick="aiChatSetMode('book')" class="chip"><i data-lucide="book-open" style="width:12px;height:12px;"></i>整本书</button>
     </div>
     <!-- Quick buttons -->
     <div class="ai-quick-row">
-        <button onclick="aiChatQuick(this)" data-q="用大一新生能懂的方式解释一下（术语中英对照）" class="chip">Explain</button>
-        <button onclick="aiChatQuick(this)" data-q="给一个这个概念的具体例子" class="chip">Example</button>
-        <button onclick="aiChatQuick(this)" data-q="这和高考数学有什么联系？前置知识点是什么？" class="chip">HS Link</button>
+        <button onclick="aiChatQuick(this)" data-q="用大一新生能懂的方式解释一下（术语中英对照）" class="chip">解释</button>
+        <button onclick="aiChatQuick(this)" data-q="给一个这个概念的具体例子" class="chip">举例</button>
+        <button onclick="aiChatQuick(this)" data-q="这和高考数学有什么联系？前置知识点是什么？" class="chip">高考衔接</button>
     </div>
     <!-- Input -->
     <div class="ai-input-row">
-        <input id="ai-chat-input" type="text" placeholder="Ask a follow-up question..." class="input" style="flex:1;" onkeypress="if(event.key==='Enter')aiChatSend()">
+        <input id="ai-chat-input" type="text" placeholder="输入追问…" class="input" style="flex:1;" onkeypress="if(event.key==='Enter')aiChatSend()">
         <button onclick="aiChatSend()" class="btn-ai btn-ai-send"><i data-lucide="arrow-up" style="width:16px;height:16px;"></i></button>
     </div>
 </div>
@@ -730,17 +730,17 @@
 <div id="tb-peek-modal" class="float-window" style="display:none;position:fixed;z-index:110;top:64px;right:24px;width:420px;min-width:320px;min-height:240px;height:520px;max-width:calc(100vw - 48px);max-height:calc(100vh - 120px);flex-direction:column;overflow:hidden;resize:both;">
     <div id="tb-peek-header" class="float-head" style="flex-shrink:0;">
         <span style="font-size:14px;display:flex;align-items:center;color:var(--text-secondary);"><i data-lucide="book-open" style="width:15px;height:15px;"></i></span>
-        <span id="tb-peek-title" class="float-title" style="flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">Textbook</span>
-        <button onclick="tbPeekOpenInReader()" title="Open this book at this page in Reader" class="btn-ghost-sm"><i data-lucide="external-link" style="width:12px;height:12px;"></i>Reader</button>
+        <span id="tb-peek-title" class="float-title" style="flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">教材</span>
+        <button onclick="tbPeekOpenInReader()" title="在阅读器中打开本书该页" class="btn-ghost-sm"><i data-lucide="external-link" style="width:12px;height:12px;"></i>阅读器</button>
         <button onclick="closeTbPeek()" class="modal-close"><i data-lucide="x" style="width:15px;height:15px;"></i></button>
     </div>
     <div id="tb-peek-tabs" class="ai-mode-row" style="display:none;flex-shrink:0;overflow-x:auto;"></div>
     <div id="tb-peek-slot" style="display:none;flex-shrink:0;"></div>
     <div id="tb-peek-menu" class="float-menu" style="display:none;position:absolute;z-index:10;flex-shrink:0;">
-        <button onclick="tbPeekAction('translate')" class="float-btn float-btn-blue"><i data-lucide="languages" style="width:13px;height:13px;"></i>Translate</button>
-        <button onclick="tbPeekAction('highlight')" class="float-btn float-btn-yellow"><i data-lucide="highlighter" style="width:13px;height:13px;"></i>Highlight</button>
-        <button onclick="tbPeekAction('note')" class="float-btn float-btn-green"><i data-lucide="sticky-note" style="width:13px;height:13px;"></i>Note</button>
-        <button onclick="tbPeekAction('ai')" class="float-btn float-btn-iris"><i data-lucide="sparkles" style="width:13px;height:13px;"></i>Ask AI</button>
+        <button onclick="tbPeekAction('translate')" class="float-btn float-btn-blue"><i data-lucide="languages" style="width:13px;height:13px;"></i>翻译</button>
+        <button onclick="tbPeekAction('highlight')" class="float-btn float-btn-yellow"><i data-lucide="highlighter" style="width:13px;height:13px;"></i>高亮</button>
+        <button onclick="tbPeekAction('note')" class="float-btn float-btn-green"><i data-lucide="sticky-note" style="width:13px;height:13px;"></i>笔记</button>
+        <button onclick="tbPeekAction('ai')" class="float-btn float-btn-iris"><i data-lucide="sparkles" style="width:13px;height:13px;"></i>问 AI</button>
     </div>
     <div id="tb-peek-body" class="float-body scrollbar" style="flex:1;overflow:auto;"></div>
 </div>

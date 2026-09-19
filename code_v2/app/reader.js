@@ -1,4 +1,4 @@
-// ===== READER BOOKSHELF MODAL =====
+﻿// ===== READER BOOKSHELF MODAL =====
 function readerOpenBookshelf(){readerRenderModalTabs();readerRenderModalDocs('all');document.getElementById('reader-bs-modal').style.display='flex';}
 function readerCloseBookshelf(){document.getElementById('reader-bs-modal').style.display='none';}
 function readerRenderModalTabs(){const c=document.getElementById('reader-bs-tabs');if(!c)return;c.innerHTML='';
@@ -8,7 +8,7 @@ function readerRenderModalTabs(){const c=document.getElementById('reader-bs-tabs
 function readerRenderModalDocs(cat){const g=document.getElementById('reader-bs-grid');if(!g)return;
     const all=[];Object.keys(bsData).forEach(c=>bsData[c].forEach((d,i)=>{if(!d.isDeleted)all.push({...d,cat:c,idx:i});}));
     const docs=cat==='all'?all:all.filter(d=>d.cat===cat);
-    if(docs.length===0){g.innerHTML=`<div class="placeholder-box" style="grid-column:1/-1;">No documents<br><button class="btn-secondary" style="margin-top:12px;" onclick="bsUpload()">${iconHtml('paperclip',14)}Upload PDF</button></div>`;return;}
+    if(docs.length===0){g.innerHTML=`<div class="placeholder-box" style="grid-column:1/-1;">暂无文档<br><button class="btn-secondary" style="margin-top:12px;" onclick="bsUpload()">${iconHtml('paperclip',14)}Upload PDF</button></div>`;return;}
     g.innerHTML=docs.map(d=>{const cl=BS_CATS.find(c=>c.key===d.cat);
         return `<div onclick="readerOpenDoc('${d.cat}',${d.idx})" style="border:1px solid var(--border);border-radius:10px;padding:12px;cursor:pointer;transition:all .18s cubic-bezier(.2,.8,.2,1);background:var(--bg-sidebar);box-shadow:var(--shadow-xs);" onmouseenter="this.style.borderColor='var(--accent)';this.style.transform='translateY(-3px)';this.style.boxShadow='var(--shadow-md)'" onmouseleave="this.style.borderColor='var(--border)';this.style.transform='translateY(0)';this.style.boxShadow='var(--shadow-xs)'">
         <div style="text-align:center;margin-bottom:8px;"><div style="width:48px;height:56px;border-radius:8px;display:inline-flex;align-items:center;justify-content:center;color:var(--text-secondary);background:var(--bg-tag);">${iconHtml(d.icon,22)}</div></div>
@@ -24,7 +24,7 @@ let readerCurrentDocId=null;
 
 function readerOpenDoc(cat,idx){
     const doc=bsData[cat][idx];if(!doc)return;
-    if(doc.isDeleted){showNotification('Restore this document first to open it','warning');return;}
+    if(doc.isDeleted){showNotification('请先恢复该文档再打开','warning');return;}
     // ===== Built-in guide (virtual doc, no network) =====
     if(doc.isGuide){readerOpenGuide(doc);return;}
     readerCloseBookshelf();
@@ -41,7 +41,7 @@ function readerOpenDoc(cat,idx){
     document.getElementById('reader-toolbar').textContent=doc.title;
     const toggleBtn=document.getElementById('reader-view-toggle');
     if(toggleBtn)toggleBtn.style.display=(doc.fileType==='pdf'&&doc.parseStatus==='done')?'block':'none';
-    if(toggleBtn)toggleBtn.textContent=readerViewMode==='doc'?'Original Pages':'Reformatted';
+    if(toggleBtn)toggleBtn.textContent=readerViewMode==='doc'?'原书页':'重排版';
     const aiBtn=document.getElementById('reader-enable-ai');
     if(aiBtn)aiBtn.style.display=(doc.fileType==='pdf'&&doc.needsOcr&&doc.parseStatus!=='done')?'block':'none';
     readerNotes=[];readerHighlights=[];readerRenderNotes();readerRenderHighlights();
@@ -78,7 +78,7 @@ function readerOpenDoc(cat,idx){
         })
         .catch(err=>{
             area.innerHTML='<div class="placeholder-box" style="max-width:600px;margin:0 auto;min-height:400px;background:var(--bg-card);">Failed to load document<br><span style="font-size:12px;">'+escapeHtml(err.message)+'</span></div>';
-            showNotification('Failed to load: '+err.message,'error');
+            showNotification('加载失败：'+err.message,'error');
         });
 }
 
@@ -341,7 +341,7 @@ async function readerRenderPdfPageFull(pageNum){
         readerAnchorRestore(pageNum);   // cross-view sync: final exact restore once content exists
 
     }catch(err){
-        pageDiv.innerHTML='<div style="padding:40px;text-align:center;color:#ff6b6b;">Failed to render page '+pageNum+': '+escapeHtml(err.message)+'</div>';
+        pageDiv.innerHTML='<div style="padding:40px;text-align:center;color:#ff6b6b;">页面渲染失败 '+pageNum+': '+escapeHtml(err.message)+'</div>';
     }
 }
 
@@ -386,8 +386,8 @@ document.addEventListener('mouseup',e=>{
 function readerAction(action){const menu=document.getElementById('reader-float-menu');menu.style.display='none';const panel=document.getElementById('reader-action-panel');const text=readerSelText;
     if(action==='translate'){panel.innerHTML=`<div class="card" style="border-left:4px solid #4C8DFF;background:rgba(76,141,255,.06);">
         <div style="display:flex;gap:12px;"><div style="width:32px;height:32px;border-radius:8px;display:flex;align-items:center;justify-content:center;font-size:14px;font-weight:700;color:#fff;background:var(--accent);flex-shrink:0;">译</div>
-        <div style="flex:1;"><div style="font-size:12px;font-weight:600;color:#4C8DFF;margin-bottom:4px;">Translating...</div><p style="font-size:14px;margin-bottom:8px;">${escapeHtml(text)}</p><div id="reader-translate-result" style="color:var(--text-muted);font-size:13px;">Calling AI...</div>
-        <div style="display:flex;gap:8px;margin-top:8px;"><button onclick="readerAction('note')" style="font-size:12px;padding:6px 12px;border-radius:6px;background:var(--bg-input);color:var(--text-secondary);border:1px solid var(--border);cursor:pointer;">Save note</button><button onclick="readerAction('highlight')" style="font-size:12px;padding:6px 12px;border-radius:6px;background:var(--bg-input);color:var(--text-secondary);border:1px solid var(--border);cursor:pointer;">Highlight</button><button onclick="document.getElementById('reader-action-panel').style.display='none'" style="font-size:12px;padding:6px 12px;border-radius:6px;background:transparent;color:var(--text-muted);border:none;cursor:pointer;">Close</button></div></div></div></div>`;
+        <div style="flex:1;"><div style="font-size:12px;font-weight:600;color:#4C8DFF;margin-bottom:4px;">翻译中…</div><p style="font-size:14px;margin-bottom:8px;">${escapeHtml(text)}</p><div id="reader-translate-result" style="color:var(--text-muted);font-size:13px;">正在调用 AI…</div>
+        <div style="display:flex;gap:8px;margin-top:8px;"><button onclick="readerAction('note')" style="font-size:12px;padding:6px 12px;border-radius:6px;background:var(--bg-input);color:var(--text-secondary);border:1px solid var(--border);cursor:pointer;">存为笔记</button><button onclick="readerAction('highlight')" style="font-size:12px;padding:6px 12px;border-radius:6px;background:var(--bg-input);color:var(--text-secondary);border:1px solid var(--border);cursor:pointer;">高亮</button><button onclick="document.getElementById('reader-action-panel').style.display='none'" style="font-size:12px;padding:6px 12px;border-radius:6px;background:transparent;color:var(--text-muted);border:none;cursor:pointer;">关闭</button></div></div></div></div>`;
         panel.style.display='block';
         fetch(AI_BACKEND_URL+'/api/translate',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({text:text,target_lang:'auto'})})
         .then(r=>r.json()).then(data=>{
@@ -416,7 +416,7 @@ function readerAction(action){const menu=document.getElementById('reader-float-m
         </div></div>`;
         panel.style.display='block';
     }else if(action==='note'){panel.innerHTML=`<div class="card" style="border-left:4px solid #52c41a;background:rgba(82,196,26,.06);">
-        <div style="font-size:12px;font-weight:600;color:#52c41a;margin-bottom:4px;">New Note</div><div style="font-size:12px;padding:8px;border-radius:6px;background:var(--bg-input);color:var(--text-secondary);font-style:italic;margin-bottom:8px;">"${escapeHtml(text.substring(0,100))}${text.length>100?'...':''}"</div>
+        <div style="font-size:12px;font-weight:600;color:#52c41a;margin-bottom:4px;">新笔记</div><div style="font-size:12px;padding:8px;border-radius:6px;background:var(--bg-input);color:var(--text-secondary);font-style:italic;margin-bottom:8px;">"${escapeHtml(text.substring(0,100))}${text.length>100?'...':''}"</div>
         <textarea id="reader-note-input" placeholder="Write your note..." style="width:100%;padding:8px;border-radius:6px;font-size:14px;resize:none;border:1px solid var(--border);background:var(--bg-input);color:var(--text-primary);outline:none;" rows="3"></textarea>
         <div style="display:flex;gap:8px;margin-top:8px;"><button class="btn-primary" style="font-size:13px;padding:6px 16px;" onclick="readerSaveNoteFromSel()">Save</button><button onclick="document.getElementById('reader-action-panel').style.display='none'" style="font-size:13px;padding:6px 12px;color:var(--text-muted);background:none;border:none;cursor:pointer;">Cancel</button></div></div>`;
         panel.style.display='block';document.getElementById('reader-note-input').focus();
@@ -448,7 +448,7 @@ function aiChatSetMode(m){
     if(quoteEl){
         if(m==='book'){
             quoteEl.style.display='block';
-            quoteEl.textContent='Whole book — ask anything about this book';
+            quoteEl.textContent='整本书模式——可询问本书任何内容';
             quoteEl.style.background='rgba(122,107,255,.06)';
             quoteEl.style.borderLeft='3px solid var(--accent)';
         }else if(window.aiChatPageLabel){
@@ -477,7 +477,7 @@ async function aiChatMaybeRetrieveBookCtx(question){
             }
         }else if(d.reason==='not_parsed'||d.reason==='no_index'||d.reason==='not_textbook'||(d.reason&&d.reason.startsWith('retrieve_failed'))){
             // Degrade gracefully: back to page mode for this message
-            showNotification('Whole-book search unavailable — using page context','warning');
+            showNotification('整本书检索暂不可用，已切换为本页上下文','warning');
             aiChatSetMode('page');
         }
     }catch(e){/* network hiccup: fall back silently */}
@@ -514,7 +514,7 @@ function tbAnchorSearching(aiDiv){
     if(!aiDiv||!aiDiv.parentNode)return null;
     const el=document.createElement('div');
     el.style.cssText='font-size:11px;color:var(--text-muted);font-style:italic;margin-bottom:6px;transition:opacity .3s ease;';
-    el.textContent='Searching your textbooks…';
+    el.textContent='正在检索你的教材…';
     aiDiv.parentNode.insertBefore(el,aiDiv);
     return el;
 }
@@ -555,13 +555,13 @@ async function traceConcepts(answerText,aiDiv){
     if(!aiDiv||!aiDiv.parentNode)return;
     const status=document.createElement('div');
     status.style.cssText='margin-top:8px;padding:8px 12px;border-radius:8px;background:rgba(122,107,255,.03);border-left:3px solid rgba(122,107,255,.45);font-size:11px;color:var(--text-muted);font-style:italic;';
-    status.textContent='Searching key concepts in your textbooks...';
+    status.textContent='正在教材中检索关键概念…';
     aiDiv.parentNode.insertBefore(status,aiDiv.nextSibling);
     try{
         const res=await apiFetch('/api/textbooks/concepts',{
             method:'POST',body:JSON.stringify({answer_text:answerText})
         });
-        if(!res.ok){status.textContent='Key concept search is temporarily unavailable';return;}
+        if(!res.ok){status.textContent='关键概念检索暂不可用';return;}
         const d=await res.json();
         if(d.reason!=='ok'||!d.concepts||!d.concepts.length){
             status.style.opacity='0';status.style.transition='opacity .3s';
@@ -570,7 +570,7 @@ async function traceConcepts(answerText,aiDiv){
         }
         renderConceptCitations(d.concepts,aiDiv,status);
     }catch(e){
-        status.textContent='Key concept search is temporarily unavailable';
+        status.textContent='关键概念检索暂不可用';
     }
 }
 
@@ -579,12 +579,12 @@ function renderConceptCitations(concepts,aiDiv,statusEl){
     if(!aiDiv||!aiDiv.parentNode)return;
     const block=document.createElement('div');
     block.style.cssText='margin-top:8px;padding:8px 12px;border-radius:8px;background:rgba(122,107,255,.04);border-left:3px solid var(--accent);';
-    let html='<div style="font-size:11px;font-weight:600;color:var(--accent);margin-bottom:6px;">Key concepts in your textbooks</div>';
+    let html='<div style="font-size:11px;font-weight:600;color:var(--accent);margin-bottom:6px;">📚 你教材中的关键概念</div>';
     concepts.forEach((c,ci)=>{
         html+='<div style="margin-bottom:4px;">'
             +'<span style="font-size:12px;font-weight:500;color:var(--text-primary);">'+escapeHtml(c.name)+'</span>';
         c.hits.forEach((h,hi)=>{
-            html+=' <span onclick="conceptPeek('+ci+','+hi+')" title="View textbook page" '
+            html+=' <span onclick="conceptPeek('+ci+','+hi+')" title="查看教材原文" '
                 +'style="font-size:11px;padding:1px 8px;border-radius:999px;background:rgba(82,196,26,.08);border:1px solid rgba(82,196,26,.25);color:#52c41a;cursor:pointer;margin-left:4px;">'
                 +escapeHtml(h.book)+' · p.'+h.page+'</span>';
         });
@@ -776,8 +776,8 @@ function tbPeekAction(action){
         tbPeekShowSlot('<div style="padding:10px 12px;background:rgba(76,141,255,.06);border-left:3px solid #4C8DFF;">'
             +'<div style="font-size:11px;font-weight:600;color:#4C8DFF;margin-bottom:4px;">Translating…</div>'
             +'<p style="font-size:12px;margin-bottom:6px;color:var(--text-secondary);">'+escapeHtml(text.substring(0,140))+(text.length>140?'...':'')+'</p>'
-            +'<div id="tb-peek-translate-result" style="font-size:12px;color:var(--text-muted);">Calling AI…</div>'
-            +'<button onclick="document.getElementById(\'tb-peek-slot\').style.display=\'none\'" style="margin-top:6px;font-size:10px;padding:3px 8px;border-radius:6px;background:transparent;color:var(--text-muted);border:none;cursor:pointer;">Close</button></div>');
+            +'<div id="tb-peek-translate-result" style="font-size:12px;color:var(--text-muted);">正在调用 AI…</div>'
+            +'<button onclick="document.getElementById(\'tb-peek-slot\').style.display=\'none\'" style="margin-top:6px;font-size:10px;padding:3px 8px;border-radius:6px;background:transparent;color:var(--text-muted);border:none;cursor:pointer;">关闭</button></div>');
         fetch(AI_BACKEND_URL+'/api/translate',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({text:text,target_lang:'auto'})})
         .then(r=>r.json()).then(data=>{
             const el=document.getElementById('tb-peek-translate-result');if(!el)return;
@@ -816,7 +816,7 @@ function tbPeekAction(action){
         const quote=text.substring(0,800);
         if(chatModal&&chatModal.style.display==='flex'){
             tbPeekLastSel=false;
-            aiChatSend('Explain this from my textbook:\n\n"'+quote+'"');
+            aiChatSend('请讲解我教材中的这段内容：\n\n"'+quote+'"');
         }else{
             openAIChat(text);
         }
