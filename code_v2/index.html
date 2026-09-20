@@ -357,12 +357,17 @@
             <!-- Vocab pane -->
             <div id="vocab-pane" style="display:none;">
                 <div style="display:flex;align-items:center;gap:10px;margin-bottom:16px;flex-wrap:wrap;">
-                    <button class="btn-primary" style="font-size:12px;padding:6px 14px;" onclick="vocabAdd()">+ 添加术语</button>
-                    <input id="vocab-search-input" class="input" style="flex:1;min-width:160px;max-width:280px;font-size:12px;padding:6px 12px;" placeholder="搜索术语..." oninput="vocabSearchInput(this.value)">
-                    <span id="vocab-count" style="font-family:var(--font-mono);font-size:12px;color:var(--text-muted);display:inline-flex;align-items:center;gap:4px;"><i data-lucide="languages" style="width:12px;height:12px;"></i> 0 词</span>
+                    <input id="vocab-search-input" class="input" style="flex:1;min-width:160px;max-width:280px;font-size:12px;padding:6px 12px;" placeholder="\u641c\u7d22\u672f\u8bed..." oninput="vocabSearchInput(this.value)">
+                    <span id="vocab-count" style="font-family:var(--font-mono);font-size:12px;color:var(--text-muted);display:inline-flex;align-items:center;gap:4px;"><i data-lucide="languages" style="width:12px;height:12px;"></i> 0 \u8bcd</span>
                 </div>
-                                <div id="vocab-tags" class="chip-row" style="margin-bottom:12px;"></div>
-<div id="vocab-list" style="display:flex;flex-direction:column;gap:0;"></div>
+                <div id="vocab-list-view">
+                    <div id="vocab-doc-list" style="display:flex;flex-direction:column;gap:0;"></div>
+                </div>
+                <div id="vocab-detail-view" style="display:none;">
+                    <button onclick="vocabCloseDoc()" class="btn-secondary" style="margin-bottom:16px;font-size:13px;">\u2190 \u8fd4\u56de\u5355\u8bcd\u672c</button>
+                    <div id="vocab-doc-header" style="margin-bottom:16px;"></div>
+                    <div id="vocab-term-list"></div>
+                </div>
             </div><!-- /vocab-pane -->
         </div>
 

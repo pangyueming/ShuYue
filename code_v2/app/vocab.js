@@ -1,13 +1,14 @@
 // ===== 单词本 (Vocabulary Book) — math terminology for Sino-foreign joint programme =====
+// Two-level navigation (like Notes page): doc list → click → term detail → back.
 // Three capture paths: auto-extract after parse / reader selection / AI concept tracing.
-// Readwise-inspired: capture + organize + search; every term keeps its source context.
 
 let vocabData = [];
 let vocabSearchQ = '';
 let vocabEditingId = null;
 let vocabLoaded = false;
-let vocabFilterTag = '';  // '' = all
-let vocabAllTags = [];    // unique tags from all entries
+let vocabFilterTag = '';
+let vocabAllTags = [];
+let vocabCurrentDoc = null; // null = doc list view, {id, title} = term detail view
 
 function vocabTabSwitch(tab) {
     const btnN = document.getElementById('notes-tab-btn');
@@ -38,18 +39,15 @@ async function vocabLoad() {
     const token = localStorage.getItem('cb_cn_token');
     if (!token) { vocabData = []; vocabAllTags = []; return; }
     try {
-        // Load all entries for tag extraction, then filter client-side by tag
         const params = [];
         if (vocabSearchQ) params.push('q=' + encodeURIComponent(vocabSearchQ));
         const url = '/api/vocab' + (params.length ? '?' + params.join('&') : '');
         const res = await apiFetch(url);
         if (!res.ok) throw new Error('HTTP ' + res.status);
         const all = await res.json();
-        // Extract unique tags
         const tagSet = new Set();
         all.forEach(v => { if (v.tag) tagSet.add(v.tag); });
         vocabAllTags = Array.from(tagSet).sort();
-        // Filter by selected tag
         vocabData = vocabFilterTag ? all.filter(v => v.tag === vocabFilterTag) : all;
     } catch (e) {
         console.error('vocabLoad:', e);
@@ -58,32 +56,37 @@ async function vocabLoad() {
     }
 }
 
+// ===== Render dispatcher: doc list view OR term detail view =====
 function vocabRender() {
-    // Tag chips row
-    const tagsRow = document.getElementById('vocab-tags');
-    if (tagsRow) {
-        let html = `<button class="chip" onclick="vocabFilterTagSet('')" style="${!vocabFilterTag ? 'border-color:var(--accent);color:var(--accent);' : ''}padding:4px 12px;font-size:11px;">全部</button>`;
-        vocabAllTags.forEach(t => {
-            html += ` <button class="chip" onclick="vocabFilterTagSet('${escapeHtml(t)}')" style="${vocabFilterTag === t ? 'border-color:var(--accent);color:var(--accent);' : ''}padding:4px 12px;font-size:11px;">${escapeHtml(t)}</button>`;
-        });
-        html += ` <button class="chip" onclick="vocabNewTag()" style="padding:4px 12px;font-size:11px;color:var(--text-muted);border-style:dashed;">+ 新建词单</button>`;
-        tagsRow.innerHTML = html;
-    }
-
+    // Update count
     const countEl = document.getElementById('vocab-count');
     if (countEl) countEl.textContent = vocabData.length + ' 词';
 
-    const list = document.getElementById('vocab-list');
-    if (!list) return;
+    if (vocabCurrentDoc) {
+        vocabRenderDocDetail();
+    } else {
+        vocabRenderDocList();
+    }
+}
+
+// ===== Level 1: Document list (like notes card list) =====
+function vocabRenderDocList() {
+    const listView = document.getElementById('vocab-list-view');
+    const detailView = document.getElementById('vocab-detail-view');
+    if (listView) listView.style.display = '';
+    if (detailView) detailView.style.display = 'none';
+
+    const container = document.getElementById('vocab-doc-list');
+    if (!container) return;
 
     if (!vocabData.length) {
         if (vocabSearchQ) {
-            list.innerHTML = `<div style="text-align:center;padding:40px 20px;color:var(--text-muted);">
+            container.innerHTML = `<div style="text-align:center;padding:40px 20px;color:var(--text-muted);">
                 <div style="font-size:13px;">没有匹配"${escapeHtml(vocabSearchQ)}"的术语</div>
                 <button class="btn-secondary" style="margin-top:12px;padding:6px 16px;font-size:12px;" onclick="vocabClearSearch()">清空搜索</button>
             </div>`;
         } else {
-            list.innerHTML = `<div style="text-align:center;padding:60px 20px;">
+            container.innerHTML = `<div style="text-align:center;padding:60px 20px;">
                 <div style="font-size:36px;margin-bottom:12px;color:var(--text-muted);"><i data-lucide="book-marked" style="width:36px;height:36px;"></i></div>
                 <div style="font-size:14px;color:var(--text-secondary);margin-bottom:6px;">单词本还是空的</div>
                 <div style="font-size:12px;color:var(--text-muted);margin-bottom:16px;">上传教材自动提取术语，或在阅读时划词收入</div>
@@ -97,110 +100,187 @@ function vocabRender() {
         return;
     }
 
-    list.innerHTML = vocabData.map(v => {
-        if (vocabEditingId === v.id) return vocabRenderEditCard(v);
-        return vocabRenderCard(v);
-    }).join('');
+    // Group by source_doc_id
+    const groups = new Map();
+    vocabData.forEach(v => {
+        const key = v.source_doc_id || '__manual__';
+        if (!groups.has(key)) {
+            groups.set(key, {
+                title: key === '__manual__' ? '手动添加' : (v.source_title || '未知文档'),
+                icon: key === '__manual__' ? 'pencil' : 'book-open',
+                isManual: key === '__manual__',
+                docId: key,
+                entries: []
+            });
+        }
+        groups.get(key).entries.push(v);
+    });
+
+    // Sort: manual last, others alphabetical
+    const sorted = Array.from(groups.values()).sort((a, b) => {
+        if (a.isManual) return 1;
+        if (b.isManual) return -1;
+        return a.title.localeCompare(b.title);
+    });
+
+    container.innerHTML = sorted.map(g => `
+        <div class="card" style="padding:14px 16px;margin-bottom:10px;display:flex;align-items:center;gap:12px;cursor:pointer;transition:transform .15s;" onclick="vocabOpenDoc('${g.docId}','${escapeHtml(g.title)}')" onmouseover="this.style.transform='translateY(-2px)'" onmouseout="this.style.transform=''">
+            <div style="width:42px;height:42px;border-radius:10px;background:var(--bg-tag);display:flex;align-items:center;justify-content:center;color:var(--accent);flex-shrink:0;">
+                <i data-lucide="${g.icon}" style="width:20px;height:20px;"></i>
+            </div>
+            <div style="flex:1;min-width:0;">
+                <div style="font-size:14px;font-weight:600;color:var(--text-primary);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${escapeHtml(g.title)}</div>
+                <div style="font-size:11px;color:var(--text-muted);margin-top:2px;">
+                    ${g.isManual ? '手动收录' : '自动提取'} · ${g.entries.length} 词
+                </div>
+            </div>
+            <span style="font-family:var(--font-mono);font-size:18px;font-weight:600;color:var(--text-secondary);">${g.entries.length}</span>
+            <i data-lucide="chevron-right" style="width:16px;height:16px;color:var(--text-muted);"></i>
+        </div>
+    `).join('');
     refreshIcons();
 }
 
-function vocabRenderCard(v) {
-    const srcPill = v.source_doc_id
-        ? `<span onclick="vocabJumpSource('${v.source_doc_id}',${v.source_page || 1})" title="查看原文" style="display:inline-flex;align-items:center;gap:4px;font-size:10px;color:var(--accent);cursor:pointer;padding:2px 8px;border-radius:999px;background:rgba(122,107,255,.06);border:1px solid rgba(122,107,255,.15);white-space:nowrap;">${iconHtml('book-open',10)}${escapeHtml(v.source_title || '文档')}·p.${v.source_page || '?'}</span>`
-        : '';
-    const tagPill = v.tag
-        ? `<span style="font-size:10px;padding:2px 8px;border-radius:999px;background:var(--bg-tag);border:1px solid var(--border);color:var(--text-muted);white-space:nowrap;">${escapeHtml(v.tag)}</span>`
-        : '';
-    return `<div class="card" style="padding:12px 16px;margin-bottom:8px;display:flex;align-items:flex-start;gap:12px;transition:transform .15s;" onmouseover="this.style.transform='translateY(-1px)'" onmouseout="this.style.transform=''">
-        <div style="flex:1;min-width:0;">
-            <div style="display:flex;align-items:baseline;gap:10px;flex-wrap:wrap;">
-                <span style="font-family:var(--font-mono);font-size:14px;font-weight:600;color:var(--text-primary);">${escapeHtml(v.term_en)}</span>
-                <span style="font-size:13px;color:var(--text-secondary);">${escapeHtml(v.term_zh || '')}</span>
-                ${tagPill}${srcPill}
-            </div>
-            ${v.definition ? `<div style="font-size:12px;color:var(--text-muted);margin-top:4px;line-height:1.5;">${escapeHtml(v.definition)}</div>` : ''}
-            ${v.source_text ? `<div style="font-size:11px;color:var(--text-muted);margin-top:3px;font-style:italic;opacity:.7;">"${escapeHtml(v.source_text.substring(0, 80))}${v.source_text.length > 80 ? '...' : ''}"</div>` : ''}
-        </div>
-        <div style="display:flex;gap:4px;flex-shrink:0;">
-            <button onclick="vocabEdit('${v.id}')" aria-label="编辑术语" style="background:none;border:none;color:var(--text-muted);cursor:pointer;padding:4px;border-radius:4px;">${iconHtml('pencil',13)}</button>
-            <button onclick="vocabDelete('${v.id}','${escapeHtml(v.term_en)}')" aria-label="删除术语" style="background:none;border:none;color:var(--text-muted);cursor:pointer;padding:4px;border-radius:4px;">${iconHtml('trash-2',13)}</button>
-        </div>
-    </div>`;
+function vocabOpenDoc(docId, title) {
+    vocabCurrentDoc = { id: docId, title: title };
+    vocabEditingId = null;
+    vocabRender();
 }
 
-function vocabRenderEditCard(v) {
-    return `<div class="card" style="padding:14px 16px;margin-bottom:8px;border-color:var(--accent);">
-        <div style="display:flex;flex-direction:column;gap:10px;">
-            <div>
-                <label class="field-label" style="margin-bottom:4px;">英文术语 <span style="color:var(--red);">*</span></label>
-                <input id="vocab-edit-en" class="input" style="width:100%;font-family:var(--font-mono);font-size:13px;" value="${escapeHtml(v.term_en)}" aria-describedby="vocab-edit-en-err">
-                <div id="vocab-edit-en-err" style="font-size:11px;color:var(--red);min-height:14px;margin-top:2px;"></div>
-            </div>
-            <div>
-                <label class="field-label" style="margin-bottom:4px;">中文翻译</label>
-                <input id="vocab-edit-zh" class="input" style="width:100%;font-size:13px;" value="${escapeHtml(v.term_zh || '')}">
-            </div>
-            <div>
-                <label class="field-label" style="margin-bottom:4px;">定义</label>
-                <textarea id="vocab-edit-def" class="input" style="width:100%;font-size:12px;rows:2;min-height:44px;resize:vertical;" placeholder="一句话双语定义...">${escapeHtml(v.definition || '')}</textarea>
-            </div>
-            <div>
-                <label class="field-label" style="margin-bottom:4px;">词单</label>
-                <input id="vocab-edit-tag" class="input" style="width:100%;font-size:13px;" value="${escapeHtml(v.tag || '')}" placeholder="词单名（可选）" list="vocab-tag-datalist">
-                <datalist id="vocab-tag-datalist">
-                    ${vocabAllTags.map(t => `<option value="${escapeHtml(t)}">`).join('')}
-                </datalist>
-            </div>
-            <div style="display:flex;gap:8px;justify-content:flex-end;">
-                <button class="btn-secondary" style="padding:6px 16px;font-size:12px;" onclick="vocabCancelEdit()">取消</button>
-                <button class="btn-primary" style="padding:6px 16px;font-size:12px;" onclick="vocabSaveEdit('${v.id}')">保存</button>
-            </div>
+function vocabCloseDoc() {
+    vocabCurrentDoc = null;
+    vocabEditingId = null;
+    vocabRender();
+}
+
+// ===== Level 2: Term detail view (terms from one document, horizontal flow) =====
+function vocabRenderDocDetail() {
+    const listView = document.getElementById('vocab-list-view');
+    const detailView = document.getElementById('vocab-detail-view');
+    if (listView) listView.style.display = 'none';
+    if (detailView) detailView.style.display = '';
+
+    const headerEl = document.getElementById('vocab-doc-header');
+    const listEl = document.getElementById('vocab-term-list');
+    if (!headerEl || !listEl) return;
+
+    // Filter terms for current doc
+    const terms = vocabData.filter(v => (v.source_doc_id || '__manual__') === vocabCurrentDoc.id);
+    const isManual = vocabCurrentDoc.id === '__manual__';
+
+    headerEl.innerHTML = `
+        <div style="display:flex;align-items:center;gap:10px;margin-bottom:4px;">
+            <span style="color:var(--accent);display:flex;">${iconHtml(isManual ? 'pencil' : 'book-open', 20)}</span>
+            <span style="font-size:18px;font-weight:650;color:var(--text-primary);">${escapeHtml(vocabCurrentDoc.title)}</span>
+            <span style="font-family:var(--font-mono);font-size:12px;color:var(--text-muted);margin-left:auto;">${terms.length} 词</span>
         </div>
-    </div>`;
+        <div style="display:flex;gap:6px;align-items:center;">
+            <button class="btn-secondary" style="font-size:11px;padding:4px 12px;" onclick="vocabAddToDoc('${vocabCurrentDoc.id}')">+ 添加术语</button>
+        </div>
+    `;
+
+    if (!terms.length) {
+        listEl.innerHTML = `<div style="text-align:center;padding:40px;color:var(--text-muted);font-size:13px;">此文档暂无术语</div>`;
+        return;
+    }
+
+    // Horizontal flow layout: each term = "english 中文" separated by spacing
+    // Click to edit inline
+    let html = '<div style="display:flex;flex-wrap:wrap;gap:10px 18px;padding:4px 0;">';
+    terms.forEach(v => {
+        if (vocabEditingId === v.id) {
+            html += vocabRenderEditInline(v);
+        } else {
+            const pageChip = v.source_page && !isManual
+                ? `<span onclick="event.stopPropagation();vocabJumpSource('${v.source_doc_id}',${v.source_page})" style="font-family:var(--font-mono);font-size:9px;color:var(--accent);cursor:pointer;margin-left:2px;">p.${v.source_page}</span>`
+                : '';
+            const tagChip = v.tag
+                ? `<span style="font-size:9px;padding:1px 6px;border-radius:999px;background:var(--bg-tag);color:var(--text-muted);margin-left:4px;">${escapeHtml(v.tag)}</span>`
+                : '';
+            html += `<span onclick="vocabEdit('${v.id}')" title="点击编辑" style="display:inline-flex;align-items:baseline;gap:4px;padding:6px 12px;border-radius:8px;background:var(--bg-card);border:1px solid var(--border);cursor:pointer;font-size:13px;transition:border-color .15s;" onmouseover="this.style.borderColor='var(--accent)'" onmouseout="this.style.borderColor='var(--border)'">
+                <span style="font-family:var(--font-mono);font-weight:600;color:var(--text-primary);">${escapeHtml(v.term_en)}</span>
+                <span style="color:var(--text-secondary);font-size:12px;">${escapeHtml(v.term_zh || '')}</span>
+                ${pageChip}${tagChip}
+                <i data-lucide="x" style="width:10px;height:10px;color:var(--text-muted);opacity:.4;margin-left:4px;flex-shrink:0;" onclick="event.stopPropagation();vocabDelete('${v.id}','${escapeHtml(v.term_en)}')"></i>
+            </span>`;
+        }
+    });
+    html += '</div>';
+    listEl.innerHTML = html;
+    refreshIcons();
+}
+
+// Inline edit (appears in place of the term chip)
+function vocabRenderEditInline(v) {
+    return `<span style="display:inline-flex;align-items:center;gap:6px;padding:6px 12px;border-radius:8px;background:var(--bg-card);border:2px solid var(--accent);">
+        <input id="vocab-edit-en" class="input" style="width:130px;font-family:var(--font-mono);font-size:12px;padding:4px 8px;" value="${escapeHtml(v.term_en)}" placeholder="英文">
+        <input id="vocab-edit-zh" class="input" style="width:90px;font-size:12px;padding:4px 8px;" value="${escapeHtml(v.term_zh || '')}" placeholder="中文">
+        <button class="btn-primary" style="font-size:10px;padding:3px 10px;border-radius:4px;" onclick="vocabSaveEditInline('${v.id}')">✓</button>
+        <button class="btn-secondary" style="font-size:10px;padding:3px 10px;border-radius:4px;" onclick="vocabCancelEdit()">✕</button>
+    </span>`;
+}
+
+function vocabSaveEditInline(id) {
+    const en = (document.getElementById('vocab-edit-en') || {}).value || '';
+    const zh = (document.getElementById('vocab-edit-zh') || {}).value || '';
+    if (!en.trim()) { showNotification('英文术语不能为空', 'warning'); return; }
+    apiFetch('/api/vocab/' + id, {
+        method: 'PUT',
+        body: JSON.stringify({ term_en: en.trim(), term_zh: zh.trim() })
+    }).then(res => {
+        if (!res.ok) throw new Error('HTTP ' + res.status);
+        showNotification('已更新', 'success');
+        vocabEditingId = null;
+        return vocabLoad();
+    }).then(() => vocabRender()).catch(e => showNotification('保存失败', 'error'));
+}
+
+function vocabAddToDoc(docId) {
+    // Add a new term inline in current doc view
+    const newId = '__new__';
+    const isManual = docId === '__manual__';
+    vocabData.unshift({
+        id: newId, term_en: '', term_zh: '', definition: '', tag: '',
+        source_doc_id: isManual ? null : docId, source_page: null
+    });
+    vocabEditingId = newId;
+    vocabRender();
+    // After render, hook up save to create via POST
+    const origSave = vocabSaveEditInline;
+    window.vocabSaveEditInline = function(id) {
+        if (id !== '__new__') { origSave(id); return; }
+        const en = (document.getElementById('vocab-edit-en') || {}).value || '';
+        const zh = (document.getElementById('vocab-edit-zh') || {}).value || '';
+        if (!en.trim()) { showNotification('英文术语不能为空', 'warning'); return; }
+        const body = { term_en: en.trim(), term_zh: zh.trim() };
+        if (!isManual) { body.source_doc_id = docId; }
+        apiFetch('/api/vocab', { method: 'POST', body: JSON.stringify(body) })
+            .then(res => {
+                if (!res.ok) throw new Error('HTTP ' + res.status);
+                showNotification('已添加', 'success');
+                vocabEditingId = null;
+                return vocabLoad();
+            }).then(() => vocabRender())
+            .catch(e => showNotification('添加失败', 'error'));
+    };
+    const inp = document.getElementById('vocab-edit-en');
+    if (inp) inp.focus();
 }
 
 function vocabEdit(id) {
     vocabEditingId = id;
     vocabRender();
     const inp = document.getElementById('vocab-edit-en');
-    if (inp) {
-        inp.focus();
-        inp.addEventListener('blur', () => {
-            const err = document.getElementById('vocab-edit-en-err');
-            if (err) err.textContent = inp.value.trim() ? '' : '英文术语不能为空';
-        });
-    }
+    if (inp) inp.focus();
 }
 
 function vocabCancelEdit() {
+    // Remove __new__ from data if present
+    if (vocabEditingId === '__new__') {
+        vocabData = vocabData.filter(v => v.id !== '__new__');
+    }
     vocabEditingId = null;
     vocabRender();
-}
-
-async function vocabSaveEdit(id) {
-    const en = (document.getElementById('vocab-edit-en') || {}).value || '';
-    const zh = (document.getElementById('vocab-edit-zh') || {}).value || '';
-    const def = (document.getElementById('vocab-edit-def') || {}).value || '';
-    const tag = (document.getElementById('vocab-edit-tag') || {}).value || '';
-    if (!en.trim()) {
-        const err = document.getElementById('vocab-edit-en-err');
-        if (err) err.textContent = '英文术语不能为空';
-        return;
-    }
-    try {
-        const res = await apiFetch('/api/vocab/' + id, {
-            method: 'PUT',
-            body: JSON.stringify({ term_en: en.trim(), term_zh: zh.trim(), definition: def.trim(), tag: tag.trim() })
-        });
-        if (!res.ok) throw new Error('HTTP ' + res.status);
-        showNotification('术语已更新', 'success');
-        if (typeof logActivity === 'function') logActivity('vocab', '编辑术语 · ' + en.trim());
-        vocabEditingId = null;
-        await vocabLoad();
-        vocabRender();
-    } catch (e) {
-        showNotification('保存失败：' + e.message, 'error');
-    }
 }
 
 async function vocabDelete(id, termEn) {
@@ -212,17 +292,14 @@ async function vocabDelete(id, termEn) {
         await vocabLoad();
         vocabRender();
     } catch (e) {
-        showNotification('删除失败：' + e.message, 'error');
+        showNotification('删除失败', 'error');
     }
 }
 
 function vocabAdd() {
-    // Show an add card at the top of the list
-    vocabEditingId = '__new__';
-    vocabData.unshift({ id: '__new__', term_en: '', term_zh: '', definition: '', source_doc_id: null });
-    vocabRender();
-    const inp = document.getElementById('vocab-edit-en');
-    if (inp) inp.focus();
+    // From empty state / toolbar: add to manual group
+    vocabCurrentDoc = { id: '__manual__', title: '手动添加' };
+    vocabAddToDoc('__manual__');
 }
 
 function vocabClearSearch() {
@@ -241,14 +318,11 @@ function vocabNewTag() {
     const name = prompt('新建词单名称（如：第一章极限、线代词汇、易忘词）');
     if (!name || !name.trim()) return;
     const tag = name.trim();
-    if (vocabAllTags.includes(tag)) {
-        showNotification('词单 "' + tag + '" 已存在', 'warning');
-        return;
-    }
+    if (vocabAllTags.includes(tag)) { showNotification('词单已存在', 'warning'); return; }
     vocabAllTags.push(tag);
     vocabFilterTag = tag;
     vocabRender();
-    showNotification('词单 "' + tag + '" 已创建，新收的术语可选择归入此词单', 'success');
+    showNotification('词单已创建', 'success');
 }
 
 let vocabSearchTimer = null;
@@ -262,14 +336,11 @@ function vocabSearchInput(v) {
 }
 
 function vocabJumpSource(docId, page) {
-    // Find doc in bsData and open in Reader at page
     for (const cat of Object.keys(bsData)) {
         const idx = bsData[cat].findIndex(d => d.id === docId);
         if (idx !== -1) {
             showPage('reader');
-            setTimeout(() => {
-                readerOpenDoc(cat, idx, page);
-            }, 100);
+            setTimeout(() => readerOpenDoc(cat, idx, page), 100);
             return;
         }
     }
@@ -291,8 +362,8 @@ async function vocabCaptureFromSelection(text, docId, page) {
         <div id="vocab-capture-status" style="font-size:12px;color:var(--text-muted);">${iconHtml('loader',12)} AI 正在查询翻译...</div>
         <div id="vocab-capture-form" style="display:none;">
             <input id="vocab-capture-zh" class="input" style="width:100%;font-size:13px;margin-bottom:6px;" placeholder="中文翻译">
-            <textarea id="vocab-capture-def" class="input" style="width:100%;font-size:12px;min-height:36px;resize:vertical;" placeholder="定义（可选）"></textarea>
-            <input id="vocab-capture-tag" class="input" style="width:100%;font-size:12px;margin-top:6px;" placeholder="词单（可选）" list="vocab-capture-tags" value="${escapeHtml(vocabFilterTag)}">
+            <input id="vocab-capture-def" class="input" style="width:100%;font-size:12px;margin-bottom:6px;" placeholder="定义（可选）">
+            <input id="vocab-capture-tag" class="input" style="width:100%;font-size:12px;" placeholder="词单（可选）" list="vocab-capture-tags" value="${escapeHtml(vocabFilterTag)}">
             <datalist id="vocab-capture-tags">
                 ${vocabAllTags.map(t => `<option value="${escapeHtml(t)}">`).join('')}
             </datalist>
@@ -304,7 +375,6 @@ async function vocabCaptureFromSelection(text, docId, page) {
     </div>`;
     refreshIcons();
 
-    // AI pre-fill via translate endpoint
     try {
         const res = await fetch(AI_BACKEND_URL + '/api/translate', {
             method: 'POST',
@@ -313,14 +383,13 @@ async function vocabCaptureFromSelection(text, docId, page) {
         });
         const d = await res.json();
         const translation = d.translation || '';
-        // Parse: **翻译**: xxx **释义**: yyy or **Translation**: xxx **Note**: yyy
         const zhMatch = translation.match(/\*\*翻译\*\*:?\s*(.+?)(?:\*\*|$)/s) || translation.match(/\*\*Translation\*\*:?\s*(.+?)(?:\*\*|$)/s);
         const defMatch = translation.match(/\*\*释义\*\*:?\s*(.+)$/s) || translation.match(/\*\*Note\*\*:?\s*(.+)$/s);
         const zhInput = document.getElementById('vocab-capture-zh');
         const defInput = document.getElementById('vocab-capture-def');
         if (zhInput && zhMatch) zhInput.value = zhMatch[1].trim().substring(0, 60);
         if (defInput && defMatch) defInput.value = defMatch[1].trim().substring(0, 200);
-    } catch (e) { /* AI prefill failed — user fills manually */ }
+    } catch (e) { /* AI prefill failed */ }
 
     const status = document.getElementById('vocab-capture-status');
     const form = document.getElementById('vocab-capture-form');
@@ -348,13 +417,12 @@ async function vocabSaveCapture(text, docId, page) {
         if (typeof logActivity === 'function') logActivity('vocab', '收入术语 · ' + text.substring(0, 30));
         const panel = document.getElementById('reader-action-panel');
         if (panel) panel.style.display = 'none';
-        vocabLoaded = false; // force reload next visit
+        vocabLoaded = false;
     } catch (e) {
-        showNotification('保存失败：' + e.message, 'error');
+        showNotification('保存失败', 'error');
     }
 }
 
-// ===== AI concept capture: from concept-tracing purple block =====
 async function vocabCaptureFromConcept(termEn, termZh, docId, page) {
     try {
         const body = { term_en: termEn, term_zh: termZh || '', definition: '' };
@@ -365,6 +433,6 @@ async function vocabCaptureFromConcept(termEn, termZh, docId, page) {
         if (typeof logActivity === 'function') logActivity('vocab', '收入术语 · ' + termEn);
         vocabLoaded = false;
     } catch (e) {
-        showNotification('保存失败：' + e.message, 'error');
+        showNotification('保存失败', 'error');
     }
 }
