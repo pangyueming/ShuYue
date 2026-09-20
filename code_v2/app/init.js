@@ -264,7 +264,16 @@ document.addEventListener('DOMContentLoaded',async()=>{
     // Check if logged in
     const token=localStorage.getItem('cb_cn_token');
     if(token){
-        // Pre-update dashboard welcome message before any async ops
+        // Refresh cached user data from server (DB may have changed since login)
+        try{
+            const meRes=await apiFetch('/api/auth/me');
+            if(meRes&&meRes.ok){
+                const fresh=await meRes.json();
+                if(fresh&&fresh.email){
+                    localStorage.setItem('cb_cn_user',JSON.stringify(fresh));
+                }
+            }
+        }catch(e){/* offline: keep cached user */}
         const user=JSON.parse(localStorage.getItem('cb_cn_user')||'{}');
         const welcomeEl=document.querySelector('#page-dashboard h1');
         if(welcomeEl)welcomeEl.textContent='Hello, '+(user.name||'User');
