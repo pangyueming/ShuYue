@@ -174,6 +174,7 @@ function bsPageRenderGrid(cat){
             <span onclick="bsOpenFromPage('${cat}',${origIdx})" style="font-size:11px;padding:2px 10px;border-radius:4px;background:var(--accent);color:#fff;cursor:pointer;">Read</span>
             ${showMineru?`<button onclick="event.stopPropagation();bsMineruById('${d.id}')" style="display:inline-flex;align-items:center;gap:4px;font-size:11px;padding:2px 10px;border-radius:4px;background:var(--accent);color:#fff;border:none;cursor:pointer;">${iconHtml('sparkles',11)}MinerU</button>`:''}
             ${showIndex?`<button onclick="event.stopPropagation();bsMineruById('${d.id}')" title="Build a searchable index so Chat AI can search the whole book" style="display:inline-flex;align-items:center;gap:4px;font-size:11px;padding:2px 10px;border-radius:4px;background:var(--accent);color:#fff;border:none;cursor:pointer;">${iconHtml('sparkles',11)}Index</button>`:''}
+            ${!d.isGuide&&!isParsing?`<button onclick="event.stopPropagation();bsGenVocab('${d.id}')" title="从此文档提取数学术语到单词本" aria-label="生成单词本" style="display:inline-flex;align-items:center;gap:3px;font-size:10px;padding:2px 8px;border-radius:4px;background:var(--green);color:#fff;border:none;cursor:pointer;">${iconHtml('book-marked',10)}单词本</button>`:''}
         </div>${statusLine}</div>`;}).join('');refreshIcons();}
 function bsOpenFromPage(cat,idx){showPage('reader');setTimeout(()=>readerOpenDoc(cat,idx),100);}
 function bsOpenFromDash(cat,idx){showPage('reader');setTimeout(()=>readerOpenDoc(cat,idx),100);}
@@ -233,3 +234,25 @@ async function bsConfirmUpload(){if(!bsPendingFile||!bsPendingCat)return;
     }finally{if(typeof formBusy==='function')formBusy('bs-upload',false);}
 }
 
+
+
+// ===== [单词本] Generate vocabulary from a document =====
+async function bsGenVocab(docId){
+    showNotification('\u6b63\u5728\u63d0\u53d6\u6570\u5b66\u672f\u8bed\u2026', 'info');
+    try{
+        const res = await apiFetch('/api/vocab/auto/' + docId, {method:'POST'});
+        if(!res.ok){
+            const e = await res.json().catch(()=>({}));
+            throw new Error(e.detail || ('HTTP ' + res.status));
+        }
+        const d = await res.json();
+        if(d.extracted > 0){
+            showNotification('\u5df2\u63d0\u53d6 ' + d.extracted + ' \u4e2a\u672f\u8bed\u5230\u5355\u8bcd\u672c', 'success');
+            if(typeof logActivity === 'function') logActivity('vocab', '\u63d0\u53d6\u672f\u8bed \u00b7 ' + d.extracted + ' \u8bcd');
+        }else{
+            showNotification('\u672a\u63d0\u53d6\u5230\u6570\u5b66\u672f\u8bed\uff08\u6587\u6863\u53ef\u80fd\u65e0\u53ef\u63d0\u53d6\u5185\u5bb9\uff09', 'warning');
+        }
+    }catch(e){
+        showNotification('\u63d0\u53d6\u5931\u8d25\uff1a' + e.message, 'error');
+    }
+}

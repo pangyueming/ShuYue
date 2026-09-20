@@ -1298,6 +1298,23 @@ async def upload_document(
             "sizeText": f"{file_size/1024/1024:.1f} MB", "source": "upload",
             "needsOcr": bool(needs_ocr), "parseStatus": "none", "aiDeclined": False}
 
+    # [单词本] Auto-extract vocabulary for slides/PPTs after upload (background)
+    # Skip scanned PDFs (they go through MinerU pipeline which has its own hook)
+    if category in ("slides", "research-papers") and not needs_ocr:
+        import threading
+        def _bg_vocab():
+            try:
+                if ensure_pages_json(doc_id):
+                    _conn = get_db()
+                    _u = _conn.execute("SELECT user_id FROM documents WHERE id=?", (doc_id,)).fetchone()
+                    if _u:
+                        extract_vocab_for_doc(_conn, _u["user_id"], doc_id, category)
+                    _conn.close()
+            except Exception as e:
+                print(f"[vocab] post-upload extraction failed for {doc_id}: {e}")
+        threading.Thread(target=_bg_vocab, daemon=True).start()
+
+
 @app.get("/api/documents")
 async def list_documents(
     category: Optional[str] = None,
@@ -2440,6 +2457,81 @@ async def put_plan(req: PlanUpdate, current_user: Optional[dict] = Depends(get_c
     return {"saved": True}
 
 # ============================================================================
+# LOCAL TEXT EXTRACTION (bypasses MinerU for docs that already have text)
+# ============================================================================
+
+def local_extract_pdf_pages(pdf_path):
+    """Extract text per page from a native PDF using pypdf (no MinerU, no quota)."""
+    from pypdf import PdfReader
+    reader = PdfReader(str(pdf_path))
+    pages = []
+    for i, page in enumerate(reader.pages):
+        text = (page.extract_text() or "").strip()
+        if text:
+            pages.append({"page": i + 1, "page_idx": i, "text": text})
+    return pages
+
+def local_extract_pptx_pages(pptx_path):
+    """Extract text per slide from a PPTX using python-pptx (no MinerU)."""
+    from pptx import Presentation
+    from pptx.enum.shapes import MSO_SHAPE_TYPE
+    prs = Presentation(str(pptx_path))
+    pages = []
+    for i, slide in enumerate(prs.slides):
+        texts = []
+        def _collect(shapes):
+            for shape in shapes:
+                if shape.has_text_frame:
+                    for para in shape.text_frame.paragraphs:
+                        t = para.text.strip()
+                        if t:
+                            texts.append(t)
+                if shape.shape_type == MSO_SHAPE_TYPE.GROUP:
+                    _collect(shape.shapes)
+        _collect(slide.shapes)
+        if texts:
+            pages.append({"page": i + 1, "page_idx": i, "text": "\n".join(texts)})
+    return pages
+
+def ensure_pages_json(doc_id):
+    """Ensure mineru_data/{doc_id}/pages.json exists; extract locally if not.
+    Returns True if pages were extracted (or already existed)."""
+    pages_path = os.path.join(MINERU_DATA_DIR, doc_id, "pages.json")
+    if os.path.exists(pages_path):
+        return True  # already parsed (MinerU or previous local extraction)
+    # Get file info
+    conn = get_db()
+    row = conn.execute(
+        "SELECT file_path, file_type FROM documents WHERE id=?", (doc_id,)
+    ).fetchone()
+    conn.close()
+    if not row:
+        return False
+    file_path = os.path.join(UPLOAD_DIR, row["file_path"])
+    if not os.path.exists(file_path):
+        return False
+    # Extract based on file type
+    try:
+        if row["file_type"] == "pdf":
+            pages = local_extract_pdf_pages(file_path)
+        elif row["file_type"] == "pptx":
+            pages = local_extract_pptx_pages(file_path)
+        else:
+            return False
+    except Exception as e:
+        print(f"[vocab] local extraction failed for {doc_id}: {e}")
+        return False
+    if not pages:
+        return False
+    # Write pages.json (same format as MinerU output)
+    os.makedirs(os.path.dirname(pages_path), exist_ok=True)
+    with open(pages_path, "w", encoding="utf-8") as f:
+        json.dump(pages, f, ensure_ascii=False, indent=2)
+    print(f"[vocab] locally extracted {len(pages)} pages for {doc_id}")
+    return True
+
+
+# ============================================================================
 # VOCAB API (单词本 — math terminology book)
 # ============================================================================
 
@@ -2663,10 +2755,16 @@ def auto_extract_vocab(doc_id: str, current_user: dict = Depends(get_current_use
     ).fetchone()
     if not row:
         conn.close(); raise HTTPException(404, "Document not found")
+    # Allow any document: if not MinerU-parsed, try local text extraction first
     if row["parse_status"] != "done":
-        conn.close(); raise HTTPException(400, "Document not yet parsed")
+        conn.close()
+        if not ensure_pages_json(doc_id):
+            raise HTTPException(400, "Document has no extractable text")
+        conn = get_db()
     n = extract_vocab_for_doc(conn, current_user["id"], doc_id, row["category"])
     conn.close()
+    if n and False:
+        pass  # frontend handles notification
     return {"extracted": n}
 
 
