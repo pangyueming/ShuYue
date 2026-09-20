@@ -244,6 +244,21 @@ def init_db():
         created_at TEXT DEFAULT (datetime('now'))
     );
 
+        -- 单词本: math terminology entries (auto-extracted + manually added)
+        CREATE TABLE IF NOT EXISTS vocab_entries(
+            id TEXT PRIMARY KEY,
+            user_id TEXT NOT NULL REFERENCES users(id),
+            term_en TEXT NOT NULL,
+            term_zh TEXT DEFAULT '',
+            definition TEXT DEFAULT '',
+            source_doc_id TEXT,
+            source_page INTEGER,
+            source_text TEXT DEFAULT '',
+            created_at TEXT DEFAULT (datetime('now')),
+            updated_at TEXT DEFAULT (datetime('now'))
+        );
+        CREATE INDEX IF NOT EXISTS idx_vocab_user ON vocab_entries(user_id);
+
     -- Quiz results (AI Quiz attempts)
     CREATE TABLE IF NOT EXISTS quiz_results (
         id TEXT PRIMARY KEY,
@@ -497,6 +512,15 @@ def run_parse(doc_id: str) -> None:
         set_parse_status(doc_id, "done", pages_done=total_pages, total_pages=total_pages, chunks=len(chunks))
     else:
         set_parse_status(doc_id, "done", pages_done=total_pages, total_pages=total_pages, chunks=0)
+    # [单词本] Auto-extract terminology after parse (textbooks+slides, best-effort)
+    try:
+        _vc = get_db()
+        if row["category"] in ("textbooks", "slides"):
+            extract_vocab_for_doc(_vc, row["user_id"], doc_id, row["category"])
+        _vc.close()
+    except Exception:
+        pass
+
 
 
 def parse_worker() -> None:
@@ -2408,6 +2432,232 @@ async def put_plan(req: PlanUpdate, current_user: Optional[dict] = Depends(get_c
         )
     conn.commit(); conn.close()
     return {"saved": True}
+
+# ============================================================================
+# VOCAB API (单词本 — math terminology book)
+# ============================================================================
+
+class VocabCreate(BaseModel):
+    term_en: str
+    term_zh: str = ""
+    definition: str = ""
+    source_doc_id: Optional[str] = None
+    source_page: Optional[int] = None
+    source_text: str = ""
+
+class VocabUpdate(BaseModel):
+    term_en: Optional[str] = None
+    term_zh: Optional[str] = None
+    definition: Optional[str] = None
+
+@app.get("/api/vocab")
+def list_vocab(q: Optional[str] = None, current_user: dict = Depends(get_current_user)):
+    """List user's vocabulary entries; optional ?q= search on term_en/term_zh/definition."""
+    if not current_user:
+        raise HTTPException(401, "Please log in")
+    conn = get_db()
+    if q:
+        like = f"%{q}%"
+        rows = conn.execute(
+            "SELECT * FROM vocab_entries WHERE user_id=? AND "
+            "(term_en LIKE ? OR term_zh LIKE ? OR definition LIKE ?) "
+            "ORDER BY updated_at DESC",
+            (current_user["id"], like, like, like)
+        ).fetchall()
+    else:
+        rows = conn.execute(
+            "SELECT * FROM vocab_entries WHERE user_id=? ORDER BY updated_at DESC",
+            (current_user["id"],)
+        ).fetchall()
+    conn.close()
+    out = []
+    doc_titles = {}
+    for r in rows:
+        d = dict(r)
+        did = d.get("source_doc_id")
+        if did and did not in doc_titles:
+            dc = get_db().execute("SELECT title FROM documents WHERE id=?", (did,)).fetchone()
+            doc_titles[did] = dc["title"] if dc else ""
+        d["source_title"] = doc_titles.get(did, "")
+        out.append(d)
+    return out
+
+@app.post("/api/vocab")
+def create_vocab(req: VocabCreate, current_user: dict = Depends(get_current_user)):
+    """Add a vocabulary entry (manual / reader capture / AI-concept capture). Dedup on term_en."""
+    if not current_user:
+        raise HTTPException(401, "Please log in")
+    term_en = (req.term_en or "").strip()
+    if not term_en:
+        raise HTTPException(400, "term_en is required")
+    conn = get_db()
+    existing = conn.execute(
+        "SELECT id FROM vocab_entries WHERE user_id=? AND LOWER(term_en)=LOWER(?)",
+        (current_user["id"], term_en)
+    ).fetchone()
+    if existing:
+        conn.execute(
+            "UPDATE vocab_entries SET term_zh=?, definition=?, source_doc_id=?, "
+            "source_page=?, source_text=?, updated_at=datetime('now') WHERE id=?",
+            (req.term_zh or "", req.definition or "", req.source_doc_id,
+             req.source_page, (req.source_text or "")[:200], existing["id"])
+        )
+        conn.commit(); conn.close()
+        return {"id": existing["id"], "deduped": True}
+    vid = f"vocab_{int(time.time()*1000)}"
+    conn.execute(
+        "INSERT INTO vocab_entries (id,user_id,term_en,term_zh,definition,"
+        "source_doc_id,source_page,source_text) VALUES (?,?,?,?,?,?,?,?)",
+        (vid, current_user["id"], term_en, req.term_zh or "", req.definition or "",
+         req.source_doc_id, req.source_page, (req.source_text or "")[:200])
+    )
+    conn.commit(); conn.close()
+    return {"id": vid, "deduped": False}
+
+@app.put("/api/vocab/{vocab_id}")
+def update_vocab(vocab_id: str, req: VocabUpdate, current_user: dict = Depends(get_current_user)):
+    """Edit a vocabulary entry."""
+    if not current_user:
+        raise HTTPException(401, "Please log in")
+    conn = get_db()
+    row = conn.execute("SELECT user_id FROM vocab_entries WHERE id=?", (vocab_id,)).fetchone()
+    if not row:
+        conn.close(); raise HTTPException(404, "Not found")
+    if row["user_id"] != current_user["id"]:
+        conn.close(); raise HTTPException(403, "Access denied")
+    sets, vals = [], []
+    if req.term_en is not None:
+        te = req.term_en.strip()
+        if not te: raise HTTPException(400, "term_en cannot be empty")
+        sets.append("term_en=?"); vals.append(te)
+    if req.term_zh is not None:
+        sets.append("term_zh=?"); vals.append(req.term_zh)
+    if req.definition is not None:
+        sets.append("definition=?"); vals.append(req.definition)
+    if not sets:
+        conn.close(); return {"updated": False}
+    sets.append("updated_at=datetime('now')")
+    vals.append(vocab_id)
+    conn.execute(f"UPDATE vocab_entries SET {', '.join(sets)} WHERE id=?", vals)
+    conn.commit(); conn.close()
+    return {"updated": True}
+
+@app.delete("/api/vocab/{vocab_id}")
+def delete_vocab(vocab_id: str, current_user: dict = Depends(get_current_user)):
+    """Delete a vocabulary entry."""
+    if not current_user:
+        raise HTTPException(401, "Please log in")
+    conn = get_db()
+    row = conn.execute("SELECT user_id FROM vocab_entries WHERE id=?", (vocab_id,)).fetchone()
+    if not row:
+        conn.close(); raise HTTPException(404, "Not found")
+    if row["user_id"] != current_user["id"]:
+        conn.close(); raise HTTPException(403, "Access denied")
+    conn.execute("DELETE FROM vocab_entries WHERE id=?", (vocab_id,))
+    conn.commit(); conn.close()
+    return {"deleted": True}
+
+# --- Auto-extraction pipeline ---
+
+VOCAB_EXTRACT_SYSTEM = "Output only a JSON array of objects. No markdown fences."
+VOCAB_EXTRACT_PROMPT = (
+    "Extract mathematical terminology from this textbook/PPT excerpt. "
+    "For each term return an object: "
+    '\"term_en\" (English), \"term_zh\" (Chinese), '
+    '\"definition\" (one bilingual sentence, max 80 chars), '
+    '\"context\" (surrounding phrase, max 60 chars). '
+    "Only terms a first-year student might not know in English. Max 6 per excerpt. "
+    "Return ONLY a JSON array.\n\nExcerpt:\n{text}"
+)
+MAX_VOCAB_PER_DOC = 200
+
+def _extract_vocab_batch(text_chunk: str) -> list:
+    prompt = VOCAB_EXTRACT_PROMPT.replace("{text}", text_chunk[:1200])
+    try:
+        resp = requests.post(BASE_URL, headers={
+            "Authorization": f"Bearer {DASHSCOPE_API_KEY}",
+            "Content-Type": "application/json",
+        }, json={
+            "model": TRANSLATE_MODEL,
+            "messages": [
+                {"role": "system", "content": VOCAB_EXTRACT_SYSTEM},
+                {"role": "user", "content": prompt},
+            ],
+            "temperature": 0.0,
+            "max_tokens": 800,
+        }, timeout=30)
+        body = resp.json()
+        raw = body.get("choices", [{}])[0].get("message", {}).get("content", "[]")
+        import re as _re
+        m = _re.search(r"\[.*\]", raw, _re.DOTALL)
+        items = json.loads(m.group()) if m else []
+        return [it for it in items if isinstance(it, dict) and it.get("term_en")]
+    except Exception:
+        return []
+
+def extract_vocab_for_doc(conn, user_id: str, doc_id: str, category: str):
+    """Batch-extract terminology from a parsed document into vocab_entries."""
+    pages_path = os.path.join(MINERU_DATA_DIR, doc_id, "pages.json")
+    if not os.path.exists(pages_path):
+        return 0
+    try:
+        pages = json.loads(open(pages_path, encoding="utf-8").read())
+    except Exception:
+        return 0
+    chunks, buf = [], ""
+    for p in pages:
+        t = (p.get("text") or "").strip()
+        if not t: continue
+        if len(buf) + len(t) + 2 > 800:
+            if buf: chunks.append(buf)
+            buf = t
+        else:
+            buf = (buf + "\n" + t) if buf else t
+    if buf: chunks.append(buf)
+    chunks = chunks[:30]
+    seen, inserted = set(), 0
+    for chunk in chunks:
+        if inserted >= MAX_VOCAB_PER_DOC: break
+        items = _extract_vocab_batch(chunk)
+        for it in items:
+            te = str(it.get("term_en", "")).strip()[:80]
+            if not te or te.lower() in seen: continue
+            seen.add(te.lower())
+            tz = str(it.get("term_zh", "")).strip()[:60]
+            df = str(it.get("definition", "")).strip()[:200]
+            ctx = str(it.get("context", "")).strip()[:200]
+            vid = f"vocab_{int(time.time()*1000)}_{inserted}"
+            try:
+                conn.execute(
+                    "INSERT OR IGNORE INTO vocab_entries "
+                    "(id,user_id,term_en,term_zh,definition,source_doc_id,source_text) "
+                    "VALUES (?,?,?,?,?,?,?)",
+                    (vid, user_id, te, tz, df, doc_id, ctx)
+                )
+                inserted += 1
+            except Exception:
+                pass
+    if inserted: conn.commit()
+    return inserted
+
+@app.post("/api/vocab/auto/{doc_id}")
+def auto_extract_vocab(doc_id: str, current_user: dict = Depends(get_current_user)):
+    """Manually trigger vocabulary extraction for a parsed document."""
+    if not current_user:
+        raise HTTPException(401, "Please log in")
+    conn = get_db()
+    row = conn.execute(
+        "SELECT category, parse_status FROM documents WHERE id=? AND user_id=?",
+        (doc_id, current_user["id"])
+    ).fetchone()
+    if not row:
+        conn.close(); raise HTTPException(404, "Document not found")
+    if row["parse_status"] != "done":
+        conn.close(); raise HTTPException(400, "Document not yet parsed")
+    n = extract_vocab_for_doc(conn, current_user["id"], doc_id, row["category"])
+    conn.close()
+    return {"extracted": n}
+
 
 # ============================================================================
 # STATS API (Dashboard statistics)

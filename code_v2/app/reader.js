@@ -420,7 +420,12 @@ function readerAction(action){const menu=document.getElementById('reader-float-m
         <textarea id="reader-note-input" placeholder="Write your note..." style="width:100%;padding:8px;border-radius:6px;font-size:14px;resize:none;border:1px solid var(--border);background:var(--bg-input);color:var(--text-primary);outline:none;" rows="3"></textarea>
         <div style="display:flex;gap:8px;margin-top:8px;"><button class="btn-primary" style="font-size:13px;padding:6px 16px;" onclick="readerSaveNoteFromSel()">Save</button><button onclick="document.getElementById('reader-action-panel').style.display='none'" style="font-size:13px;padding:6px 12px;color:var(--text-muted);background:none;border:none;cursor:pointer;">Cancel</button></div></div>`;
         panel.style.display='block';document.getElementById('reader-note-input').focus();
-    }else if(action==='ai'){
+    }else if(action==='vocab'){
+        const curPage=(function(){const ps=document.querySelectorAll('#pdf-pages-container [data-page-num]');for(const p of ps){const rect=p.getBoundingClientRect();if(rect.top>=0&&rect.top<200)return parseInt(p.dataset.pageNum)||1;}return 1;})();
+        vocabCaptureFromSelection(readerSelText,readerCurrentDocId,curPage);
+    }else if(action==='vocab'){
+        vocabCaptureFromSelection(tbPeekSelText,tbPeekDocId,tbPeekSelPage||tbPeekCurrentPage);
+}else if(action==='ai'){
         openAIChat(readerSelText);
     }
 }
@@ -587,6 +592,7 @@ function renderConceptCitations(concepts,aiDiv,statusEl){
             html+=' <span onclick="conceptPeek('+ci+','+hi+')" title="查看教材原文" '
                 +'style="font-size:11px;padding:1px 8px;border-radius:999px;background:rgba(82,196,26,.08);border:1px solid rgba(82,196,26,.25);color:#52c41a;cursor:pointer;margin-left:4px;">'
                 +escapeHtml(h.book)+' · p.'+h.page+'</span>';
+        html+=' <button onclick="vocabCaptureFromConcept(\''+escapeHtml(c.name.replace(/\s*\([^)]+\)\s*/g,'').trim())+'\',\''+escapeHtml((c.name.match(/\(([^)]+)\)/)||[])[1]||'')+'\',\''+h.doc_id+'\','+h.page+')" title="收入单词本" style="font-size:10px;padding:1px 6px;border-radius:4px;background:rgba(124,92,224,.08);border:1px solid rgba(124,92,224,.2);color:var(--purple);cursor:pointer;margin-left:2px;"><i data-lucide="book-plus" style="width:9px;height:9px;display:inline;vertical-align:-1px;"></i>收词</button>';
         });
         html+='</div>';
     });
