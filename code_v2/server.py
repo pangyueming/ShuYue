@@ -2577,7 +2577,7 @@ VOCAB_EXTRACT_PROMPT = (
     '\"term_en\" (English), \"term_zh\" (Chinese), '
     '\"definition\" (one bilingual sentence, max 80 chars), '
     '\"context\" (surrounding phrase, max 60 chars). '
-    "Only terms a first-year student might not know in English. Max 6 per excerpt. "
+    "ONLY extract university-level MATHEMATICAL terms (theorems, methods, operators, structures like supremum, eigenvalue, uniform convergence). DO NOT extract common English words (textbook, university, chapter, department, example, solution, figure, table, exercise). Max 6 per excerpt. "
     "Return ONLY a JSON array.\n\nExcerpt:\n{text}"
 )
 MAX_VOCAB_PER_DOC = 200
