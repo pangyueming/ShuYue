@@ -675,8 +675,8 @@ async function readerRenderDocViewPage(pageNum){
 // Block types: h (lvl), p (EN main + CN muted sub-line), table, ui (CSS mock), img (future screenshots)
 const GUIDE_PAGES=[
 {blocks:[
-  {t:'h',lvl:1,en:'Welcome to CogniBridge',cn:'欢迎使用智学桥'},
-  {t:'p',en:'CogniBridge is your bridge between school maths and university maths. It finds your knowledge gaps, builds a personal study plan that follows your real lectures, and lets you practise with AI that is checked for correctness.',cn:'智学桥连接中学数学与大学数学：定位知识断层、生成跟随真实课表的个人计划、提供经过校验的 AI 练习。'},
+  {t:'h',lvl:1,en:'Welcome to 数跃',cn:'欢迎使用数跃'},
+  {t:'p',en:'数跃 is your bridge between school maths and university maths. It finds your knowledge gaps, builds a personal study plan that follows your real lectures, and lets you practise with AI that is checked for correctness.',cn:'数跃连接中学数学与大学数学：定位知识断层、生成跟随真实课表的个人计划、提供经过校验的 AI 练习。'},
   {t:'ui',kind:'sidebar'},
   {t:'p',en:'This guide lives permanently in your bookshelf (Textbooks). Open it any time you need a reminder — the next pages walk through every feature, one by one.',cn:'本指南永久保存在书架（Textbooks 分类）中。接下来几页将逐一介绍全部功能。'}
 ]},
@@ -743,7 +743,7 @@ const GUIDE_PAGES=[
   {t:'p',en:'University maths is a bridge, not a wall — and you just crossed the first step by reading this. Good luck!',cn:'大学数学是一座桥，而不是一堵墙——读完本页，你已迈出第一步。祝学习顺利！'},
   {t:'eq',en:'e^{i\\pi}+1=0',cn:''}
 ]}];
-const GUIDE_DOC={id:'__guide__',icon:'book-open',title:'How to Use CogniBridge · 使用指南',
+const GUIDE_DOC={id:'__guide__',icon:'book-open',title:'How to Use 数跃 · 使用指南',
   desc:'Built-in bilingual guide',category:'textbooks',source:'builtin',fileType:'guide',
   parseStatus:'',needsOcr:false,aiDeclined:false,isGuide:true,isDeleted:false,deletedAt:null};
 
@@ -757,7 +757,7 @@ const GUIDE_MINERU_PAGES=[
   {t:'link',url:'https://github.com/opendatalab/MinerU',en:'Open-source repository — GitHub',cn:'开源仓库'}
 ]},
 {blocks:[
-  {t:'h',lvl:1,en:'Why does CogniBridge need it?',cn:'智学桥为什么需要它？'},
+  {t:'h',lvl:1,en:'Why does 数跃 need it?',cn:'数跃为什么需要它？'},
   {t:'p',en:'Many university textbooks are scanned PDFs — every page is an image with no text layer. That breaks selecting, translating, highlighting, note-taking and AI chat.',cn:'很多大学教材是扫描版 PDF——每页都是图片、没有文字层，导致划词、翻译、高亮、笔记、AI 问答全部失效。'},
   {t:'ui',kind:'flow',items:['Scanned PDF 扫描书','MinerU parse 解析','Reformatted view 重排版','All features alive 功能复活']},
   {t:'p',en:'After parsing, the book opens in a clean reformatted view (proper headings, typeset formulas, real tables) — and whole-book AI chat becomes available, with answers that cite page numbers.',cn:'解析后书籍以整洁的重排版视图打开（规范标题、排版公式、成型表格），并解锁整本书 AI 问答——回答会标注页码。'},
@@ -765,17 +765,17 @@ const GUIDE_MINERU_PAGES=[
 ]},
 {blocks:[
   {t:'h',lvl:1,en:'Get your API key (free)',cn:'获取 API Key（免费）'},
-  {t:'p',en:'Parsing runs on your own free MinerU quota, so CogniBridge asks for your personal key once. Four steps:',cn:'解析消耗的是你自己的 MinerU 免费额度，因此智学桥需要你一次性提供个人 Key。共四步：'},
+  {t:'p',en:'Parsing runs on your own free MinerU quota, so 数跃 asks for your personal key once. Four steps:',cn:'解析消耗的是你自己的 MinerU 免费额度，因此数跃需要你一次性提供个人 Key。共四步：'},
   {t:'table',head:['Step 步骤','Action 操作'],rows:[
     ['1','Visit mineru.net and sign up 访问官网并注册（免费）'],
     ['2','Open the console → API Keys 打开控制台的 API Keys 页'],
     ['3','Create and copy your key 创建并复制你的 Key'],
-    ['4','Paste it into CogniBridge 粘贴到智学桥即可']]},
+    ['4','Paste it into 数跃 粘贴到数跃即可']]},
   {t:'link',url:'https://mineru.net',en:'Go to mineru.net',cn:'点击访问官网（浏览器新窗口打开无效时请手动复制网址）'},
   {t:'p',en:'The free tier gives 2,000 pages per day — a 465-page textbook costs less than a quarter of one day\'s quota.',cn:'免费额度为每天 2000 页——一本 465 页的教材只消耗一天额度的不到四分之一。'}
 ]},
 {blocks:[
-  {t:'h',lvl:1,en:'Using it in CogniBridge',cn:'在智学桥中使用'},
+  {t:'h',lvl:1,en:'Using it in 数跃',cn:'在数跃中使用'},
   {t:'p',en:'Upload a scanned PDF → the app detects it and asks "Enable AI?" → the first time, paste your key → watch the live progress bar → done: the reformatted book opens automatically.',cn:'上传扫描 PDF → 应用自动识别并询问 Enable AI → 首次粘贴 Key → 观看实时进度条 → 完成后自动打开重排版书籍。'},
   {t:'p',en:'If a key stops working, the progress dialog offers "Update MinerU Key" — fix it and hit "Retry Parse". Parts that already finished are kept and never re-charged.',cn:'Key 失效时，进度弹窗提供 Update MinerU Key——换好后点 Retry Parse 续解析；已完成的分卷会保留，绝不重复扣额度。'}
 ]},

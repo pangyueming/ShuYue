@@ -121,7 +121,7 @@ function authLogout(){
     const sph=document.getElementById('study-plan-placeholder');const sphc=document.getElementById('study-plan-content');
     if(sph)sph.style.display='';if(sphc)sphc.style.display='none';
     const chat=document.getElementById('tutor-chat');
-    if(chat)chat.innerHTML='<div style="text-align:center;padding:40px 20px;color:var(--text-muted);font-size:13px;">Ask a question or upload materials to get started<br><span style="font-size:11px;">Powered by CogniBridge AI</span></div>';
+    if(chat)chat.innerHTML='<div style="text-align:center;padding:40px 20px;color:var(--text-muted);font-size:13px;">Ask a question or upload materials to get started<br><span style="font-size:11px;">Powered by 数跃 AI</span></div>';
     if(window.lucide)lucide.createIcons();
     renderSidebarUser();
     showNotification('Logged out','info');
@@ -232,7 +232,7 @@ function renderSidebarUser(){
         container.innerHTML=`<div class="side-user-guest"><button class="btn-primary" style="width:100%;font-size:13px;" onclick="showPage('login')">登 录</button><p class="side-user-hint">游客模式 · 数据存本地</p></div>`;refreshIcons();
     }else{
         const initial=(user.name||'U')[0].toUpperCase();
-        container.innerHTML=`<div class="side-user"><div class="side-user-row" onclick="document.getElementById('user-dropdown').style.display=document.getElementById('user-dropdown').style.display==='none'?'block':'none';"><div class="side-user-avatar">${initial}</div><div class="side-user-meta"><div class="side-user-name">${escapeHtml(user.name||'User')}</div><div class="side-user-sub">${escapeHtml(user.university||'Student')}</div></div><i data-lucide="chevron-down" class="side-user-caret"></i></div><div id="user-dropdown" class="side-user-dropdown"><div class="nav-item" onclick="showPage('profile')"><i data-lucide="user"></i>个人资料</div><div class="nav-item" onclick="authLogout()"><i data-lucide="log-out"></i>退出登录</div></div></div>`;refreshIcons();
+        container.innerHTML=`<div class="side-user"><div class="side-user-row" onclick="document.getElementById('user-dropdown').style.display=document.getElementById('user-dropdown').style.display==='none'?'block':'none';"><div class="side-user-avatar">${initial}</div><div class="side-user-meta"><div class="side-user-name">${escapeHtml(user.name||'User')}</div><div class="side-user-sub">${escapeHtml(user.university||'北京邮电大学')}</div></div><i data-lucide="chevron-down" class="side-user-caret"></i></div><div id="user-dropdown" class="side-user-dropdown"><div class="nav-item" onclick="showPage('profile')"><i data-lucide="user"></i>个人资料</div><div class="nav-item" onclick="authLogout()"><i data-lucide="log-out"></i>退出登录</div></div></div>`;refreshIcons();
     }
 }
 

@@ -20,7 +20,7 @@
                     '<kbd class="kbd">ESC</kbd></div>'+
                 '<div id="cmdk-list" class="cmdk-list"></div>'+
                 '<div class="cmdk-foot"><span><kbd class="kbd">↑</kbd><kbd class="kbd">↓</kbd> navigate</span>'+
-                    '<span><kbd class="kbd">↵</kbd> open</span><span class="cmdk-hint">CogniBridge · Aurora Glass</span></div>'+
+                    '<span><kbd class="kbd">↵</kbd> open</span><span class="cmdk-hint">数跃 · Aurora Glass</span></div>'+
             '</div>';
         document.body.appendChild(wrap);
         wrap.querySelector('.cmdk-backdrop').addEventListener('click',closeCmdK);

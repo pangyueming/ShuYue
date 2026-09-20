@@ -1,5 +1,5 @@
 ﻿"""
-CogniBridge Backend Server — FastAPI + Harness V3 Engine
+数跃 Backend Server — FastAPI + Harness V3 Engine
 Runs the UK Math Harness V3 (with V2 fallback capability) for AI-powered math tutoring.
 
 Usage:
@@ -682,7 +682,7 @@ def should_use_verifier(topic: str) -> bool:
 # ============================================================================
 
 SYSTEM_PROMPT_SOLVE = (
-    "You are CogniBridge (智学桥), an expert tutor for first-year students at a "
+    "You are 数跃 (数跃), an expert tutor for first-year students at a "
     "Chinese Sino-foreign joint university (BUPT-QMUL style) bridging from the "
     "Gaokao to English-medium university mathematics: calculus / mathematical "
     "analysis, linear algebra / advanced algebra, discrete mathematics, "
@@ -695,7 +695,7 @@ SYSTEM_PROMPT_SOLVE = (
 )
 
 SYSTEM_PROMPT_GUIDE = (
-    "You are CogniBridge (智学桥), an expert Socratic tutor for first-year students "
+    "You are 数跃 (数跃), an expert Socratic tutor for first-year students "
     "at a Chinese Sino-foreign joint university bridging from the Gaokao (高考) to "
     "English-medium university mathematics. "
     "Your goal is NOT to give answers directly, but to help students discover them through guided questioning.\n\n"
@@ -739,7 +739,7 @@ SYSTEM_PROMPT_TRANSLATE = (
 )
 
 SYSTEM_PROMPT_GENERAL = (
-    "You are CogniBridge (智学桥), a helpful AI tutor for students at a Chinese "
+    "You are 数跃 (数跃), a helpful AI tutor for students at a Chinese "
     "Sino-foreign joint university studying English-medium mathematics. "
     "Be clear, concise, and use markdown formatting. "
     "Respond in the same language as the question; gloss key terms bilingually "
@@ -850,7 +850,7 @@ def _verify_proof_v3(question: str, solution: str):
 # FASTAPI APP
 # ============================================================================
 
-app = FastAPI(title="CogniBridge AI Backend", version="1.0")
+app = FastAPI(title="数跃 AI Backend", version="1.0")
 
 app.add_middleware(
     CORSMiddleware,
@@ -2762,7 +2762,7 @@ if __name__ == "__main__":
     import os
     harness_version = os.getenv("HARNESS_VERSION", "v2")
     print("=" * 50)
-    print("CogniBridge Backend Server")
+    print("数跃 Backend Server")
     print(f"Model: {MODEL}")
     print(f"Translate Model: {TRANSLATE_MODEL}")
     print(f"Harness: V3 (ToRA + Proof Verifier + Smart Routing)")
