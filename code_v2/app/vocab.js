@@ -15,18 +15,39 @@ function vocabTabSwitch(tab) {
     const btnV = document.getElementById('vocab-tab-btn');
     const paneN = document.getElementById('notes-pane');
     const paneV = document.getElementById('vocab-pane');
+    const actionBtn = document.getElementById('notes-page-action-btn');
     if (tab === 'vocab') {
         btnV.style.borderColor = 'var(--accent)'; btnV.style.color = 'var(--accent)';
         btnN.style.borderColor = 'var(--border)'; btnN.style.color = 'var(--text-muted)';
         paneN.style.display = 'none';
         paneV.style.display = '';
+        if (actionBtn) {
+            actionBtn.innerHTML = iconHtml('book-marked', 13) + ' 新建单词本';
+            actionBtn.onclick = vocabCreateBook;
+        }
         if (!vocabLoaded) vocabInit();
     } else {
         btnN.style.borderColor = 'var(--accent)'; btnN.style.color = 'var(--accent)';
         btnV.style.borderColor = 'var(--border)'; btnV.style.color = 'var(--text-muted)';
         paneV.style.display = 'none';
         paneN.style.display = '';
+        if (actionBtn) {
+            actionBtn.innerHTML = iconHtml('notebook-pen', 13) + ' 新建笔记';
+            actionBtn.onclick = notesNewNote;
+        }
     }
+}
+
+// ===== Create custom vocab book (named by user) =====
+function vocabCreateBook() {
+    const name = prompt('输入单词本名称（如：第一章极限术语、易忘词、线代词汇）');
+    if (!name || !name.trim()) return;
+    const tag = name.trim();
+    // Open as custom book detail view (tag-based, green icon)
+    vocabCurrentDoc = { id: 'tag:' + tag, title: tag, isCustom: true, tag: tag };
+    vocabEditingId = null;
+    vocabRender();
+    showNotification('单词本「' + tag + '」已创建，开始添加术语吧', 'success');
 }
 
 async function vocabInit() {
@@ -100,38 +121,52 @@ function vocabRenderDocList() {
         return;
     }
 
-    // Group by source_doc_id
+    // Group: source_doc_id (auto-extracted) | tag-only (custom books) | neither (manual)
     const groups = new Map();
     vocabData.forEach(v => {
-        const key = v.source_doc_id || '__manual__';
+        let key, title, icon, color, type;
+        if (v.source_doc_id) {
+            key = v.source_doc_id;
+            title = v.source_title || '未知文档';
+            icon = 'book-open';
+            color = 'var(--accent)';
+            type = 'auto';
+        } else if (v.tag) {
+            key = 'tag:' + v.tag;
+            title = v.tag;
+            icon = 'notebook-pen';
+            color = 'var(--green)';
+            type = 'custom';
+        } else {
+            key = '__manual__';
+            title = '手动添加';
+            icon = 'pencil';
+            color = 'var(--text-muted)';
+            type = 'manual';
+        }
         if (!groups.has(key)) {
-            groups.set(key, {
-                title: key === '__manual__' ? '手动添加' : (v.source_title || '未知文档'),
-                icon: key === '__manual__' ? 'pencil' : 'book-open',
-                isManual: key === '__manual__',
-                docId: key,
-                entries: []
-            });
+            groups.set(key, { title, icon, color, type, docId: key, entries: [] });
         }
         groups.get(key).entries.push(v);
     });
 
-    // Sort: manual last, others alphabetical
+    // Sort: auto books first (alpha), then custom (alpha), then manual
+    const typeOrder = { auto: 0, custom: 1, manual: 2 };
     const sorted = Array.from(groups.values()).sort((a, b) => {
-        if (a.isManual) return 1;
-        if (b.isManual) return -1;
+        if (typeOrder[a.type] !== typeOrder[b.type]) return typeOrder[a.type] - typeOrder[b.type];
         return a.title.localeCompare(b.title);
     });
 
+    const typeLabel = { auto: '自动提取', custom: '自定义', manual: '手动收录' };
     container.innerHTML = sorted.map(g => `
         <div class="card" style="padding:14px 16px;margin-bottom:10px;display:flex;align-items:center;gap:12px;cursor:pointer;transition:transform .15s;" onclick="vocabOpenDoc('${g.docId}','${escapeHtml(g.title)}')" onmouseover="this.style.transform='translateY(-2px)'" onmouseout="this.style.transform=''">
-            <div style="width:42px;height:42px;border-radius:10px;background:var(--bg-tag);display:flex;align-items:center;justify-content:center;color:var(--accent);flex-shrink:0;">
+            <div style="width:42px;height:42px;border-radius:10px;background:var(--bg-tag);display:flex;align-items:center;justify-content:center;color:${g.color};flex-shrink:0;">
                 <i data-lucide="${g.icon}" style="width:20px;height:20px;"></i>
             </div>
             <div style="flex:1;min-width:0;">
                 <div style="font-size:14px;font-weight:600;color:var(--text-primary);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${escapeHtml(g.title)}</div>
                 <div style="font-size:11px;color:var(--text-muted);margin-top:2px;">
-                    ${g.isManual ? '手动收录' : '自动提取'} · ${g.entries.length} 词
+                    ${typeLabel[g.type]} · ${g.entries.length} 词
                 </div>
             </div>
             <span style="font-family:var(--font-mono);font-size:18px;font-weight:600;color:var(--text-secondary);">${g.entries.length}</span>
@@ -142,7 +177,10 @@ function vocabRenderDocList() {
 }
 
 function vocabOpenDoc(docId, title) {
-    vocabCurrentDoc = { id: docId, title: title };
+    // Determine book type from docId prefix
+    const isCustom = docId.startsWith('tag:');
+    const tag = isCustom ? docId.replace('tag:', '') : null;
+    vocabCurrentDoc = { id: docId, title: title, isCustom: isCustom, tag: tag };
     vocabEditingId = null;
     vocabRender();
 }
@@ -164,40 +202,57 @@ function vocabRenderDocDetail() {
     const listEl = document.getElementById('vocab-term-list');
     if (!headerEl || !listEl) return;
 
-    // Filter terms for current doc
-    const terms = vocabData.filter(v => (v.source_doc_id || '__manual__') === vocabCurrentDoc.id);
-    const isManual = vocabCurrentDoc.id === '__manual__';
+    // Filter terms: custom books filter by tag, doc books by source_doc_id
+    const cd = vocabCurrentDoc;
+    let terms;
+    if (cd.isCustom) {
+        terms = vocabData.filter(v => !v.source_doc_id && v.tag === cd.tag);
+    } else if (cd.id === '__manual__') {
+        terms = vocabData.filter(v => !v.source_doc_id && !v.tag);
+    } else {
+        terms = vocabData.filter(v => v.source_doc_id === cd.id);
+    }
+    const isManual = cd.id === '__manual__';
+    const icon = cd.isCustom ? 'notebook-pen' : (isManual ? 'pencil' : 'book-open');
+    const iconColor = cd.isCustom ? 'var(--green)' : 'var(--accent)';
 
     headerEl.innerHTML = `
         <div style="display:flex;align-items:center;gap:10px;margin-bottom:4px;">
-            <span style="color:var(--accent);display:flex;">${iconHtml(isManual ? 'pencil' : 'book-open', 20)}</span>
-            <span style="font-size:18px;font-weight:650;color:var(--text-primary);">${escapeHtml(vocabCurrentDoc.title)}</span>
+            <span style="color:${iconColor};display:flex;">${iconHtml(icon, 20)}</span>
+            <span style="font-size:18px;font-weight:650;color:var(--text-primary);">${escapeHtml(cd.title)}</span>
+            <span style="font-size:11px;color:var(--text-muted);padding:2px 8px;border-radius:999px;background:var(--bg-tag);">${cd.isCustom ? '自定义' : '自动提取'}</span>
             <span style="font-family:var(--font-mono);font-size:12px;color:var(--text-muted);margin-left:auto;">${terms.length} 词</span>
         </div>
         <div style="display:flex;gap:6px;align-items:center;">
-            <button class="btn-secondary" style="font-size:11px;padding:4px 12px;" onclick="vocabAddToDoc('${vocabCurrentDoc.id}')">+ 添加术语</button>
+            <button class="btn-secondary" style="font-size:11px;padding:4px 12px;display:inline-flex;align-items:center;gap:4px;" onclick="vocabAddToDoc('${cd.id}')">${iconHtml('plus', 11)}添加术语</button>
         </div>
     `;
 
     if (!terms.length) {
-        listEl.innerHTML = `<div style="text-align:center;padding:40px;color:var(--text-muted);font-size:13px;">此文档暂无术语</div>`;
+        listEl.innerHTML = `<div style="text-align:center;padding:40px 20px;">
+            <div style="margin-bottom:8px;color:var(--text-muted);"><i data-lucide="book-marked" style="width:28px;height:28px;"></i></div>
+            <div style="font-size:13px;color:var(--text-secondary);margin-bottom:4px;">此单词本暂无术语</div>
+            <div style="font-size:11px;color:var(--text-muted);">点击上方"+ 添加术语"开始收录</div>
+        </div>`;
+        refreshIcons();
         return;
     }
 
     // Horizontal flow layout: each term = "english 中文" separated by spacing
-    // Click to edit inline
+    // Click to edit inline. In custom books, hide tag chips (redundant).
     let html = '<div style="display:flex;flex-wrap:wrap;gap:10px 18px;padding:4px 0;">';
     terms.forEach(v => {
         if (vocabEditingId === v.id) {
             html += vocabRenderEditInline(v);
         } else {
-            const pageChip = v.source_page && !isManual
+            const showPage = v.source_page && v.source_doc_id && !cd.isCustom && cd.id !== '__manual__';
+            const pageChip = showPage
                 ? `<span onclick="event.stopPropagation();vocabJumpSource('${v.source_doc_id}',${v.source_page})" style="font-family:var(--font-mono);font-size:9px;color:var(--accent);cursor:pointer;margin-left:2px;">p.${v.source_page}</span>`
                 : '';
-            const tagChip = v.tag
+            const tagChip = v.tag && !cd.isCustom
                 ? `<span style="font-size:9px;padding:1px 6px;border-radius:999px;background:var(--bg-tag);color:var(--text-muted);margin-left:4px;">${escapeHtml(v.tag)}</span>`
                 : '';
-            html += `<span onclick="vocabEdit('${v.id}')" title="点击编辑" style="display:inline-flex;align-items:baseline;gap:4px;padding:6px 12px;border-radius:8px;background:var(--bg-card);border:1px solid var(--border);cursor:pointer;font-size:13px;transition:border-color .15s;" onmouseover="this.style.borderColor='var(--accent)'" onmouseout="this.style.borderColor='var(--border)'">
+            html += `<span onclick="vocabEdit('${v.id}')" title="点击编辑" style="display:inline-flex;align-items:baseline;gap:4px;padding:6px 12px;border-radius:8px;background:var(--bg-card);border:1px solid var(--border);cursor:pointer;font-size:13px;transition:border-color .15s;" onmouseover="this.style.borderColor='${cd.isCustom ? 'var(--green)' : 'var(--accent)'}'" onmouseout="this.style.borderColor='var(--border)'">
                 <span style="font-family:var(--font-mono);font-weight:600;color:var(--text-primary);">${escapeHtml(v.term_en)}</span>
                 <span style="color:var(--text-secondary);font-size:12px;">${escapeHtml(v.term_zh || '')}</span>
                 ${pageChip}${tagChip}
@@ -238,10 +293,14 @@ function vocabSaveEditInline(id) {
 function vocabAddToDoc(docId) {
     // Add a new term inline in current doc view
     const newId = '__new__';
+    const cd = vocabCurrentDoc || {};
+    const isCustom = docId.startsWith('tag:');
     const isManual = docId === '__manual__';
     vocabData.unshift({
-        id: newId, term_en: '', term_zh: '', definition: '', tag: '',
-        source_doc_id: isManual ? null : docId, source_page: null
+        id: newId, term_en: '', term_zh: '', definition: '',
+        tag: isCustom ? docId.replace('tag:', '') : '',
+        source_doc_id: (!isManual && !isCustom) ? docId : null,
+        source_page: null
     });
     vocabEditingId = newId;
     vocabRender();
@@ -253,11 +312,13 @@ function vocabAddToDoc(docId) {
         const zh = (document.getElementById('vocab-edit-zh') || {}).value || '';
         if (!en.trim()) { showNotification('英文术语不能为空', 'warning'); return; }
         const body = { term_en: en.trim(), term_zh: zh.trim() };
-        if (!isManual) { body.source_doc_id = docId; }
+        if (!isManual && !isCustom) { body.source_doc_id = docId; }
+        if (isCustom) { body.tag = docId.replace('tag:', ''); }
         apiFetch('/api/vocab', { method: 'POST', body: JSON.stringify(body) })
             .then(res => {
                 if (!res.ok) throw new Error('HTTP ' + res.status);
                 showNotification('已添加', 'success');
+                if (typeof logActivity === 'function') logActivity('vocab', '添加术语 · ' + en.trim());
                 vocabEditingId = null;
                 return vocabLoad();
             }).then(() => vocabRender())
@@ -297,9 +358,8 @@ async function vocabDelete(id, termEn) {
 }
 
 function vocabAdd() {
-    // From empty state / toolbar: add to manual group
-    vocabCurrentDoc = { id: '__manual__', title: '手动添加' };
-    vocabAddToDoc('__manual__');
+    // From empty state: open custom book creation
+    vocabCreateBook();
 }
 
 function vocabClearSearch() {

@@ -40,10 +40,6 @@
 
     // Deep link support: only override init.js's default landing when the user
     // explicitly opened a non-dashboard route. Empty hash gets a silent default.
-    const initial=idFromHash();
-    if(initial && initial!=='dashboard'){
-        setTimeout(()=>{ showPage(initial); },0);
-    }else if(!location.hash){
-        try{ history.replaceState(null,'','#/dashboard'); }catch(e){}
-    }
+    // Always land on dashboard on refresh (user requirement)
+    try{ history.replaceState(null, '', '#/dashboard'); }catch(e){}
 })();
