@@ -260,7 +260,7 @@ function readerOpenPDF(arrayBuffer,doc,area){
                 for(let p of _pdfPages){
                     const rect=p.getBoundingClientRect();
                     if(rect.top>=0&&rect.top<area.clientHeight/2){
-                        document.getElementById('reader-toolbar').textContent='Page '+p.dataset.pageNum+' of '+readerPdfTotal+' · '+doc.title;
+                        document.getElementById('reader-toolbar').textContent='第 '+p.dataset.pageNum+' 页 / 共 '+readerPdfTotal+' 页 · '+doc.title;
                         break;
                     }
                 }
@@ -472,7 +472,7 @@ async function aiChatMaybeRetrieveBookCtx(question){
             window.aiChatBookCtx=d.chunks.map(c=>'[Page '+c.page+'] '+c.text).join('\n\n');
             const quoteEl=document.getElementById('ai-chat-quote');
             if(quoteEl){
-                quoteEl.textContent='Whole book · '+d.chunks.length+' passages · p.'
+                quoteEl.textContent='整本书 · 命中 '+d.chunks.length+' 段 · 第 '
                     +d.chunks.map(c=>c.page).join(', p.');
             }
         }else if(d.reason==='not_parsed'||d.reason==='no_index'||d.reason==='not_textbook'||(d.reason&&d.reason.startsWith('retrieve_failed'))){
@@ -651,7 +651,7 @@ async function openTbPeek(i){
     modal.style.display='flex';
     // Same book already mounted? just jump — no rebuild
     if(tbPeekDocId===h.doc_id&&body.querySelector('[data-page-num]')){
-        if(titleEl)titleEl.textContent=h.book+' · Page '+h.page+'/'+tbPeekTotal;
+        if(titleEl)titleEl.textContent=h.book+' · 第 '+h.page+'/'+tbPeekTotal+' 页';
         tbPeekJumpTo(h.page);
         return;
     }
@@ -707,11 +707,11 @@ async function openTbPeek(i){
             if(cur!==tbPeekCurrentPage){
                 tbPeekCurrentPage=cur;
                 const book=(window.tbAnchorHits||[])[tbPeekCurrent];
-                if(titleEl&&book)titleEl.textContent=book.book+' · Page '+cur+'/'+tbPeekTotal;
+                if(titleEl&&book)titleEl.textContent=book.book+' · 第 '+cur+'/'+tbPeekTotal+' 页';
             }
         });
     };
-    if(titleEl)titleEl.textContent=h.book+' · Page '+h.page+'/'+tbPeekTotal;
+    if(titleEl)titleEl.textContent=h.book+' · 第 '+h.page+'/'+tbPeekTotal+' 页';
     // Let the modal paint BEFORE the observer's initial pass + jump
     // (another chunk of the open-lag: work happened before first paint)
     requestAnimationFrame(()=>{
@@ -731,7 +731,7 @@ async function tbPeekRenderPage(n){
         pageDiv.innerHTML='';
         const divider=document.createElement('div');
         divider.style.cssText='text-align:center;color:var(--text-muted);font-size:10px;letter-spacing:2px;padding:6px 0 10px;border-bottom:1px dashed var(--border);margin-bottom:10px;user-select:none;';
-        divider.textContent='— Page '+n+' —';
+        divider.textContent='— 第 '+n+' 页 —';
         pageDiv.appendChild(divider);
         const texts=renderTbBlocks(pageDiv,data.blocks||[]);
         pageDiv.dataset.text=texts.join(' ');
@@ -977,13 +977,13 @@ function openAIChatFree(){
     let ctxLabel='';
     try{
         const tb=document.getElementById('reader-toolbar');
-        const m=tb&&tb.textContent.match(/Page (\d+) of/);
+        const _m=tb&&tb.textContent.match(/第 (\d+) 页|Page (\d+) of/);const m=_m?[,_m[1]||_m[2]]:null;
         if(m){
             const pageDiv=document.getElementById('pdf-page-'+m[1]);
             const pageText=(pageDiv&&pageDiv.dataset.text||'').trim();
             if(pageText){
                 window.aiChatPageContext=pageText.substring(0,2000);
-                ctxLabel='Page '+m[1]+' — ask anything about this page';
+                ctxLabel='第 '+m[1]+' 页——可询问本页任何内容';
             }
         }
     }catch(e){}
@@ -1071,7 +1071,7 @@ function openAIChat(quotedText){
     // any system messages from the frontend to avoid prompt conflicts.
     setTimeout(()=>{
         const quoteForAI = quotedText ? '\n\n"' + quotedText.substring(0,800) + '"' : '';
-        aiChatSend('Analyze the following text — explain its core meaning in simple terms:' + quoteForAI);
+        aiChatSend('请分析以下文本——用通俗的话解释它的核心含义：' + quoteForAI);
     },300);
 }
 
@@ -1180,20 +1180,20 @@ async function aiChatSend(text){
         const lastIdx=bodyMsgs.map(m=>m.role).lastIndexOf('user');
         if(lastIdx!==-1){
             bodyMsgs=bodyMsgs.map((m,i)=>i===lastIdx
-                ?{...m,content:m.content+'\n\n[Textbook excerpts retrieved for your question — answer from them and cite pages as [Page N]]\n'+window.aiChatBookCtx}
+                ?{...m,content:m.content+'\n\n[以下是为你的问题检索到的教材摘录——请依据它们作答，引用页码格式 [Page N]]\n'+window.aiChatBookCtx}
                 :m);
         }
         bodyMsgs=bodyMsgs.map((m,i)=>{
             const firstUser=i===bodyMsgs.findIndex(x=>x.role==='user');
             return (firstUser&&m.role==='user'&&window.aiChatPageContext)
-                ?{...m,content:m.content+'\n\n[Context: the page the student is currently reading]\n'+window.aiChatPageContext}
+                ?{...m,content:m.content+'\n\n[上下文：学生当前正在阅读的页面]\n'+window.aiChatPageContext}
                 :m;
         });
     }else if(window.aiChatPageContext){
         bodyMsgs=bodyMsgs.map((m,i)=>{
             const firstUser=i===bodyMsgs.findIndex(x=>x.role==='user');
             return (firstUser&&m.role==='user')
-                ?{...m,content:m.content+'\n\n[Context: the page the student is currently reading]\n'+window.aiChatPageContext}
+                ?{...m,content:m.content+'\n\n[上下文：学生当前正在阅读的页面]\n'+window.aiChatPageContext}
                 :m;
         });
     }

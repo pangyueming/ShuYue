@@ -424,7 +424,7 @@ def ask_with_citations(question: str, contexts: list[dict], api_key: str, model:
     blocks = []
     for i, ctx in enumerate(contexts, 1):
         blocks.append(f"[Page {ctx['page']}] (excerpt {i})\n{ctx['text'][:600]}")
-    user_content = "Textbook excerpts:\n\n" + "\n\n".join(blocks) + f"\n\nStudent question: {question}"
+    user_content = "教材摘录 Textbook excerpts:\n\n" + "\n\n".join(blocks) + f"\n\n学生提问 Student question: {question}"
     resp = requests.post(
         f"{DASHSCOPE_BASE}/chat/completions",
         headers={"Authorization": f"Bearer {api_key}", "Content-Type": "application/json"},

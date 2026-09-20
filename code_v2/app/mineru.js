@@ -596,7 +596,7 @@ async function readerRenderDocViewPage(pageNum){
         pageDiv.innerHTML='';
         const divider=document.createElement('div');
         divider.style.cssText='text-align:center;color:var(--text-muted);font-size:11px;letter-spacing:2px;padding:8px 0 14px;border-bottom:1px dashed var(--border);margin-bottom:14px;user-select:none;';
-        divider.textContent='— Page '+pageNum+' —';
+        divider.textContent='— 第 '+pageNum+' 页 —';
         pageDiv.appendChild(divider);
         const texts=[];
         for(const b of (data.blocks||[])){
@@ -667,7 +667,7 @@ async function readerRenderDocViewPage(pageNum){
         }
         readerAnchorRestore(pageNum);   // cross-view sync: final exact restore once content exists
     }catch(e){
-        pageDiv.innerHTML='<div style="padding:30px;text-align:center;color:#ff6b6b;font-size:13px;">Failed to load page '+pageNum+': '+escapeHtml(e.message)+'</div>';
+        pageDiv.innerHTML='<div style="padding:30px;text-align:center;color:#ff6b6b;font-size:13px;">页面加载失败 '+pageNum+': '+escapeHtml(e.message)+'</div>';
     }
 }
 
@@ -933,7 +933,7 @@ function readerOpenGuide(doc){
         pageDiv.style.cssText='margin:0 auto 18px;background:var(--bg-card);border:1px solid var(--border);border-radius:8px;padding:6px 34px 20px;min-height:200px;box-shadow:0 1px 4px rgba(0,0,0,.06);';
         const divider=document.createElement('div');
         divider.style.cssText='text-align:center;color:var(--text-muted);font-size:11px;letter-spacing:2px;padding:8px 0 14px;border-bottom:1px dashed var(--border);margin-bottom:14px;user-select:none;';
-        divider.textContent='— Page '+(i+1)+' —';
+        divider.textContent='— 第 '+(i+1)+' 页 —';
         pageDiv.appendChild(divider);
         const texts=[];
         (pg.blocks||[]).forEach(b=>renderGuideBlock(b,pageDiv,texts));
