@@ -9,7 +9,7 @@ function quizPageInit(){
         sel.innerHTML=QUIZ_TOPICS.map(t=>`<option value="${t}">${t.replace(/_/g,' ')}</option>`).join('');
     }
     // Weak-topic recommendation from latest assessment
-    const token=localStorage.getItem('cb_token');
+    const token=localStorage.getItem('cb_cn_token');
     if(token&&sel){
         apiFetch('/api/assessments/latest').then(r=>r.ok?r.json():{}).then(a=>{
             const weak=(a.weak_topics||'').split(',').map(s=>s.trim()).filter(Boolean);

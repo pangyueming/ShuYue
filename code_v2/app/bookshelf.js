@@ -70,7 +70,7 @@ async function loadDocumentsFromBackend(){
             setTimeout(()=>{loadDocumentsFromBackend().then(()=>{bsPageRenderTabs();bsPageRenderGrid('slides');bsRenderDashboard(bsPageCat);});},2000*_bsLoadAttempt);
         }else{
             showNotification('无法从服务器加载书架','error');
-            if(localStorage.getItem('cb_token'))_bsShowRetryBanner();
+            if(localStorage.getItem('cb_cn_token'))_bsShowRetryBanner();
         }
     }
     ensureGuideInShelf();   // built-in guide always pinned (guests included)
@@ -217,7 +217,7 @@ async function bsConfirmUpload(){if(!bsPendingFile||!bsPendingCat)return;
         const rm=document.getElementById('reader-bs-modal');if(rm&&rm.style.display==='flex')readerRenderModalDocs(bsModalCat);
         // Sync: PDF uploaded to "notes" category should appear on Notes page
         if(uploadCat==='notes'){notesInit();}
-        if(typeof logActivity==='function')logActivity('upload','Uploaded · '+doc.title);
+        if(typeof logActivity==='function')logActivity('upload','上传 · '+doc.title);
         showNotification(doc.needsOcr
             ?'Scanned PDF detected — enable AI re-layout now?'
             :'Uploaded: '+doc.title

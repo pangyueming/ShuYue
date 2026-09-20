@@ -31,8 +31,8 @@ function readerOpenDoc(cat,idx){
     readerCurrentDocId=doc.id;
     readerCurrentDocRef={cat,idx};
     // Dashboard: remember the last-opened doc (Continue tile) + activity feed
-    try{localStorage.setItem('cb_last_doc',JSON.stringify({cat:cat,idx:idx,page:1,t:Date.now()}));}catch(e){}
-    if(typeof logActivity==='function')logActivity('open','Opened · '+doc.title);
+    try{localStorage.setItem('cb_cn_last_doc',JSON.stringify({cat:cat,idx:idx,page:1,t:Date.now()}));}catch(e){}
+    if(typeof logActivity==='function')logActivity('open','打开 · '+doc.title);
     if(readerLastDocId!==doc.id)readerViewMode=doc.needsOcr?'doc':'pdf';   // scanned -> reformatted default; native parsed -> keep original PDF view
     readerLastDocId=doc.id;
     readerPdfDoc=null;readerPdfTotal=0;readerDocType=null;
@@ -487,7 +487,7 @@ async function aiChatMaybeRetrieveBookCtx(question){
 // The AI answer streams immediately; when retrieval hits, a green citation
 // strip appears ABOVE the answer. No hit -> nothing is shown.
 async function textbookAnchorSearch(question){
-    const token=localStorage.getItem('cb_token');
+    const token=localStorage.getItem('cb_cn_token');
     if(!token)return null;
     try{
         const r=await apiFetch('/api/textbooks/search',{method:'POST',body:JSON.stringify({query:question})});
@@ -527,7 +527,7 @@ function tbAnchorDismissSearching(el){
 
 async function aiChatAnchorAsync(question,aiDiv){
     try{
-        if(!localStorage.getItem('cb_token'))return;
+        if(!localStorage.getItem('cb_cn_token'))return;
         if(window.aiChatBookMode&&window.aiChatBookDocId)return;              // explicit whole-book mode wins
         // Scope: auto-anchoring ONLY for exercises / exam-papers docs
         const doc=Object.values(bsData).flat().find(d=>d.id===readerCurrentDocId);
@@ -541,7 +541,7 @@ async function aiChatAnchorAsync(question,aiDiv){
 
 async function tutorAnchorAsync(question,aiDiv){
     try{
-        if(!localStorage.getItem('cb_token'))return;
+        if(!localStorage.getItem('cb_cn_token'))return;
         const _s=tbAnchorSearching(aiDiv);
         const hits=await textbookAnchorSearch(question);
         tbAnchorStrip(hits,aiDiv,_s);
@@ -551,7 +551,7 @@ async function tutorAnchorAsync(question,aiDiv){
 
 // ===== Post-answer concept tracing (async, after AI answer completes) =====
 async function traceConcepts(answerText,aiDiv){
-    if(!localStorage.getItem('cb_token'))return;
+    if(!localStorage.getItem('cb_cn_token'))return;
     if(!aiDiv||!aiDiv.parentNode)return;
     const status=document.createElement('div');
     status.style.cssText='margin-top:8px;padding:8px 12px;border-radius:8px;background:rgba(122,107,255,.03);border-left:3px solid rgba(122,107,255,.45);font-size:11px;color:var(--text-muted);font-style:italic;';
@@ -844,7 +844,7 @@ function tbPeekSaveHighlightFromSlot(){
     if(slot){slot.style.display='none';slot.innerHTML='';}
     tbPeekLastSel=false;
     apiFetch('/api/highlights',{method:'POST',body:JSON.stringify({document_id:tbPeekDocId,page:tbPeekSelPage,text:tbPeekSelText,color:color,note:note})})
-        .then(r=>{if(r.ok){showNotification('Highlight saved — syncs to Reader & cloud','success');if(typeof logActivity==='function')logActivity('highlight','Highlighted · "'+tbPeekSelText.substring(0,40)+'"');}})
+        .then(r=>{if(r.ok){showNotification('高亮已保存——同步到阅读器与云端','success');if(typeof logActivity==='function')logActivity('highlight','Highlighted · "'+tbPeekSelText.substring(0,40)+'"');}})
         .catch(e=>console.error('Peek highlight save failed:',e));
 }
 
@@ -867,7 +867,7 @@ async function tbPeekSaveNoteFromSel(){
         notesData.push({id:created.id,title:title,tag:'Reading Note',content:content,source:'reader',
             createdAt:new Date().toISOString(),updatedAt:new Date().toISOString(),isDeleted:false,deletedAt:null});
         notesSave();
-        if(typeof logActivity==='function')logActivity('note','Note · '+title);
+        if(typeof logActivity==='function')logActivity('note','笔记 · '+title);
         showNotification('Note saved — visible on Notes page','success');
     }catch(e){showNotification('Note save failed: '+e.message,'error');}
 }
@@ -1012,7 +1012,7 @@ function openAIChatFree(){
     // (RAG index is textbook-only; guides are fileType 'guide' and never qualify)
     const modeRow=document.getElementById('ai-chat-mode-row');
     if(modeRow)modeRow.style.display='none';
-    const _token=localStorage.getItem('cb_token');
+    const _token=localStorage.getItem('cb_cn_token');
     const _doc=Object.values(bsData).flat().find(d=>d.id===readerCurrentDocId);
     if(_token&&readerCurrentDocId&&_doc&&_doc.category==='textbooks'){
         apiFetch('/api/documents/'+readerCurrentDocId+'/parse')

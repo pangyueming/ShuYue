@@ -2,7 +2,7 @@
 const mineruTracker={pending:{},progress:{},queue:[],busy:false};
 
 function mineruTrackerFetch(path){
-    const token=localStorage.getItem('cb_token')||'';
+    const token=localStorage.getItem('cb_cn_token')||'';
     return fetch(AI_BACKEND_URL+path,{headers:{'Authorization':'Bearer '+token}});
 }
 
@@ -23,7 +23,7 @@ function mineruUpdateProgressWidgets(){
 }
 
 function mineruTrackerTick(){
-    if(!localStorage.getItem('cb_token'))return;   // no session -> skip (avoid 401 spam)
+    if(!localStorage.getItem('cb_cn_token'))return;   // no session -> skip (avoid 401 spam)
     mineruTrackerFetch('/api/documents/parsing')
     .then(r=>r.ok?r.json():Promise.reject(new Error('HTTP '+r.status)))
     .then(list=>{

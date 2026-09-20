@@ -1,18 +1,18 @@
 ﻿// ===== AUTH & API =====
 // Default points at the duel-review backend (localhost:8000).
-// Override for local testing: localStorage.setItem('cb_api_base','http://localhost:8010')
-const AI_BACKEND_URL=(function(){try{return localStorage.getItem('cb_api_base')||'http://localhost:8000';}catch(e){return 'http://localhost:8000';}})();
+// Override for local testing: localStorage.setItem('cb_cn_api_base','http://localhost:8010')
+const AI_BACKEND_URL=(function(){try{return localStorage.getItem('cb_cn_api_base')||'http://localhost:8001';}catch(e){return 'http://localhost:8001';}})();
 
 // Global API fetch with JWT token
 async function apiFetch(url,options={}){
-    const token=localStorage.getItem('cb_token');
+    const token=localStorage.getItem('cb_cn_token');
     const headers={...(options.headers||{})};
     if(!(options.body instanceof FormData))headers['Content-Type']='application/json';
     if(token)headers['Authorization']='Bearer '+token;
     const res=await fetch(AI_BACKEND_URL+url,{...options,headers});
     if(res.status===401){
-        localStorage.removeItem('cb_token');
-        localStorage.removeItem('cb_user');
+        localStorage.removeItem('cb_cn_token');
+        localStorage.removeItem('cb_cn_user');
         showNotification('会话已过期，请重新登录。','warning');
         showPage('login');
         throw new Error('Unauthorized');
@@ -51,8 +51,8 @@ async function authLogin(){
         const res=await fetch(AI_BACKEND_URL+'/api/auth/login',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({email,password})});
         if(!res.ok){const err=await res.json();throw new Error(err.detail||'Login failed');}
         const data=await res.json();
-        localStorage.setItem('cb_token',data.access_token);
-        localStorage.setItem('cb_user',JSON.stringify(data.user));
+        localStorage.setItem('cb_cn_token',data.access_token);
+        localStorage.setItem('cb_cn_user',JSON.stringify(data.user));
         await migrateGuestData();
         renderSidebarUser();
         // Cloud restore pipeline: bookshelf → notes → plan → pretest → stats
@@ -80,8 +80,8 @@ async function authRegister(){
         const res=await fetch(AI_BACKEND_URL+'/api/auth/register',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({email,password,name})});
         if(!res.ok){const err=await res.json();throw new Error(err.detail||'Registration failed');}
         const data=await res.json();
-        localStorage.setItem('cb_token',data.access_token);
-        localStorage.setItem('cb_user',JSON.stringify(data.user));
+        localStorage.setItem('cb_cn_token',data.access_token);
+        localStorage.setItem('cb_cn_user',JSON.stringify(data.user));
         await migrateGuestData();
         renderSidebarUser();
         showNotification('账号创建成功！欢迎，'+data.user.name,'success');
@@ -104,8 +104,8 @@ async function authForgotPassword(){
 }
 
 function authLogout(){
-    localStorage.removeItem('cb_token');
-    localStorage.removeItem('cb_user');
+    localStorage.removeItem('cb_cn_token');
+    localStorage.removeItem('cb_cn_user');
     // Full in-memory wipe: another account on this browser must start clean
     BS_CATS.forEach(c=>bsData[c.key]=[]);
     notesData=[];
@@ -114,7 +114,7 @@ function authLogout(){
     aiChatMessages=[];window.aiChatPageContext=null;
     window.pretestResult=null;
     quizState={count:5,diff:'中',qtype:'MCQ',active:false,quizId:null,questions:[],serverIdx:[],current:0,score:0,detail:[]};
-    try{localStorage.removeItem('cb_pretest');localStorage.removeItem('cb_plan');localStorage.removeItem('cb_highlights_'+(readerCurrentDocId||''));}catch(e){}
+    try{localStorage.removeItem('cb_cn_pretest');localStorage.removeItem('cb_cn_plan');localStorage.removeItem('cb_cn_highlights_'+(readerCurrentDocId||''));}catch(e){}
     // Reset visible surfaces
     const ph=document.getElementById('math-skill-placeholder');const phc=document.getElementById('math-skill-content');
     if(ph)ph.style.display='';if(phc)phc.style.display='none';
@@ -134,8 +134,8 @@ function authContinueAsGuest(){
 }
 
 async function migrateGuestData(){
-    const guestNotes=JSON.parse(localStorage.getItem('cb_notes_guest')||'[]');
-    const pretest=localStorage.getItem('cb_pretest');
+    const guestNotes=JSON.parse(localStorage.getItem('cb_cn_notes_guest')||'[]');
+    const pretest=localStorage.getItem('cb_cn_pretest');
     if(guestNotes.length===0&&!pretest)return;
     showNotification('Migrating your local data...');
     for(const note of guestNotes){
@@ -144,13 +144,13 @@ async function migrateGuestData(){
     if(pretest){
         try{await apiFetch('/api/assessments',{method:'POST',body:pretest});}catch(e){}
     }
-    localStorage.removeItem('cb_notes_guest');
+    localStorage.removeItem('cb_cn_notes_guest');
     showNotification('Your progress has been saved to your account!','success');
 }
 
 // ===== PROFILE =====
 function renderProfile(){
-    const userStr=localStorage.getItem('cb_user');
+    const userStr=localStorage.getItem('cb_cn_user');
     const user=userStr?JSON.parse(userStr):null;
     if(!user){showNotification('Please log in first','warning');showPage('login');return;}
     
@@ -191,11 +191,11 @@ async function saveProfile(){
         if(!res.ok)throw new Error('Failed to update');
         
         // Update localStorage user
-        const userStr=localStorage.getItem('cb_user');
+        const userStr=localStorage.getItem('cb_cn_user');
         const user=userStr?JSON.parse(userStr):{};
         user.name=name;user.university=university;user.major=major;
         user.year=year;user.a_level_grade=a_level_grade;user.further_math=further_math;
-        localStorage.setItem('cb_user',JSON.stringify(user));
+        localStorage.setItem('cb_cn_user',JSON.stringify(user));
         
         renderProfile();
         renderSidebarUser();
@@ -226,8 +226,8 @@ document.addEventListener('DOMContentLoaded',()=>{
 function renderSidebarUser(){
     const container=document.getElementById('sidebar-user-area');
     if(!container)return;
-    const token=localStorage.getItem('cb_token');
-    const user=token?JSON.parse(localStorage.getItem('cb_user')||'{}'):null;
+    const token=localStorage.getItem('cb_cn_token');
+    const user=token?JSON.parse(localStorage.getItem('cb_cn_user')||'{}'):null;
     if(!token){
         container.innerHTML=`<div class="side-user-guest"><button class="btn-primary" style="width:100%;font-size:13px;" onclick="showPage('login')">登 录</button><p class="side-user-hint">游客模式 · 数据存本地</p></div>`;refreshIcons();
     }else{

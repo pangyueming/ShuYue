@@ -186,7 +186,7 @@ function ringFromDom(){
 }
 
 async function loadUserStats(){
-    const token=localStorage.getItem('cb_token');
+    const token=localStorage.getItem('cb_cn_token');
     if(!token){ringFromDom();return;}
     try{
         const res=await apiFetch('/api/stats');
@@ -204,7 +204,7 @@ async function loadUserStats(){
         // Rolling daily snapshot → honest delta ("+3% vs 2d ago")
         const DAY=864e5;
         let hist=null;
-        try{hist=JSON.parse(localStorage.getItem('cb_stats_hist')||'null');}catch(e){}
+        try{hist=JSON.parse(localStorage.getItem('cb_cn_stats_hist')||'null');}catch(e){}
         const age=hist&&hist.t?Date.now()-hist.t:0;
         const deltaEl=document.getElementById('stat-proj-delta');
         if(deltaEl){
@@ -217,7 +217,7 @@ async function loadUserStats(){
                 deltaEl.className='stat-hero-delta';
             }
         }
-        if(!hist||age>=DAY){try{localStorage.setItem('cb_stats_hist',JSON.stringify({t:Date.now(),proj:proj}));}catch(e){}}
+        if(!hist||age>=DAY){try{localStorage.setItem('cb_cn_stats_hist',JSON.stringify({t:Date.now(),proj:proj}));}catch(e){}}
     }catch(e){console.error('Failed to load stats:',e);ringFromDom();}
 }
 function ripple(e){

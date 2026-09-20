@@ -50,7 +50,7 @@ const QUIZ_WEAK_THRESHOLD=0.5, QUIZ_STRONG_THRESHOLD=0.9;
 
 let _quizEvCache=null,_quizEvTs=0;
 async function fetchQuizEvidence(){
-    const token=localStorage.getItem('cb_token');
+    const token=localStorage.getItem('cb_cn_token');
     if(!token)return {};
     const now=Date.now();
     if(_quizEvCache&&now-_quizEvTs<60000)return _quizEvCache;   // 60s cache
@@ -133,9 +133,9 @@ function ptGenerateReport(){
     // Persist the teaching week into plan state too (cloud-synced)
     const ps=loadPlanState();ps.currentWeek=pickedWeek;savePlanState(ps);
     // Persist to localStorage
-    try{localStorage.setItem('cb_pretest',JSON.stringify(window.pretestResult));}catch(e){}
+    try{localStorage.setItem('cb_cn_pretest',JSON.stringify(window.pretestResult));}catch(e){}
     // Save to backend (if logged in)
-    const token=localStorage.getItem('cb_token');
+    const token=localStorage.getItem('cb_cn_token');
     if(token){
         apiFetch('/api/assessments',{
             method:'POST',
@@ -394,13 +394,13 @@ function togglePlanEdit(){
 }
 
 function loadPlanState(){
-    try{const s=localStorage.getItem('cb_plan');return s?JSON.parse(s):{progress:{},completed:{},deleted:{},order:{},lastUpdate:new Date().toISOString()};}catch(e){return{progress:{},completed:{},deleted:{},order:{},lastUpdate:new Date().toISOString()};}
+    try{const s=localStorage.getItem('cb_cn_plan');return s?JSON.parse(s):{progress:{},completed:{},deleted:{},order:{},lastUpdate:new Date().toISOString()};}catch(e){return{progress:{},completed:{},deleted:{},order:{},lastUpdate:new Date().toISOString()};}
 }
 // Cloud sync: debounced PUT after every local save; explicit pull after login.
 let planSyncTimer=null;
 function savePlanState(s){
-    try{localStorage.setItem('cb_plan',JSON.stringify(s));}catch(e){}
-    const token=localStorage.getItem('cb_token');
+    try{localStorage.setItem('cb_cn_plan',JSON.stringify(s));}catch(e){}
+    const token=localStorage.getItem('cb_cn_token');
     if(!token)return;   // guests: local only
     clearTimeout(planSyncTimer);
     planSyncTimer=setTimeout(()=>{
@@ -409,7 +409,7 @@ function savePlanState(s){
     },1000);
 }
 async function pullPlanFromCloud(){
-    const token=localStorage.getItem('cb_token');
+    const token=localStorage.getItem('cb_cn_token');
     if(!token)return;
     try{
         const res=await apiFetch('/api/plan');
@@ -421,7 +421,7 @@ async function pullPlanFromCloud(){
                 const local=loadPlanState();
                 // Newest wins: cloud is authoritative unless local is newer (rare offline edits)
                 if(new Date(cloud.lastUpdate)>=new Date(local.lastUpdate)){
-                    try{localStorage.setItem('cb_plan',JSON.stringify(cloud));}catch(e){}
+                    try{localStorage.setItem('cb_cn_plan',JSON.stringify(cloud));}catch(e){}
                 }
             }
         }
@@ -509,7 +509,7 @@ function checkWeeklyUpdate(){
 
 // Restore pretest data on page load — cloud first (full snapshot), localStorage fallback
 async function restorePretestData(){
-    const token=localStorage.getItem('cb_token');
+    const token=localStorage.getItem('cb_cn_token');
     if(token){
         try{
             const res=await apiFetch('/api/assessments/latest');
@@ -520,7 +520,7 @@ async function restorePretestData(){
                     if(cloud&&cloud.avgScore!==undefined){
                         window.pretestResult=cloud;
                         // keep local copy in sync for offline fallback
-                        try{localStorage.setItem('cb_pretest',JSON.stringify(cloud));}catch(e){}
+                        try{localStorage.setItem('cb_cn_pretest',JSON.stringify(cloud));}catch(e){}
                         renderMathSkill(cloud);
                         renderStudyPlan(cloud);
                         return;
@@ -530,7 +530,7 @@ async function restorePretestData(){
         }catch(e){/* offline → fall through to localStorage */}
     }
     try{
-        const saved=localStorage.getItem('cb_pretest');
+        const saved=localStorage.getItem('cb_cn_pretest');
         if(saved){
             window.pretestResult=JSON.parse(saved);
             renderMathSkill(window.pretestResult);

@@ -6,10 +6,15 @@
 
 function logActivity(type, text) {
     try {
-        const log = JSON.parse(localStorage.getItem('cb_activity') || '[]');
+        const log = JSON.parse(localStorage.getItem('cb_cn_activity') || '[]');
         log.unshift({ t: Date.now(), type: type, text: String(text || '').substring(0, 80) });
-        localStorage.setItem('cb_activity', JSON.stringify(log.slice(0, 30)));
+        localStorage.setItem('cb_cn_activity', JSON.stringify(log.slice(0, 30)));
     } catch (e) { /* storage full / private mode — feed is best-effort */ }
+    // Real-time refresh: if the dashboard is on screen, re-render immediately
+    try {
+        const pg = document.getElementById('page-dashboard');
+        if (pg && pg.classList.contains('active') && typeof renderActivity === 'function') renderActivity();
+    } catch (e) { /* best-effort */ }
 }
 
 function relTime(ts) {
@@ -32,7 +37,7 @@ function renderActivity() {
     const list = document.getElementById('dash-activity-list');
     if (!list) return;
     let events = [];
-    try { events = JSON.parse(localStorage.getItem('cb_activity') || '[]'); } catch (e) {}
+    try { events = JSON.parse(localStorage.getItem('cb_cn_activity') || '[]'); } catch (e) {}
     // Recent notes always surface, even on devices where the log is empty
     (typeof notesData !== 'undefined' ? notesData : []).forEach(function (n) {
         if (n.isDeleted) return;
@@ -74,7 +79,7 @@ function renderDashHead() {
     var greet = document.getElementById('dash-greeting');
     if (greet) {
         var user = {};
-        try { user = JSON.parse(localStorage.getItem('cb_user') || '{}'); } catch (e) {}
+        try { user = JSON.parse(localStorage.getItem('cb_cn_user') || '{}'); } catch (e) {}
         var h = new Date().getHours();
         var part = h < 5 ? '夜深了' : h < 12 ? '早上好' : h < 18 ? '下午好' : '晚上好';
         greet.textContent = part + ', ' + (user.name || 'User');
@@ -93,7 +98,7 @@ function renderDashHead() {
 function dashContinueTileHtml(cat) {
     if (cat == null) return '';
     var last = null;
-    try { last = JSON.parse(localStorage.getItem('cb_last_doc') || 'null'); } catch (e) {}
+    try { last = JSON.parse(localStorage.getItem('cb_cn_last_doc') || 'null'); } catch (e) {}
     if (!last || last.cat !== cat || last.idx == null) return '';
     var arr = (typeof bsData !== 'undefined' && bsData[cat]) || [];
     var doc = arr[last.idx];

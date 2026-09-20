@@ -1,4 +1,4 @@
-// ===== READER NOTES (synced with Notes page) =====
+﻿// ===== READER NOTES (synced with Notes page) =====
 async function readerSaveNoteFromSel(){
     const inp=document.getElementById('reader-note-input');if(!inp||!inp.value.trim())return;
     const noteText=inp.value.trim();const quote=readerSelText.substring(0,100);
@@ -29,7 +29,7 @@ async function readerSaveNoteFromSel(){
             deletedAt:null
         });
         notesSave();
-        if(typeof logActivity==='function')logActivity('note','Note · '+(quote.substring(0,30)||'Reader Note'));
+        if(typeof logActivity==='function')logActivity('note','笔记 · '+(quote.substring(0,30)||'阅读器笔记'));
     }catch(e){console.error('Save reader note failed:',e);}
     document.getElementById('reader-action-panel').style.display='none';window.getSelection().removeAllRanges();
     showNotification('Note saved','success');
@@ -59,7 +59,7 @@ async function readerSaveQuickNote(){
             deletedAt:null
         });
         notesSave();
-        if(typeof logActivity==='function')logActivity('note','Note · Quick Note');
+        if(typeof logActivity==='function')logActivity('note','笔记 · 快速笔记');
     }catch(e){console.error('Save quick note failed:',e);}
     showNotification('Quick note saved','success');
 }
@@ -95,10 +95,10 @@ function readerSaveHighlightFromPanel(){
 async function readerSaveHighlight(docId,page,text,color,note){
     const hl={id:'local_'+Date.now(),document_id:docId,page:page,text:text,color:color,note:note||'',created_at:new Date().toISOString()};
     readerHighlights.push(hl);readerRenderHighlights();
-    if(typeof logActivity==='function')logActivity('highlight','Highlighted · "'+(text||'').substring(0,40)+'"');
+    if(typeof logActivity==='function')logActivity('highlight','高亮 · "'+(text||'').substring(0,40)+'"');
     // Save to localStorage for guests
-    try{localStorage.setItem('cb_highlights_'+docId,JSON.stringify(readerHighlights));}catch(e){}
-    const token=localStorage.getItem('cb_token');
+    try{localStorage.setItem('cb_cn_highlights_'+docId,JSON.stringify(readerHighlights));}catch(e){}
+    const token=localStorage.getItem('cb_cn_token');
     if(!token)return; // Guest: localStorage only
     try{
         const res=await apiFetch('/api/highlights',{method:'POST',body:JSON.stringify({document_id:docId,page:page,text:text,color:color,note:note||''})});
@@ -112,7 +112,7 @@ async function readerLoadHighlights(docId){
     if(!docId)return;
     readerHighlights=[];
     // Try backend first
-    const token=localStorage.getItem('cb_token');
+    const token=localStorage.getItem('cb_cn_token');
     if(token){
         try{
             const res=await apiFetch('/api/highlights?document_id='+encodeURIComponent(docId));
@@ -121,7 +121,7 @@ async function readerLoadHighlights(docId){
     }
     // Fallback: localStorage for guests
     if(readerHighlights.length===0){
-        try{const local=JSON.parse(localStorage.getItem('cb_highlights_'+docId)||'[]');if(Array.isArray(local))readerHighlights=local;}catch(e){}
+        try{const local=JSON.parse(localStorage.getItem('cb_cn_highlights_'+docId)||'[]');if(Array.isArray(local))readerHighlights=local;}catch(e){}
     }
     readerRenderHighlights();
     // Apply to already-rendered pages
@@ -155,9 +155,9 @@ function readerDeleteHighlight(hlId){
     const idx=readerHighlights.findIndex(h=>h.id===hlId);if(idx===-1)return;
     readerHighlights.splice(idx,1);readerRenderHighlights();
     // Sync localStorage
-    try{if(readerCurrentDocId)localStorage.setItem('cb_highlights_'+readerCurrentDocId,JSON.stringify(readerHighlights));}catch(e){}
+    try{if(readerCurrentDocId)localStorage.setItem('cb_cn_highlights_'+readerCurrentDocId,JSON.stringify(readerHighlights));}catch(e){}
     // Remove from backend
-    const token=localStorage.getItem('cb_token');
+    const token=localStorage.getItem('cb_cn_token');
     if(token&&hlId&&!hlId.startsWith('local_')){
         apiFetch('/api/highlights/'+hlId,{method:'DELETE'}).catch(e=>console.error('Failed to delete highlight:',e));
     }

@@ -1,4 +1,4 @@
-// ===== Init =====
+﻿// ===== Init =====
 // Inline "thinking" indicator for AI bubbles: a small thought-orb beside the
 // label (vanilla port of thinking-orbs). Returns a cleanup that stops the
 // canvas loop — always call it when the answer arrives or errors out.
@@ -262,10 +262,10 @@ document.addEventListener('DOMContentLoaded',async()=>{
         planDragKey=null;
     });
     // Check if logged in
-    const token=localStorage.getItem('cb_token');
+    const token=localStorage.getItem('cb_cn_token');
     if(token){
         // Pre-update dashboard welcome message before any async ops
-        const user=JSON.parse(localStorage.getItem('cb_user')||'{}');
+        const user=JSON.parse(localStorage.getItem('cb_cn_user')||'{}');
         const welcomeEl=document.querySelector('#page-dashboard h1');
         if(welcomeEl)welcomeEl.textContent='Hello, '+(user.name||'User');
         await bsPageInit();

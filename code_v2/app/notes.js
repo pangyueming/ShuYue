@@ -54,7 +54,7 @@ async function notesLoad(){
     }catch(e){console.error('Failed to load PDF notes:',e);}
     // Merge recycle-bin state from localStorage (soft-delete not yet in backend)
     try{
-        const s=localStorage.getItem('cb_notes_recycle');
+        const s=localStorage.getItem('cb_cn_notes_recycle');
         if(s){
             const recycled=JSON.parse(s);
             recycled.forEach(r=>{
@@ -71,7 +71,7 @@ async function notesLoad(){
 }
 function notesSaveRecycleBin(){
     const recycled=notesData.filter(n=>n.isDeleted);
-    try{localStorage.setItem('cb_notes_recycle',JSON.stringify(recycled));}catch(e){}
+    try{localStorage.setItem('cb_cn_notes_recycle',JSON.stringify(recycled));}catch(e){}
 }
 
 function notesSave(){
@@ -252,7 +252,7 @@ async function notesSaveFromEditor(){
             });
         }
         notesSave();notesRender();notesCloseEditor();
-        if(typeof logActivity==='function')logActivity('note','Note · '+(title||'Untitled'));
+        if(typeof logActivity==='function')logActivity('note','笔记 · '+(title||'未命名'));
         showNotification('笔记已保存','success');
     }catch(e){
         console.error('Save note failed:',e);

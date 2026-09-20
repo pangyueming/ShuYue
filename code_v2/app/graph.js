@@ -357,7 +357,7 @@ function kgQuizTopic(id){
 }
 async function kgFindInTextbook(id){
     const n=kgModel.nodes.find(x=>x.id===id);if(!n)return;
-    if(!localStorage.getItem('cb_token')){showNotification('Log in to search your indexed textbooks','warning');return;}
+    if(!localStorage.getItem('cb_cn_token')){showNotification('Log in to search your indexed textbooks','warning');return;}
     showNotification('Searching your textbooks…');
     const hits=await textbookAnchorSearch(n.name);
     if(hits&&hits.length){

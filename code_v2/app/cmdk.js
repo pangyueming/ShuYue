@@ -36,7 +36,7 @@
 
     function pool(){
         const pages=Object.keys(pageLabels)
-            .filter(id=>id!=='login'||!localStorage.getItem('cb_token'))
+            .filter(id=>id!=='login'||!localStorage.getItem('cb_cn_token'))
             .map(id=>({ id, label:pageLabels[id], icon:iconFor(id), section:'前往', run:()=>showPage(id) }));
         return pages.concat(ACTIONS);
     }
