@@ -6,6 +6,8 @@ let vocabData = [];
 let vocabSearchQ = '';
 let vocabEditingId = null;
 let vocabLoaded = false;
+let vocabFilterTag = '';  // '' = all
+let vocabAllTags = [];    // unique tags from all entries
 
 function vocabTabSwitch(tab) {
     const btnN = document.getElementById('notes-tab-btn');
@@ -34,20 +36,40 @@ async function vocabInit() {
 
 async function vocabLoad() {
     const token = localStorage.getItem('cb_cn_token');
-    if (!token) { vocabData = []; return; }
+    if (!token) { vocabData = []; vocabAllTags = []; return; }
     try {
-        const url = vocabSearchQ ? '/api/vocab?q=' + encodeURIComponent(vocabSearchQ) : '/api/vocab';
+        // Load all entries for tag extraction, then filter client-side by tag
+        const params = [];
+        if (vocabSearchQ) params.push('q=' + encodeURIComponent(vocabSearchQ));
+        const url = '/api/vocab' + (params.length ? '?' + params.join('&') : '');
         const res = await apiFetch(url);
         if (!res.ok) throw new Error('HTTP ' + res.status);
-        vocabData = await res.json();
+        const all = await res.json();
+        // Extract unique tags
+        const tagSet = new Set();
+        all.forEach(v => { if (v.tag) tagSet.add(v.tag); });
+        vocabAllTags = Array.from(tagSet).sort();
+        // Filter by selected tag
+        vocabData = vocabFilterTag ? all.filter(v => v.tag === vocabFilterTag) : all;
     } catch (e) {
         console.error('vocabLoad:', e);
-        if (vocabSearchQ) return; // search failed, keep old data
-        vocabData = [];
+        if (vocabSearchQ) return;
+        vocabData = []; vocabAllTags = [];
     }
 }
 
 function vocabRender() {
+    // Tag chips row
+    const tagsRow = document.getElementById('vocab-tags');
+    if (tagsRow) {
+        let html = `<button class="chip" onclick="vocabFilterTagSet('')" style="${!vocabFilterTag ? 'border-color:var(--accent);color:var(--accent);' : ''}padding:4px 12px;font-size:11px;">全部</button>`;
+        vocabAllTags.forEach(t => {
+            html += ` <button class="chip" onclick="vocabFilterTagSet('${escapeHtml(t)}')" style="${vocabFilterTag === t ? 'border-color:var(--accent);color:var(--accent);' : ''}padding:4px 12px;font-size:11px;">${escapeHtml(t)}</button>`;
+        });
+        html += ` <button class="chip" onclick="vocabNewTag()" style="padding:4px 12px;font-size:11px;color:var(--text-muted);border-style:dashed;">+ 新建词单</button>`;
+        tagsRow.innerHTML = html;
+    }
+
     const countEl = document.getElementById('vocab-count');
     if (countEl) countEl.textContent = vocabData.length + ' 词';
 
@@ -86,12 +108,15 @@ function vocabRenderCard(v) {
     const srcPill = v.source_doc_id
         ? `<span onclick="vocabJumpSource('${v.source_doc_id}',${v.source_page || 1})" title="查看原文" style="display:inline-flex;align-items:center;gap:4px;font-size:10px;color:var(--accent);cursor:pointer;padding:2px 8px;border-radius:999px;background:rgba(122,107,255,.06);border:1px solid rgba(122,107,255,.15);white-space:nowrap;">${iconHtml('book-open',10)}${escapeHtml(v.source_title || '文档')}·p.${v.source_page || '?'}</span>`
         : '';
+    const tagPill = v.tag
+        ? `<span style="font-size:10px;padding:2px 8px;border-radius:999px;background:var(--bg-tag);border:1px solid var(--border);color:var(--text-muted);white-space:nowrap;">${escapeHtml(v.tag)}</span>`
+        : '';
     return `<div class="card" style="padding:12px 16px;margin-bottom:8px;display:flex;align-items:flex-start;gap:12px;transition:transform .15s;" onmouseover="this.style.transform='translateY(-1px)'" onmouseout="this.style.transform=''">
         <div style="flex:1;min-width:0;">
             <div style="display:flex;align-items:baseline;gap:10px;flex-wrap:wrap;">
                 <span style="font-family:var(--font-mono);font-size:14px;font-weight:600;color:var(--text-primary);">${escapeHtml(v.term_en)}</span>
                 <span style="font-size:13px;color:var(--text-secondary);">${escapeHtml(v.term_zh || '')}</span>
-                ${srcPill}
+                ${tagPill}${srcPill}
             </div>
             ${v.definition ? `<div style="font-size:12px;color:var(--text-muted);margin-top:4px;line-height:1.5;">${escapeHtml(v.definition)}</div>` : ''}
             ${v.source_text ? `<div style="font-size:11px;color:var(--text-muted);margin-top:3px;font-style:italic;opacity:.7;">"${escapeHtml(v.source_text.substring(0, 80))}${v.source_text.length > 80 ? '...' : ''}"</div>` : ''}
@@ -118,6 +143,13 @@ function vocabRenderEditCard(v) {
             <div>
                 <label class="field-label" style="margin-bottom:4px;">定义</label>
                 <textarea id="vocab-edit-def" class="input" style="width:100%;font-size:12px;rows:2;min-height:44px;resize:vertical;" placeholder="一句话双语定义...">${escapeHtml(v.definition || '')}</textarea>
+            </div>
+            <div>
+                <label class="field-label" style="margin-bottom:4px;">词单</label>
+                <input id="vocab-edit-tag" class="input" style="width:100%;font-size:13px;" value="${escapeHtml(v.tag || '')}" placeholder="词单名（可选）" list="vocab-tag-datalist">
+                <datalist id="vocab-tag-datalist">
+                    ${vocabAllTags.map(t => `<option value="${escapeHtml(t)}">`).join('')}
+                </datalist>
             </div>
             <div style="display:flex;gap:8px;justify-content:flex-end;">
                 <button class="btn-secondary" style="padding:6px 16px;font-size:12px;" onclick="vocabCancelEdit()">取消</button>
@@ -149,6 +181,7 @@ async function vocabSaveEdit(id) {
     const en = (document.getElementById('vocab-edit-en') || {}).value || '';
     const zh = (document.getElementById('vocab-edit-zh') || {}).value || '';
     const def = (document.getElementById('vocab-edit-def') || {}).value || '';
+    const tag = (document.getElementById('vocab-edit-tag') || {}).value || '';
     if (!en.trim()) {
         const err = document.getElementById('vocab-edit-en-err');
         if (err) err.textContent = '英文术语不能为空';
@@ -157,7 +190,7 @@ async function vocabSaveEdit(id) {
     try {
         const res = await apiFetch('/api/vocab/' + id, {
             method: 'PUT',
-            body: JSON.stringify({ term_en: en.trim(), term_zh: zh.trim(), definition: def.trim() })
+            body: JSON.stringify({ term_en: en.trim(), term_zh: zh.trim(), definition: def.trim(), tag: tag.trim() })
         });
         if (!res.ok) throw new Error('HTTP ' + res.status);
         showNotification('术语已更新', 'success');
@@ -197,6 +230,25 @@ function vocabClearSearch() {
     const inp = document.getElementById('vocab-search-input');
     if (inp) inp.value = '';
     vocabLoad().then(() => vocabRender());
+}
+
+function vocabFilterTagSet(tag) {
+    vocabFilterTag = tag;
+    vocabLoad().then(() => vocabRender());
+}
+
+function vocabNewTag() {
+    const name = prompt('新建词单名称（如：第一章极限、线代词汇、易忘词）');
+    if (!name || !name.trim()) return;
+    const tag = name.trim();
+    if (vocabAllTags.includes(tag)) {
+        showNotification('词单 "' + tag + '" 已存在', 'warning');
+        return;
+    }
+    vocabAllTags.push(tag);
+    vocabFilterTag = tag;
+    vocabRender();
+    showNotification('词单 "' + tag + '" 已创建，新收的术语可选择归入此词单', 'success');
 }
 
 let vocabSearchTimer = null;
@@ -240,6 +292,10 @@ async function vocabCaptureFromSelection(text, docId, page) {
         <div id="vocab-capture-form" style="display:none;">
             <input id="vocab-capture-zh" class="input" style="width:100%;font-size:13px;margin-bottom:6px;" placeholder="中文翻译">
             <textarea id="vocab-capture-def" class="input" style="width:100%;font-size:12px;min-height:36px;resize:vertical;" placeholder="定义（可选）"></textarea>
+            <input id="vocab-capture-tag" class="input" style="width:100%;font-size:12px;margin-top:6px;" placeholder="词单（可选）" list="vocab-capture-tags" value="${escapeHtml(vocabFilterTag)}">
+            <datalist id="vocab-capture-tags">
+                ${vocabAllTags.map(t => `<option value="${escapeHtml(t)}">`).join('')}
+            </datalist>
             <div style="display:flex;gap:6px;margin-top:8px;">
                 <button class="btn-primary" style="flex:1;padding:6px;font-size:12px;" onclick="vocabSaveCapture('${escapeHtml(text.substring(0, 200))}','${docId || ''}',${page || 0})">保存</button>
                 <button class="btn-secondary" style="padding:6px 12px;font-size:12px;" onclick="document.getElementById('reader-action-panel').style.display='none'">取消</button>
@@ -276,12 +332,14 @@ async function vocabCaptureFromSelection(text, docId, page) {
 async function vocabSaveCapture(text, docId, page) {
     const zh = (document.getElementById('vocab-capture-zh') || {}).value || '';
     const def = (document.getElementById('vocab-capture-def') || {}).value || '';
+    const tag = (document.getElementById('vocab-capture-tag') || {}).value || '';
     try {
         const body = {
             term_en: text.substring(0, 80),
             term_zh: zh.trim(),
             definition: def.trim(),
-            source_text: text.substring(0, 200)
+            source_text: text.substring(0, 200),
+            tag: tag.trim()
         };
         if (docId) { body.source_doc_id = docId; body.source_page = page || 1; }
         const res = await apiFetch('/api/vocab', { method: 'POST', body: JSON.stringify(body) });
