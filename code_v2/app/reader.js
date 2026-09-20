@@ -423,9 +423,7 @@ function readerAction(action){const menu=document.getElementById('reader-float-m
     }else if(action==='vocab'){
         const curPage=(function(){const ps=document.querySelectorAll('#pdf-pages-container [data-page-num]');for(const p of ps){const rect=p.getBoundingClientRect();if(rect.top>=0&&rect.top<200)return parseInt(p.dataset.pageNum)||1;}return 1;})();
         vocabCaptureFromSelection(readerSelText,readerCurrentDocId,curPage);
-    }else if(action==='vocab'){
-        vocabCaptureFromSelection(tbPeekSelText,tbPeekDocId,tbPeekSelPage||tbPeekCurrentPage);
-}else if(action==='ai'){
+    }else if(action==='ai'){
         openAIChat(readerSelText);
     }
 }
@@ -815,6 +813,8 @@ function tbPeekAction(action){
             +'<button onclick="tbPeekSaveNoteFromSel()" style="font-size:11px;padding:4px 12px;border-radius:6px;border:none;background:#52c41a;color:#fff;font-weight:600;cursor:pointer;">Save</button>'
             +'<button onclick="document.getElementById(\'tb-peek-slot\').style.display=\'none\'" style="font-size:11px;padding:4px 10px;background:none;border:none;color:var(--text-muted);cursor:pointer;">Cancel</button></div></div>');
         setTimeout(()=>{const t=document.getElementById('tbpeek-note-input');if(t)t.focus();},80);
+        }else if(action==='vocab'){
+        vocabCaptureFromSelection(tbPeekSelText,tbPeekDocId,tbPeekSelPage||tbPeekCurrentPage);
     }else if(action==='ai'){
         // Strategy B: reuse the Chat AI window — follow-up if open (no reset),
         // fresh quote-session otherwise. Never a third floating window.
