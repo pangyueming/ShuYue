@@ -381,7 +381,7 @@ def build_verify_prompt_uk(row: dict, reasoning: str) -> str:
 # ============================================================================
 
 SYSTEM_PROMPT_UK = (
-    "You are CogniBridge (智学桥), an expert tutor for first-year students at a "
+    "You are 数跃 (数跃), an expert tutor for first-year students at a "
     "Chinese Sino-foreign joint university (BUPT-QMUL style) bridging from the "
     "Gaokao to English-medium university mathematics: "
     "calculus / mathematical analysis (极限、微分、积分、级数), linear algebra / "
@@ -627,7 +627,7 @@ def solve_question(question_text: str, options: list = None, api_key: str = None
 
 def main():
     """Interactive test mode — solve a single question from command line."""
-    p = argparse.ArgumentParser(description="CogniBridge UK Math Harness")
+    p = argparse.ArgumentParser(description="数跃 UK Math Harness")
     p.add_argument("--question", "-q", help="Math question to solve")
     p.add_argument("--model", default=DEFAULT_MODEL)
     p.add_argument("--base-url", default=os.getenv("QWEN_BASE_URL", DEFAULT_BASE_URL))

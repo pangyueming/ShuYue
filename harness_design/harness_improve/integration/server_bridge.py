@@ -1,5 +1,5 @@
 """
-CogniBridge Harness V2/V3 Integration Bridge
+数跃 Harness V2/V3 Integration Bridge
 
 This module provides a unified interface for calling either:
 - V2 (stable): harness_uk/harness_uk_math.py

@@ -546,7 +546,7 @@ if __name__ == "__main__":
         print(f"  {qtype}: {count}")
     
     # Save
-    output_path = r"D:\study\智学桥\产品UI\harness_design\harness_improve\data\test_set_uk_50.json"
+    output_path = r"D:\study\数跃\产品UI\harness_design\harness_improve\data\test_set_uk_50.json"
     with open(output_path, 'w', encoding='utf-8') as f:
         json.dump(TEST_SET, f, indent=2, ensure_ascii=False)
     print(f"\nSaved to: {output_path}")

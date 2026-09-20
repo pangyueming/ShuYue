@@ -1,5 +1,5 @@
 """
-CogniBridge Harness V3 — Improved Math Solving Engine
+数跃 Harness V3 — Improved Math Solving Engine
 
 This package provides an enhanced harness for solving UK university
 mathematics problems using Qwen3.6-35B-A3B with:

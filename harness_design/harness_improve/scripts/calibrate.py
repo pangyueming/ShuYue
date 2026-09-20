@@ -5,7 +5,7 @@ import json
 import sys
 import re
 
-sys.path.insert(0, r"D:\study\智学桥\产品UI\harness_design\harness_improve")
+sys.path.insert(0, r"D:\study\数跃\产品UI\harness_design\harness_improve")
 from tools.sympy_executor import SymPyExecutor
 
 executor = SymPyExecutor()
@@ -79,7 +79,7 @@ def sympy_check(pred, gold):
 
 
 # Load results
-progress_path = r"D:\study\智学桥\产品UI\harness_design\harness_improve\evaluation\benchmark_progress.json"
+progress_path = r"D:\study\数跃\产品UI\harness_design\harness_improve\evaluation\benchmark_progress.json"
 with open(progress_path, 'r', encoding='utf-8') as f:
     data = json.load(f)
 
@@ -162,9 +162,9 @@ for mode, stats in summary.items():
     print(f"{mode.upper()}: {stats['correct']}/{stats['total']} = {stats['accuracy']*100:.1f}%")
 
 # Generate final report
-sys.path.insert(0, r"D:\study\智学桥\产品UI\harness_design\harness_improve\scripts")
+sys.path.insert(0, r"D:\study\数跃\产品UI\harness_design\harness_improve\scripts")
 from benchmark import generate_report
-report_path = r"D:\study\智学桥\产品UI\harness_design\harness_improve\evaluation\benchmark_report_final.md"
+report_path = r"D:\study\数跃\产品UI\harness_design\harness_improve\evaluation\benchmark_report_final.md"
 generate_report(data, report_path)
 
 print(f"\nFinal report: {report_path}")

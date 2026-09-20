@@ -16,8 +16,8 @@ from datetime import datetime
 from typing import Dict, List, Optional, Any
 
 # Add paths for imports
-sys.path.insert(0, r"D:\study\智学桥\产品UI\harness_design\harness_uk")
-sys.path.insert(0, r"D:\study\智学桥\产品UI\harness_design\harness_improve")
+sys.path.insert(0, r"D:\study\数跃\产品UI\harness_design\harness_uk")
+sys.path.insert(0, r"D:\study\数跃\产品UI\harness_design\harness_improve")
 
 import requests
 
@@ -26,7 +26,7 @@ import requests
 # ---------------------------------------------------------------------------
 
 # Try loading from .env file
-_env_path = r"D:\study\智学桥\产品UI\code_v2\.env"
+_env_path = r"D:\study\数跃\产品UI\code_v2\.env"
 if os.path.exists(_env_path):
     with open(_env_path, 'r', encoding='utf-8') as f:
         for line in f:
@@ -407,7 +407,7 @@ def generate_report(results: dict, output_path: str):
     """Generate human-readable markdown report."""
     
     lines = [
-        "# CogniBridge Harness Benchmark Report",
+        "# 数跃 Harness Benchmark Report",
         "",
         f"**Date**: {results['meta']['timestamp']}",
         f"**Model**: {results['meta']['model']}",
@@ -490,7 +490,7 @@ def main():
                    help="Limit to first N questions (0 = all)")
     p.add_argument("--topic", default="",
                    help="Filter by topic")
-    p.add_argument("--output-dir", default=r"D:\study\智学桥\产品UI\harness_design\harness_improve\evaluation",
+    p.add_argument("--output-dir", default=r"D:\study\数跃\产品UI\harness_design\harness_improve\evaluation",
                    help="Output directory")
     args = p.parse_args()
     
@@ -499,7 +499,7 @@ def main():
         return
     
     # Load test set
-    test_path = r"D:\study\智学桥\产品UI\harness_design\harness_improve\data\test_set_uk_50.json"
+    test_path = r"D:\study\数跃\产品UI\harness_design\harness_improve\data\test_set_uk_50.json"
     with open(test_path, 'r', encoding='utf-8') as f:
         test_set = json.load(f)
     

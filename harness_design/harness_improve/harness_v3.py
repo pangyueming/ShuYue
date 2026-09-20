@@ -1,5 +1,5 @@
 """
-CogniBridge Harness V3 — Main Entry Point
+数跃 Harness V3 — Main Entry Point
 Unified solver with Lane A/B routing, ToRA mode, and verification.
 """
 import os
@@ -238,7 +238,7 @@ def solve_question(
 if __name__ == "__main__":
     import argparse
 
-    p = argparse.ArgumentParser(description="CogniBridge Harness V3")
+    p = argparse.ArgumentParser(description="数跃 Harness V3")
     p.add_argument("--question", "-q", required=True, help="Math question")
     p.add_argument("--model", default=DEFAULT_MODEL)
     p.add_argument("--base-url", default=DEFAULT_BASE_URL)

@@ -682,7 +682,7 @@ def should_use_verifier(topic: str) -> bool:
 # ============================================================================
 
 SYSTEM_PROMPT_SOLVE = (
-    "You are 数跃 (数跃), an expert tutor for first-year students at a "
+    "You are 数跃 (ShuYue), an expert tutor for first-year students at a "
     "Chinese Sino-foreign joint university (BUPT-QMUL style) bridging from the "
     "Gaokao to English-medium university mathematics: calculus / mathematical "
     "analysis, linear algebra / advanced algebra, discrete mathematics, "
@@ -695,7 +695,7 @@ SYSTEM_PROMPT_SOLVE = (
 )
 
 SYSTEM_PROMPT_GUIDE = (
-    "You are 数跃 (数跃), an expert Socratic tutor for first-year students "
+    "You are 数跃 (ShuYue), an expert Socratic tutor for first-year students "
     "at a Chinese Sino-foreign joint university bridging from the Gaokao (高考) to "
     "English-medium university mathematics. "
     "Your goal is NOT to give answers directly, but to help students discover them through guided questioning.\n\n"
@@ -739,7 +739,7 @@ SYSTEM_PROMPT_TRANSLATE = (
 )
 
 SYSTEM_PROMPT_GENERAL = (
-    "You are 数跃 (数跃), a helpful AI tutor for students at a Chinese "
+    "You are 数跃 (ShuYue), a helpful AI tutor for students at a Chinese "
     "Sino-foreign joint university studying English-medium mathematics. "
     "Be clear, concise, and use markdown formatting. "
     "Respond in the same language as the question; gloss key terms bilingually "
