@@ -309,6 +309,12 @@ def init_db():
     _ensure_column("documents", "parse_status", "TEXT DEFAULT 'none'")
     _ensure_column("documents", "parse_error", "TEXT DEFAULT ''")
     _ensure_column("users", "mineru_token_enc", "TEXT DEFAULT ''")
+
+    # vocab_entries: add tag column (idempotent)
+    try:
+        conn.execute("ALTER TABLE vocab_entries ADD COLUMN tag TEXT DEFAULT ''")
+    except Exception:
+        pass  # column already exists
     # RAG tables (doc_chunks / chunks_fts / doc_embeddings)
     rag.ensure_rag_schema(conn)
 
@@ -2444,31 +2450,34 @@ class VocabCreate(BaseModel):
     source_doc_id: Optional[str] = None
     source_page: Optional[int] = None
     source_text: str = ""
+    tag: str = ""
 
 class VocabUpdate(BaseModel):
     term_en: Optional[str] = None
     term_zh: Optional[str] = None
     definition: Optional[str] = None
+    tag: Optional[str] = None
 
 @app.get("/api/vocab")
-def list_vocab(q: Optional[str] = None, current_user: dict = Depends(get_current_user)):
+def list_vocab(q: Optional[str] = None, tag: Optional[str] = None, current_user: dict = Depends(get_current_user)):
     """List user's vocabulary entries; optional ?q= search on term_en/term_zh/definition."""
     if not current_user:
         raise HTTPException(401, "Please log in")
     conn = get_db()
+    conditions = ["user_id=?"]
+    params = [current_user["id"]]
     if q:
+        conditions.append("(term_en LIKE ? OR term_zh LIKE ? OR definition LIKE ?)")
         like = f"%{q}%"
-        rows = conn.execute(
-            "SELECT * FROM vocab_entries WHERE user_id=? AND "
-            "(term_en LIKE ? OR term_zh LIKE ? OR definition LIKE ?) "
-            "ORDER BY updated_at DESC",
-            (current_user["id"], like, like, like)
-        ).fetchall()
-    else:
-        rows = conn.execute(
-            "SELECT * FROM vocab_entries WHERE user_id=? ORDER BY updated_at DESC",
-            (current_user["id"],)
-        ).fetchall()
+        params.extend([like, like, like])
+    if tag:
+        conditions.append("tag=?")
+        params.append(tag)
+    where = " AND ".join(conditions)
+    rows = conn.execute(
+        f"SELECT * FROM vocab_entries WHERE {where} ORDER BY updated_at DESC",
+        params
+    ).fetchall()
     conn.close()
     out = []
     doc_titles = {}
@@ -2498,18 +2507,18 @@ def create_vocab(req: VocabCreate, current_user: dict = Depends(get_current_user
     if existing:
         conn.execute(
             "UPDATE vocab_entries SET term_zh=?, definition=?, source_doc_id=?, "
-            "source_page=?, source_text=?, updated_at=datetime('now') WHERE id=?",
+            "source_page=?, source_text=?, tag=?, updated_at=datetime('now') WHERE id=?",
             (req.term_zh or "", req.definition or "", req.source_doc_id,
-             req.source_page, (req.source_text or "")[:200], existing["id"])
+             req.source_page, (req.source_text or "")[:200], req.tag or "", existing["id"])
         )
         conn.commit(); conn.close()
         return {"id": existing["id"], "deduped": True}
     vid = f"vocab_{int(time.time()*1000)}"
     conn.execute(
         "INSERT INTO vocab_entries (id,user_id,term_en,term_zh,definition,"
-        "source_doc_id,source_page,source_text) VALUES (?,?,?,?,?,?,?,?)",
+        "source_doc_id,source_page,source_text,tag) VALUES (?,?,?,?,?,?,?,?,?)",
         (vid, current_user["id"], term_en, req.term_zh or "", req.definition or "",
-         req.source_doc_id, req.source_page, (req.source_text or "")[:200])
+         req.source_doc_id, req.source_page, (req.source_text or "")[:200], req.tag or "")
     )
     conn.commit(); conn.close()
     return {"id": vid, "deduped": False}
@@ -2534,6 +2543,8 @@ def update_vocab(vocab_id: str, req: VocabUpdate, current_user: dict = Depends(g
         sets.append("term_zh=?"); vals.append(req.term_zh)
     if req.definition is not None:
         sets.append("definition=?"); vals.append(req.definition)
+    if req.tag is not None:
+        sets.append("tag=?"); vals.append(req.tag)
     if not sets:
         conn.close(); return {"updated": False}
     sets.append("updated_at=datetime('now')")
