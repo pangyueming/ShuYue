@@ -859,7 +859,7 @@ function renderGuideUiMock(kind,items){
     }else if(kind==='modes'){
         box.innerHTML='<div style="font-size:11px;color:var(--text-muted);margin-bottom:8px;">辅导双模式 Math Tutor modes</div>'
             +chip('通用 · 分步解答 step-by-step')+chip('引导 · 苏格拉底式 Socratic',true)
-            +'<div style="margin-top:8px;">'+chip('已验证 —— 每道快测题双重校验 verified')+'</div>';
+            +'<div style="margin-top:8px;">'+chip('已验证 —— 每道题双重校验 verified')+'</div>';
     }else if(kind==='floatmenu'){
         box.innerHTML='<div style="font-size:11px;color:var(--text-muted);margin-bottom:8px;">划词三件套 Select text to see</div>'
             +chip('翻译')+chip('高亮')+chip('笔记')+chip('问 AI',true);

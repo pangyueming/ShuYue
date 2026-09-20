@@ -37,8 +37,8 @@
             <div class="nav-section-label">工作区</div>
             <div class="nav-item active" onclick="showPage('dashboard')"><i data-lucide="layout-dashboard"></i>仪表板</div>
             <div class="nav-item" onclick="showPage('pretest')"><i data-lucide="clipboard-check"></i>学前诊断</div>
-            <div class="nav-item" onclick="showPage('tutor')"><i data-lucide="sigma"></i>数学辅导</div>
-            <div class="nav-item" onclick="showPage('quiz')"><i data-lucide="target"></i>AI 快测</div>
+            <div class="nav-item" onclick="showPage('tutor')"><i data-lucide="sigma"></i>AI 辅导</div>
+            <div class="nav-item" onclick="showPage('quiz')"><i data-lucide="target"></i>AI 出题</div>
             <div class="nav-item" onclick="showPage('plotter')"><i data-lucide="chart-line"></i>函数画板</div>
             <div class="nav-item" onclick="showPage('reader')"><i data-lucide="book-open"></i>阅读器</div>
             <div class="nav-item" onclick="showPage('notes')"><i data-lucide="notebook-pen"></i>笔记本</div>
@@ -125,7 +125,7 @@
                     <p class="dash-hero-sub" id="dash-hero-sub"></p>
                 </div>
                 <div class="dash-hero-actions">
-                    <button class="btn-secondary" onclick="showPage('quiz')"><i data-lucide="target" style="width:14px;height:14px;"></i>快速快测</button>
+                    <button class="btn-secondary" onclick="showPage('quiz')"><i data-lucide="target" style="width:14px;height:14px;"></i>快速出题</button>
                     <button class="btn-primary" onclick="showPage('tutor')"><i data-lucide="sigma" style="width:14px;height:14px;"></i>问辅导老师</button>
                 </div>
             </div>
@@ -288,7 +288,7 @@
         <!-- ===== MATH TUTOR ===== -->
         <div id="page-tutor" class="page-view page-chat">
             <div class="page-head">
-                <div class="page-eyebrow">数学辅导</div>
+                <div class="page-eyebrow">AI 辅导</div>
                 <h1 class="page-title">AI 解题助手</h1>
             </div>
             <div class="seg" style="margin-bottom:4px;">
@@ -355,8 +355,8 @@
             <div id="quiz-config">
                 <div class="page-head">
                     <div class="page-eyebrow">练习</div>
-                    <h1 class="page-title">AI 快测</h1>
-                    <p class="page-sub-strong">每道题在到达你面前之前，都经过智学桥解题引擎交叉验证。</p>
+                    <h1 class="page-title">AI 出题</h1>
+                    <p class="page-sub-strong">每道题在到达你面前之前，都经过 Harness 引擎交叉验证。</p>
                 </div>
                 <div class="card" style="padding:20px;">
                     <div style="margin-bottom:16px;">
@@ -390,11 +390,15 @@
                             <div class="field-label">验证</div>
                             <div class="verify-row">
                                 <input type="checkbox" id="quiz-verify" checked class="verify-check">
-                                <label for="quiz-verify" class="verify-label"><i data-lucide="shield-check" style="width:14px;height:14px;"></i>引擎交叉验证 <span class="field-hint">（较慢，推荐）</span></label>
+                                <label for="quiz-verify" class="verify-label"><i data-lucide="shield-check" style="width:14px;height:14px;"></i>Harness 引擎交叉验证 <span class="field-hint">（较慢，推荐）</span></label>
                             </div>
                         </div>
                     </div>
-                    <button class="btn-primary" style="width:100%;padding:12px;font-size:15px;" onclick="quizGenerate()"><i data-lucide="sparkles" style="width:15px;height:15px;"></i>生成快测</button>
+                                        <div style="margin-bottom:16px;">
+                        <div class="field-label">出题语言</div>
+                        <div id="quiz-lang-chips" class="chip-row"></div>
+                    </div>
+                    <button class="btn-primary" style="width:100%;padding:12px;font-size:15px;" onclick="quizGenerate()"><i data-lucide="sparkles" style="width:15px;height:15px;"></i>生成试题</button>
                 </div>
             </div>
 

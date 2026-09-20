@@ -1947,6 +1947,7 @@ class QuizGenerateRequest(BaseModel):
     difficulty: str = "Medium"      # Easy / Medium / Hard / Mixed
     qtype: str = "MCQ"              # MCQ / short / mixed
     verify: bool = True             # Harness cross-verification
+    quiz_lang: str = "en"           # en (exam language) / zh
 
 class QuizGradeRequest(BaseModel):
     quiz_id: str
@@ -1968,9 +1969,7 @@ QUIZ_PROMPT_TEMPLATE = (
     "- Number of questions: {count}\n"
     "- Difficulty: {difficulty}\n"
     "- Question types: {qtype_desc}\n"
-    "- BILINGUAL policy: write ALL questions, options and answers in ENGLISH "
-    "(the exam language), but write each explanation in Chinese with key terms "
-    "glossed bilingually, e.g. \"由夹逼定理 (squeeze theorem) 可知……\".\n"
+    "{lang_policy}"
     "{weak_context}"
     "Rules:\n"
     "- For MCQ: exactly 4 options, exactly one correct; distractors must be plausible. "
@@ -2010,8 +2009,22 @@ def _extract_json(text: str) -> Optional[dict]:
     except json.JSONDecodeError:
         return None
 
+QUIZ_LANG_POLICIES = {
+    "en": (
+        "- Language policy: write ALL questions, options and answers in ENGLISH "
+        "(the exam language), but write each explanation in Chinese with key terms "
+        "glossed bilingually, e.g. \"由夹逼定理 (squeeze theorem) 可知……\".\n"
+    ),
+    "zh": (
+        "- 语言策略：全部用中文出题（题干、选项、答案、解析均为中文），"
+        "数学表达式仍用 LaTeX 包裹；关键术语首次出现附英文对照，"
+        "如 极限 (limit)、特征值 (eigenvalue)。\n"
+    ),
+}
+
+
 def _quiz_generate_batch(topic: str, count: int, difficulty: str, qtype: str,
-                         weak_context: str) -> list:
+                         weak_context: str, quiz_lang: str = "en") -> list:
     """One model call that returns up to `count` parsed question dicts."""
     qtype_desc = {
         "MCQ": "multiple-choice only",
@@ -2021,6 +2034,7 @@ def _quiz_generate_batch(topic: str, count: int, difficulty: str, qtype: str,
     prompt = QUIZ_PROMPT_TEMPLATE.format(
         topic=topic, count=count, difficulty=difficulty,
         qtype_desc=qtype_desc, weak_context=weak_context,
+        lang_policy=QUIZ_LANG_POLICIES.get(quiz_lang, QUIZ_LANG_POLICIES["en"]),
     )
     try:
         resp = requests.post(BASE_URL, headers={
@@ -2143,7 +2157,7 @@ def quiz_generate(req: QuizGenerateRequest):
         remaining -= 6
     with _cf.ThreadPoolExecutor(max_workers=3) as ex:
         futures = [ex.submit(_quiz_generate_batch, req.topic, n, req.difficulty,
-                             req.qtype, weak_context) for n in batch_sizes]
+                             req.qtype, weak_context, req.quiz_lang) for n in batch_sizes]
         questions = []
         for f in _cf.as_completed(futures):
             questions.extend(f.result())
@@ -2161,7 +2175,7 @@ def quiz_generate(req: QuizGenerateRequest):
         # One concurrent retry batch if verification dropped too many
         if len(kept) < count:
             extra = _quiz_generate_batch(req.topic, min(6, count), req.difficulty,
-                                         req.qtype, weak_context)
+                                         req.qtype, weak_context, req.quiz_lang)
             with _cf.ThreadPoolExecutor(max_workers=6) as ex:
                 verdicts2 = list(ex.map(_quiz_verify_question, extra))
             for qd, ok in zip(extra, verdicts2):

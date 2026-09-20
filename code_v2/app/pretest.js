@@ -116,7 +116,7 @@ function ptGenerateReport(){
         <div class="card" style="display:flex;align-items:center;gap:16px;"><div style="width:48px;height:48px;border-radius:50%;display:flex;align-items:center;justify-content:center;color:#fff;background:var(--accent);">${iconHtml('graduation-cap',24)}</div><div><div style="font-size:14px;font-weight:500;">北京邮电大学（中外合办） · ${majorLabel}</div><div style="font-size:12px;color:var(--text-muted);">高考数学：${al} · 大一 · 教学周 ${pickedWeek}</div></div></div>
         <div class="card"><div style="display:flex;justify-content:space-between;margin-bottom:12px;"><span style="font-size:14px;font-weight:500;">高中知识掌握度</span><span style="font-size:24px;font-weight:700;color:${avg>=70?'#52c41a':avg>=40?'#faad14':'#E5484D'};">${avg}%</span></div><div class="progress-bar"><div style="background:${avg>=70?'#52c41a':avg>=40?'#faad14':'#E5484D'};height:4px;border-radius:2px;width:${avg}%;"></div></div>${strong.length?`<div style="font-size:12px;margin-top:8px;"><span style="color:#52c41a">已精通：</span> ${strong.join('、')}</div>`:''}${weak.length?`<div style="font-size:12px;"><span style="color:#E5484D">待加强：</span> ${weak.join('、')}</div>`:''}</div>
         <div class="card"><div style="font-size:14px;font-weight:500;margin-bottom:12px;">衔接断层预警（${majorLabel}）</div>${danger.map(t=>`<div style="display:flex;gap:8px;margin-bottom:8px;padding:8px;border-radius:6px;background:rgba(245,34,45,.06);"><span style="color:#E5484D">•</span><div><div style="font-size:13px;font-weight:500;">${t.n}</div><div style="font-size:11px;color:var(--text-muted)">${t.d}</div></div></div>`).join('')}${warn.map(t=>`<div style="display:flex;gap:8px;margin-bottom:8px;padding:8px;border-radius:6px;background:rgba(250,173,20,.06);"><span style="color:#faad14">•</span><div><div style="font-size:13px;font-weight:500;">${t.n}</div><div style="font-size:11px;color:var(--text-muted)">${t.d}</div></div></div>`).join('')}</div>
-        <div class="card"><div style="display:flex;justify-content:space-between;margin-bottom:8px;"><span style="font-size:14px;font-weight:500;">快测结果</span><span style="font-size:14px;font-weight:700;color:${qc>=7?'#52c41a':qc>=4?'#faad14':'#E5484D'};">答对 ${qc}/10</span></div></div>
+        <div class="card"><div style="display:flex;justify-content:space-between;margin-bottom:8px;"><span style="font-size:14px;font-weight:500;">测验结果</span><span style="font-size:14px;font-weight:700;color:${qc>=7?'#52c41a':qc>=4?'#faad14':'#E5484D'};">答对 ${qc}/10</span></div></div>
         <div class="card" style="background:rgba(76,141,255,.06);border-color:rgba(76,141,255,.2);"><div style="font-size:14px;font-weight:500;color:var(--accent);margin-bottom:12px;">推荐补强路径</div>${danger.length?`<div style="font-size:13px;margin-bottom:8px;"><span style="color:#E5484D;font-weight:700;">1.</span> 优先预习：<strong>${danger[0].n}</strong></div>`:''}${weak.length?`<div style="font-size:13px;margin-bottom:8px;"><span style="color:#faad14;font-weight:700;">2.</span> 补齐高中：<strong>${weak[0]}</strong></div>`:''}</div>`;
     ptGo(5);document.getElementById('pt-report').style.display='';
     refreshIcons();
@@ -235,7 +235,7 @@ async function collectPlanTasks(result){
                 if(ev&&ev.strongCount>=2)return;   // quiz-verified mastery — exempt even weak self-ratings
                 if(r==='none'||r==='fuzzy'){
                     tasks.push({name:d,score:ks[r],target:75,
-                        desc:(ev&&ev.latest!==null&&ev.latest<QUIZ_WEAK_THRESHOLD)?('快测 '+Math.round(ev.latest*100)+'%'):'开课前补齐'});
+                        desc:(ev&&ev.latest!==null&&ev.latest<QUIZ_WEAK_THRESHOLD)?('测验 '+Math.round(ev.latest*100)+'%'):'开课前补齐'});
                 }else if(ev&&ev.latest!==null&&ev.latest<QUIZ_WEAK_THRESHOLD){
                     tasks.push({name:d,score:ks[r],target:90,desc:'快测 '+Math.round(ev.latest*100)+'% · 与自评对照'});
                 }
@@ -289,7 +289,7 @@ async function renderStudyPlanAsync(result){
     });
 
     if(data.totalTasks===0){
-        html+='<div class="placeholder-box" style="min-height:120px;">前方无缺口——你的前置知识已覆盖！<br><span style="font-size:12px;">完成 AI 快测可持续为计划提供证据</span></div>';
+        html+='<div class="placeholder-box" style="min-height:120px;">前方无缺口——你的前置知识已覆盖！<br><span style="font-size:12px;">完成 AI 出题可持续为计划提供证据</span></div>';
     }else{
         html+=`<div style="margin-top:16px;padding-top:12px;border-top:1px solid var(--border);"><div style="display:flex;justify-content:space-between;font-size:12px;margin-bottom:6px;"><span style="color:var(--text-muted);">学期任务：${data.totalTasks}</span><span style="color:var(--text-secondary);">已完成： ${data.doneTasks}/${data.totalTasks}</span></div><div class="progress-bar"><div style="background:linear-gradient(90deg,#E5484D,#faad14,#52c41a);height:5px;border-radius:3px;width:${Math.round(data.doneTasks/data.totalTasks*100)}%;transition:width .3s;"></div></div></div>`;
     }

@@ -1,12 +1,15 @@
 ﻿// ===== AI QUIZ (generative + harness-verified) =====
 const QUIZ_TOPICS=['Mixed','Limits','Differentiation','Integration','Series_Convergence','Differential_Equations','Linear_Algebra','Discrete_Math','Probability','Proof_Techniques','Complex_Numbers','Vector_Calculus'];
-let quizState={count:5,diff:'Medium',qtype:'MCQ',active:false,quizId:null,questions:[],serverIdx:[],current:0,score:0,detail:[]};
+// 中文显示名映射（值保留英文 ID —— 后端契约与弱项预选依赖）
+const TOPIC_ZH={'Mixed':'综合','Limits':'极限','Differentiation':'导数','Integration':'积分','Series_Convergence':'级数','Differential_Equations':'微分方程','Linear_Algebra':'线性代数','Discrete_Math':'离散数学','Probability':'概率','Proof_Techniques':'证明技巧','Complex_Numbers':'复数','Vector_Calculus':'向量微积分'};
+const DIFF_ZH={Easy:'简单',Medium:'中等',Hard:'困难',Mixed:'混合'};
+let quizState={count:5,diff:'Medium',qtype:'MCQ',lang:'en',active:false,quizId:null,questions:[],serverIdx:[],current:0,score:0,detail:[]};
 
 function quizPageInit(){
     // Populate topic dropdown (once)
     const sel=document.getElementById('quiz-topic');
     if(sel&&sel.options.length===0){
-        sel.innerHTML=QUIZ_TOPICS.map(t=>`<option value="${t}">${t.replace(/_/g,' ')}</option>`).join('');
+        sel.innerHTML=QUIZ_TOPICS.map(t=>`<option value="${t}">${TOPIC_ZH[t]||t.replace(/_/g,' ')}</option>`).join('');
     }
     // Weak-topic recommendation from latest assessment
     const token=localStorage.getItem('cb_cn_token');
@@ -46,9 +49,11 @@ function quizSetCount(v){
 function quizRenderChips(){
     const chip=(on,label)=>`padding:6px 14px;border-radius:999px;font-size:12px;cursor:pointer;border:1px solid ${on?'var(--accent)':'var(--border)'};background:${on?'var(--accent)':'var(--bg-input)'};color:${on?'#fff':'var(--text-secondary)'};`;
     const c2=document.getElementById('quiz-diff-chips');
-    if(c2)c2.innerHTML=['Easy','Medium','Hard','Mixed'].map(d=>`<button style="${chip(quizState.diff===d,d)}" onclick="quizState.diff='${d}';quizRenderChips()">${d}</button>`).join('');
+    if(c2)c2.innerHTML=['Easy','Medium','Hard','Mixed'].map(d=>`<button style="${chip(quizState.diff===d,DIFF_ZH[d]||d)}" onclick="quizState.diff='${d}';quizRenderChips()">${DIFF_ZH[d]||d}</button>`).join('');
     const c3=document.getElementById('quiz-qtype-chips');
-    if(c3)c3.innerHTML=[['MCQ','MCQ'],['short','Fill-in'],['mixed','Mixed']].map(([v,l])=>`<button style="${chip(quizState.qtype===v,l)}" onclick="quizState.qtype='${v}';quizRenderChips()">${l}</button>`).join('');
+    if(c3)c3.innerHTML=[['MCQ','单选题'],['short','填空题'],['mixed','混合']].map(([v,l])=>`<button style="${chip(quizState.qtype===v,l)}" onclick="quizState.qtype='${v}';quizRenderChips()">${l}</button>`).join('');
+    const c4=document.getElementById('quiz-lang-chips');
+    if(c4)c4.innerHTML=[['en','英文（考试语言）'],['zh','中文']].map(([v,l])=>`<button style="${chip(quizState.lang===v,l)}" onclick="quizState.lang='${v}';quizRenderChips()">${l}</button>`).join('');
 }
 
 function quizShow(state){
@@ -94,10 +99,10 @@ async function quizGenerate(){
     }
     st.textContent='正在联络出题官…';
     const tick=setInterval(()=>{bar.style.width=(Math.min(85,parseFloat(bar.style.width)+7))+'%';
-        st.textContent=verifyEl&&verifyEl.checked&&parseFloat(bar.style.width)>50?'解题引擎正在交叉验证答案…':'出题官正在命题…';},900);
+        st.textContent=verifyEl&&verifyEl.checked&&parseFloat(bar.style.width)>50?'解题 Harness 引擎正在交叉验证答案…':'出题官正在命题…';},900);
     try{
         const res=await apiFetch('/api/quiz/generate',{method:'POST',body:JSON.stringify({
-            topic,count:quizState.count,difficulty:quizState.diff,qtype:quizState.qtype,verify})});
+            topic,count:quizState.count,difficulty:quizState.diff,qtype:quizState.qtype,verify,quiz_lang:quizState.lang})});
         if(!res.ok){const e=await res.json().catch(()=>({}));throw new Error(e.detail||('HTTP '+res.status));}
         const data=await res.json();
         clearInterval(tick);bar.style.width='100%';
@@ -125,7 +130,7 @@ function quizRenderQuestion(){
     const card=document.getElementById('quiz-question-card');
     const fb=document.getElementById('quiz-feedback');
     fb.style.display='none';
-    const badge=q.verified?'<span style="display:inline-flex;align-items:center;gap:4px;font-size:10px;padding:2px 8px;border-radius:999px;background:rgba(82,196,26,.12);color:#52c41a;font-weight:600;">'+iconHtml('shield-check',11)+'已验证</span>':'';
+    const badge=q.verified?'<span style="display:inline-flex;align-items:center;gap:4px;font-size:10px;padding:2px 8px;border-radius:999px;background:rgba(82,196,26,.12);color:#52c41a;font-weight:600;">'+iconHtml('shield-check',11)+'Harness 已验证</span>':'';
     if(q.qtype==='MCQ'){
         card.innerHTML=`
             <div style="display:flex;justify-content:space-between;margin-bottom:10px;">
@@ -222,7 +227,7 @@ async function quizFinish(){
     ring.style.borderColor=col;ring.style.color=col;
     ring.textContent=quizState.score+'/'+total;
     document.getElementById('quiz-score-title').textContent=pct>=80?'出色！':pct>=50?'不错，继续加油！':'多加练习';
-    document.getElementById('quiz-score-sub').textContent=quizState.score+'/'+total+' 题正确 · '+(document.getElementById('quiz-topic')?document.getElementById('quiz-topic').value.replace(/_/g,' '):'');
+    document.getElementById('quiz-score-sub').textContent=quizState.score+'/'+total+' 题正确 · '+(document.getElementById('quiz-topic')?(TOPIC_ZH[document.getElementById('quiz-topic').value]||''):'');
     document.getElementById('quiz-review-list').innerHTML=quizState.detail.map((d,i)=>`
         <div class="card" style="padding:12px;margin-bottom:8px;border-left:3px solid ${d.correct?'#52c41a':'#ff6b6b'};">
             <div style="display:flex;gap:8px;align-items:center;margin-bottom:4px;flex-wrap:wrap;">

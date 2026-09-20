@@ -332,7 +332,7 @@ function kgOpenPanel(n){
         +(feeds.length?'<div><div style="font-size:11px;color:var(--text-muted);margin-bottom:4px;">衔接去向</div>'
             +'<div style="font-size:12px;color:var(--text-secondary);line-height:1.8;">'+feeds.map(f=>escapeHtml(f.name)).join(' · ')+'</div></div>':'')
         +'<div class="kg-panel-actions">'
-        +'<button class="btn-primary" style="padding:9px;font-size:13px;" onclick="kgQuizTopic(\''+n.id+'\')">本主题快测</button>'
+        +'<button class="btn-primary" style="padding:9px;font-size:13px;" onclick="kgQuizTopic(\''+n.id+'\')">本主题出题</button>'
         +'<button class="btn-secondary" style="padding:9px;font-size:13px;" onclick="kgFindInTextbook(\''+n.id+'\')">在教材中定位</button>'
         +'</div>';
     p.style.display='flex';
@@ -353,7 +353,7 @@ function kgQuizTopic(id){
         const opt=[...sel.options].find(o=>o.value===topic);
         if(opt)sel.value=topic;
     }
-    showNotification(topic?('Topic pre-selected: '+topic.replace(/_/g,' ')):'Pick a topic and generate','success');
+    showNotification(topic?('已预选主题：'+((typeof TOPIC_ZH!=='undefined'&&TOPIC_ZH[topic])||topic.replace(/_/g,' '))):'选择主题后生成','success');
 }
 async function kgFindInTextbook(id){
     const n=kgModel.nodes.find(x=>x.id===id);if(!n)return;

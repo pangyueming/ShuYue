@@ -1170,7 +1170,7 @@ async function aiChatSend(text){
     const quoteEl=document.getElementById('ai-chat-quote');
     const quote=quoteEl.style.display!=='none'?quoteEl.textContent:'';
 
-    const sysContent='你是智学桥 CogniBridge，中外合办大学（北邮-QMUL式）一年级数学辅导助手，学生来自高考体系、阅读中英混合教材。回答清晰简洁，使用 markdown（加粗、列表），数学用 LaTeX。关键术语首次出现附中英对照（如 supremum 上确界）。中文提问用中文回答，英文提问用英文回答。'+(quote?'\n\n学生从文档中划选了这段文本：\n'+quote:'');
+    const sysContent='你是智学桥 CogniBridge，中外合办大学（北邮-QMUL式）一年级 AI 辅导助手，学生来自高考体系、阅读中英混合教材。回答清晰简洁，使用 markdown（加粗、列表），数学用 LaTeX。关键术语首次出现附中英对照（如 supremum 上确界）。中文提问用中文回答，英文提问用英文回答。'+(quote?'\n\n学生从文档中划选了这段文本：\n'+quote:'');
 
     // Context injection (backend filters system messages, so context rides in user
     // messages): book excerpts → LAST user message; page context → FIRST user message

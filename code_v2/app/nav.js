@@ -1,5 +1,5 @@
 ﻿// ===== Navigation =====
-const pageLabels={dashboard:'仪表板',pretest:'学前诊断',tutor:'数学辅导',quiz:'AI 快测',plotter:'函数画板',reader:'阅读器',notes:'笔记本',graph:'知识图谱',forum:'学习论坛',bookshelf:'书架',login:'登录',profile:'个人资料'};
+const pageLabels={dashboard:'仪表板',pretest:'学前诊断',tutor:'AI 辅导',quiz:'AI 出题',plotter:'函数画板',reader:'阅读器',notes:'笔记本',graph:'知识图谱',forum:'学习论坛',bookshelf:'书架',login:'登录',profile:'个人资料'};
 
 // Pages that require login for data persistence
 const LOGIN_REQUIRED_PAGES=['bookshelf'];
