@@ -52,7 +52,7 @@ function mineruTrackerTick(){
     .catch(()=>{});
 }
 
-const MINERU_STATUS_LABELS={done:'MinerU 已解析',failed:'Parsing failed',parsing:'MinerU 解析中…',indexing:'构建索引中…',queued:'Queued',none:'未解析'};
+const MINERU_STATUS_LABELS={done:'MinerU 已解析',failed:'解析失败',parsing:'MinerU 解析中…',indexing:'构建索引中…',queued:'排队中',none:'未解析'};
 
 function mineruSyncDoc(id,status){
     let changed=false;
@@ -91,21 +91,21 @@ function mineruShowNextDone(){
         icon.style.color='#52c41a';
         icon.innerHTML=iconHtml('check-circle',40);
         title.textContent='AI 重排完成';
-        body.innerHTML='"'+escapeHtml(item.title)+'" is ready — formatted text, rendered formulas and Q&A are now unlocked.';
+        body.innerHTML='"'+escapeHtml(item.title)+'" 已就绪——排版文本、公式渲染与引用问答现已全部解锁。';
         openBtn.style.display='inline-block';
-        openBtn.textContent='Open Book';
+        openBtn.textContent='打开本书';
     }else if(mineruIsAuthError(item)){
         icon.style.color='var(--yellow)';
         icon.innerHTML=iconHtml('key-round',40);
         title.textContent='MinerU API Key 被拒绝';
-        body.innerHTML='Your MinerU API key was rejected while parsing "'+escapeHtml(item.title)+'".<br><span style="font-size:11px;color:var(--text-muted);">Update your key to continue — completed parts are cached.</span>';
+        body.innerHTML='解析 "'+escapeHtml(item.title)+'" 时你的 MinerU API Key 被拒绝。<br><span style="font-size:11px;color:var(--text-muted);">更新 Key 即可继续——已完成的部分已缓存。</span>';
         openBtn.style.display='inline-block';
-        openBtn.textContent='Update Key';
+        openBtn.textContent='更新 Key';
     }else{
         icon.style.color='#ff6b6b';
         icon.innerHTML=iconHtml('alert-circle',40);
         title.textContent='AI 重排失败';
-        body.innerHTML='"'+escapeHtml(item.title)+'" could not be parsed.<br><span style="font-size:11px;color:var(--text-muted);">'+escapeHtml(item.error||'Unknown error')+'</span>';
+        body.innerHTML='"'+escapeHtml(item.title)+'" 解析失败。<br><span style="font-size:11px;color:var(--text-muted);">'+escapeHtml(item.error||'未知错误')+'</span>';
         openBtn.style.display='none';
     }
     refreshIcons();
@@ -171,7 +171,7 @@ async function mineruGateOpen(doc,cat,idx,opensReader){
     mineruGateOpensReader=opensReader===true;
     document.getElementById('mineru-gate').style.display='flex';
     const body=document.getElementById('mineru-gate-body');
-    body.innerHTML='<div style="text-align:center;color:var(--text-muted);padding:20px;font-size:13px;">Checking…</div>';
+    body.innerHTML='<div style="text-align:center;color:var(--text-muted);padding:20px;font-size:13px;">检查中…</div>';
     // check current parse state FIRST — an active parse goes straight to progress,
     // never re-ask consent for a job that's already running
     let state=null;
@@ -205,20 +205,21 @@ function mineruGateRenderOnboarding(){
     body.innerHTML=`
     <p style="font-size:13px;color:var(--text-secondary);line-height:1.6;margin:4px 0 14px;">
         ${scanned
-            ?'This scanned PDF has no selectable text. AI re-layout unlocks formatted text, rendered formulas and citation-grounded Q&A — using <b>your own free MinerU account</b> (2,000 pages/day free).'
-            :'This textbook already reads fine — parsing builds a <b>searchable index</b> so Chat AI can search the whole book (formulas become clean LaTeX) — using <b>your own free MinerU account</b> (2,000 pages/day free).'}</p>
+            ?'这份扫描版 PDF 没有可选中的文字。AI 重排将解锁排版文本、公式渲染与带引用的问答——使用<b>你自己的免费 MinerU 账号</b>（每天免费 2,000 页）。'
+            :'这本教材本身可正常阅读——解析后会构建<b>可检索索引</b>，让 AI 问答能搜索整本书（公式转为整洁的 LaTeX）——使用<b>你自己的免费 MinerU 账号</b>（每天免费 2,000 页）。'}</p>
     <div style="background:var(--bg-input);border:1px solid var(--border);border-radius:10px;padding:14px 16px;margin-bottom:12px;font-size:13px;line-height:2;color:var(--text-secondary);">
-        <b style="color:var(--text-primary);">Setup (one time only):</b><br>
-        1. Create a free account at
-        <a href="https://mineru.net" target="_blank" rel="noopener" style="color:var(--accent);font-weight:600;">mineru.net ↗</a><br>
-        2. Open <span style="font-family:monospace;background:var(--bg-tag);padding:1px 6px;border-radius:4px;">Avatar → API Key</span> and create a key<br>
-        3. Paste your API key below — it is stored <b>encrypted</b> and never shown again
+        <b style="color:var(--text-primary);">配置（仅需一次）：</b><br>
+        1. 在
+        <a href="https://mineru.net" target="_blank" rel="noopener" style="color:var(--accent);font-weight:600;">mineru.net ↗</a>
+        注册免费账号<br>
+        2. 打开 <span style="font-family:monospace;background:var(--bg-tag);padding:1px 6px;border-radius:4px;">头像 → API Key</span> 并创建一个 Key<br>
+        3. 把 API Key 粘贴到下面——它会被<b>加密存储</b>，之后不再显示
     </div>
-    <input id="mineru-key-input" type="password" placeholder="Paste your API key (starts with sk-)" class="input" style="width:100%;font-size:13px;">
+    <input id="mineru-key-input" type="password" placeholder="粘贴你的 API Key（以 sk- 开头）" class="input" style="width:100%;font-size:13px;">
     <div id="mineru-key-error" style="color:#ff6b6b;font-size:12px;min-height:16px;margin-top:4px;"></div>
     <button id="mineru-key-save" onclick="mineruGateSaveKey()" style="width:100%;margin-top:8px;padding:10px;border-radius:8px;border:none;background:var(--accent);color:#fff;font-size:13px;font-weight:600;cursor:pointer;">保存 Key 并继续</button>
-    <button onclick="mineruGateOpenGuide()" style="width:100%;margin-top:10px;padding:6px;border:none;background:transparent;color:var(--accent);font-size:12px;cursor:pointer;text-decoration:underline;">What is MinerU? — read the 1-minute guide</button>
-    <button onclick="mineruGateChooseOriginal()" style="width:100%;margin-top:4px;padding:8px;border-radius:8px;border:none;background:transparent;color:var(--text-muted);font-size:12px;cursor:pointer;">${mineruGateOpensReader?'Skip — show original pages only':'Not now'}</button>
+    <button onclick="mineruGateOpenGuide()" style="width:100%;margin-top:10px;padding:6px;border:none;background:transparent;color:var(--accent);font-size:12px;cursor:pointer;text-decoration:underline;">MinerU 是什么？——阅读 1 分钟指南</button>
+    <button onclick="mineruGateChooseOriginal()" style="width:100%;margin-top:4px;padding:8px;border-radius:8px;border:none;background:transparent;color:var(--text-muted);font-size:12px;cursor:pointer;">${mineruGateOpensReader?'跳过——仅查看原书页':'暂不启用'}</button>
     <div id="mineru-quota-line" style="font-size:11px;color:var(--text-muted);text-align:center;margin-top:10px;"></div>`;
     mineruFillQuota('mineru-quota-line');
     setTimeout(()=>{const i=document.getElementById('mineru-key-input');if(i)i.focus();},100);
@@ -231,7 +232,7 @@ async function mineruFillQuota(elId){
         const r=await apiFetch('/api/user/mineru-usage');
         if(!r.ok)return;
         const u=await r.json();
-        el.textContent='今日 MinerU：'+u.used+' / '+u.limit.toLocaleString()+' pages · resets daily';
+        el.textContent='今日 MinerU：'+u.used+' / '+u.limit.toLocaleString()+' 页 · 每日重置';
     }catch(e){/* offline: leave blank */}
 }
 
@@ -242,10 +243,9 @@ function mineruGateRenderQuota(d){
         <div style="color:var(--yellow);margin-bottom:10px;display:flex;justify-content:center;">${iconHtml('hourglass',34)}</div>
         <div style="font-size:14px;font-weight:700;color:var(--text-primary);margin-bottom:6px;">今日 MinerU 配额已用完</div>
         <p style="font-size:13px;color:var(--text-secondary);line-height:1.6;">
-            This book needs <b>${d.needed}</b> pages, but only <b>${d.remaining}</b> of today's
-            ${d.limit.toLocaleString()} free pages remain.<br>
-            Parsing stopped — <b>finished parts are kept</b>, so continuing tomorrow costs 0 extra pages.</p>
-        <button onclick="mineruGateClose()" style="width:100%;margin-top:12px;padding:10px;border-radius:8px;border:none;background:var(--accent);color:#fff;font-size:13px;font-weight:600;cursor:pointer;">OK — continue tomorrow</button>
+            这本书需要 <b>${d.needed}</b> 页，但今日免费的 ${d.limit.toLocaleString()} 页只剩 <b>${d.remaining}</b> 页。<br>
+            解析已暂停——<b>已完成的部分会保留</b>，明天继续不再额外消耗页数。</p>
+        <button onclick="mineruGateClose()" style="width:100%;margin-top:12px;padding:10px;border-radius:8px;border:none;background:var(--accent);color:#fff;font-size:13px;font-weight:600;cursor:pointer;">好的——明天继续</button>
     </div>`;
     refreshIcons();
 }
@@ -279,7 +279,7 @@ async function mineruGateSaveKey(){
         else{mineruGateRenderConsent();}
     }catch(e){
         errEl.textContent=e.message;
-        if(btn){btn.disabled=false;btn.textContent='Save Key & Continue';}
+        if(btn){btn.disabled=false;btn.textContent='保存 Key 并继续';}
         return;
     }
 }
@@ -295,40 +295,40 @@ function mineruGateUpdateKey(){
     mineruKeyRetryPending=true;
     mineruGateRenderOnboarding();
     const errEl=document.getElementById('mineru-key-error');
-    if(errEl)errEl.textContent='The previous key was rejected — please paste a different one.';
+    if(errEl)errEl.textContent='刚才的 Key 被拒绝了——请粘贴另一个 Key。';
 }
 
 function mineruGateOfferRetry(){
     const body=document.getElementById('mineru-gate-body');
-    const title=mineruGateDoc?escapeHtml(mineruGateDoc.title):'this document';
+    const title=mineruGateDoc?escapeHtml(mineruGateDoc.title):'该文档';
     body.innerHTML=`
     <div style="text-align:center;padding:10px 0;">
         <div style="color:var(--green);margin-bottom:8px;display:flex;justify-content:center;">${iconHtml('key-round',34)}</div>
         <div style="font-size:15px;font-weight:700;color:var(--text-primary);margin-bottom:6px;">Key 已更新</div>
-        <p style="font-size:13px;color:var(--text-secondary);margin:0 0 16px;">Your new MinerU key is saved.<br>现在重试解析 "${title}" 吗？</p>
+        <p style="font-size:13px;color:var(--text-secondary);margin:0 0 16px;">你的新 MinerU Key 已保存。<br>现在重试解析 "${title}" 吗？</p>
         <div style="display:flex;gap:10px;">
-            <button onclick="mineruGateStart()" style="flex:1;display:inline-flex;align-items:center;justify-content:center;gap:6px;padding:10px;border-radius:8px;border:none;background:var(--accent);color:#fff;font-size:13px;font-weight:600;cursor:pointer;">${iconHtml('rotate-ccw',14)}Retry Parse</button>
+            <button onclick="mineruGateStart()" style="flex:1;display:inline-flex;align-items:center;justify-content:center;gap:6px;padding:10px;border-radius:8px;border:none;background:var(--accent);color:#fff;font-size:13px;font-weight:600;cursor:pointer;">${iconHtml('rotate-ccw',14)}重试解析</button>
             <button onclick="mineruGateChooseOriginal()" style="flex:1;padding:10px;border-radius:8px;border:1px solid var(--border);background:var(--bg-input);color:var(--text-secondary);font-size:13px;cursor:pointer;">暂不启用</button>
         </div>
-        <p style="font-size:11px;color:var(--text-muted);margin-top:10px;">Completed parts are cached — retrying won't re-spend those pages.</p>
+        <p style="font-size:11px;color:var(--text-muted);margin-top:10px;">已完成的部分已缓存——重试不会重复消耗那些页数。</p>
     </div>`;
     refreshIcons();
 }
 
 function mineruGateRenderConsent(){
     const body=document.getElementById('mineru-gate-body');
-    const title=mineruGateDoc?mineruGateDoc.title:'this document';
+    const title=mineruGateDoc?mineruGateDoc.title:'该文档';
     const scanned=mineruGateDoc&&mineruGateDoc.needsOcr;
     body.innerHTML=`
     <p style="font-size:13px;color:var(--text-secondary);line-height:1.6;margin:4px 0 14px;">
         <b style="color:var(--text-primary);">"${escapeHtml(title)}"</b> ${scanned
-            ?'is a scanned PDF with no selectable text.<br>Enable AI re-layout now? (uses your MinerU key; large books take ~5–20 min)'
-            :'reads fine as-is.<br>Build a whole-book AI index now? Reading stays unchanged — only Chat AI gains book-wide search. (uses your MinerU key)'}</p>
+            ?'是扫描版 PDF，没有可选中的文字。<br>现在启用 AI 重排吗？（使用你的 MinerU Key；大部头约需 5–20 分钟）'
+            :'本身可正常阅读。<br>现在构建全书 AI 索引吗？阅读体验不变——只是让 AI 问答获得整本书的检索能力。（使用你的 MinerU Key）'}</p>
     <div style="display:flex;gap:10px;">
-        <button onclick="mineruGateStart()" style="flex:1;display:inline-flex;align-items:center;justify-content:center;gap:6px;padding:10px;border-radius:8px;border:none;background:var(--accent);color:#fff;font-size:13px;font-weight:600;cursor:pointer;">${iconHtml('sparkles',14)}${scanned?'Enable AI Re-layout':'Build AI Index'}</button>
-        <button onclick="mineruGateChooseOriginal()" style="flex:1;padding:10px;border-radius:8px;border:1px solid var(--border);background:var(--bg-input);color:var(--text-secondary);font-size:13px;cursor:pointer;">${mineruGateOpensReader?'Original Pages Only':'Not now'}</button>
+        <button onclick="mineruGateStart()" style="flex:1;display:inline-flex;align-items:center;justify-content:center;gap:6px;padding:10px;border-radius:8px;border:none;background:var(--accent);color:#fff;font-size:13px;font-weight:600;cursor:pointer;">${iconHtml('sparkles',14)}${scanned?'启用 AI 重排':'构建 AI 索引'}</button>
+        <button onclick="mineruGateChooseOriginal()" style="flex:1;padding:10px;border-radius:8px;border:1px solid var(--border);background:var(--bg-input);color:var(--text-secondary);font-size:13px;cursor:pointer;">${mineruGateOpensReader?'仅看原书页':'暂不启用'}</button>
     </div>
-    <p style="font-size:11px;color:var(--text-muted);margin-top:10px;">You can change your mind later via the "Enable AI" button in the toolbar.</p>
+    <p style="font-size:11px;color:var(--text-muted);margin-top:10px;">之后随时可以通过工具栏的「启用 AI」按钮改变主意。</p>
     <div id="mineru-quota-line" style="font-size:11px;color:var(--text-muted);text-align:center;margin-top:6px;"></div>`;
     refreshIcons();
 }
@@ -351,7 +351,7 @@ async function mineruGateChooseOriginal(){
 
 async function mineruGateStart(){
     const body=document.getElementById('mineru-gate-body');
-    body.innerHTML='<div style="text-align:center;color:var(--text-muted);padding:20px;font-size:13px;">Starting…</div>';
+    body.innerHTML='<div style="text-align:center;color:var(--text-muted);padding:20px;font-size:13px;">启动中…</div>';
     try{
         const r=await apiFetch('/api/documents/'+mineruGateDoc.id+'/parse',{method:'POST'});
         if(!r.ok){
@@ -373,8 +373,8 @@ function mineruGateRenderProgress(){
     body.innerHTML=`
     <div style="text-align:center;padding:14px 0;">
         <div class="spinner" style="margin:0 auto 14px;"></div>
-        <div id="mineru-progress-text" style="font-size:13px;color:var(--text-primary);font-weight:600;">Queued…</div>
-        <div id="mineru-progress-sub" style="font-size:11px;color:var(--text-muted);margin-top:6px;">"${title}" · you can close this dialog, parsing continues in the background</div>
+        <div id="mineru-progress-text" style="font-size:13px;color:var(--text-primary);font-weight:600;">排队中…</div>
+        <div id="mineru-progress-sub" style="font-size:11px;color:var(--text-muted);margin-top:6px;">"${title}" · 可以关闭此弹窗，解析会在后台继续</div>
         <div id="mineru-quota-line" style="font-size:11px;color:var(--text-muted);margin-top:8px;"></div>
     </div>`;
     const quotaEl=document.getElementById('mineru-quota-line');
@@ -386,7 +386,7 @@ function mineruGateRenderProgress(){
                 const t=document.getElementById('mineru-progress-text');
                 if(t){
                     if(s.status==='done'){
-                        t.textContent='Done!';
+                        t.textContent='完成！';
                         setTimeout(()=>{
                             mineruGateClose();
                             if(mineruGateRef)readerOpenDoc(mineruGateRef.cat,mineruGateRef.idx);
@@ -396,20 +396,20 @@ function mineruGateRenderProgress(){
                     if(s.status==='failed'){
                         const auth=mineruIsAuthError(s);
                         const quotaFail=s.error_type==='quota'||/quota/i.test(s.error||'');
-                        t.innerHTML='<span style="color:#ff6b6b;">'+escapeHtml(s.error||'Parsing failed')+'</span>';
+                        t.innerHTML='<span style="color:#ff6b6b;">'+escapeHtml(s.error||'解析失败')+'</span>';
                         const sub=document.getElementById('mineru-progress-sub');
                         if(sub&&auth){
-                            sub.innerHTML='<button onclick="mineruGateUpdateKey()" style="margin-top:10px;display:inline-flex;align-items:center;gap:6px;padding:8px 20px;border-radius:8px;border:none;background:var(--accent);color:#fff;font-size:13px;font-weight:600;cursor:pointer;">'+iconHtml('key-round',13)+'Update MinerU Key & Retry</button>';
+                            sub.innerHTML='<button onclick="mineruGateUpdateKey()" style="margin-top:10px;display:inline-flex;align-items:center;gap:6px;padding:8px 20px;border-radius:8px;border:none;background:var(--accent);color:#fff;font-size:13px;font-weight:600;cursor:pointer;">'+iconHtml('key-round',13)+'更新 MinerU Key 并重试</button>';
                             refreshIcons();
                         }else if(sub&&quotaFail){
-                            sub.innerHTML='<span style="color:#faad14;">Finished parts are kept — continue tomorrow at no extra cost.</span>';
+                            sub.innerHTML='<span style="color:#faad14;">已完成的部分已保留——明天继续不额外消耗页数。</span>';
                         }
                         return;
                     }
-                    const pages=s.total_pages?(' · '+s.pages_done+'/'+s.total_pages+' pages'):'';
-                    t.textContent=s.status==='indexing'?'构建检索索引中…':'Parsing on MinerU cloud'+pages;
+                    const pages=s.total_pages?(' · '+s.pages_done+'/'+s.total_pages+' 页'):'';
+                    t.textContent=s.status==='indexing'?'构建检索索引中…':'MinerU 云端解析中'+pages;
                     if(quotaEl&&typeof s.mineru_used==='number'){
-                        quotaEl.textContent='今日 MinerU：'+s.mineru_used+' / '+(s.mineru_limit||2000).toLocaleString()+' pages · resets daily';
+                        quotaEl.textContent='今日 MinerU：'+s.mineru_used+' / '+(s.mineru_limit||2000).toLocaleString()+' 页 · 每日重置';
                     }
                 }
             }
@@ -450,7 +450,7 @@ function readerRestoreScroll(target){
     area.scrollTop+=r.top-a.top-8;
     const tb=document.getElementById('reader-toolbar');
     const title=document.getElementById('reader-doc-title').textContent||'';
-    if(tb)tb.textContent='Page '+target+' of '+readerPdfTotal+' · '+title;
+    if(tb)tb.textContent='第 '+target+' 页 / 共 '+readerPdfTotal+' 页 · '+title;
 }
 
 function readerApplyPendingScroll(){
@@ -490,14 +490,14 @@ function readerToggleView(){
     readerPendingAnchor=((pd&&pd.dataset.text)||'').trim().slice(0,60);   // off-by-one guard
     readerViewMode=readerViewMode==='doc'?'pdf':'doc';
     const btn=document.getElementById('reader-view-toggle');
-    if(btn)btn.textContent=readerViewMode==='doc'?'Original Pages':'Reformatted';
+    if(btn)btn.textContent=readerViewMode==='doc'?'原书页':'重排版';
     const ref=readerCurrentDocRef;
     readerOpenDoc(ref.cat,ref.idx);
 }
 
 async function readerOpenDocView(doc,area){
     readerDocType='docview';
-    area.innerHTML='<div style="text-align:center;padding:60px;color:var(--text-muted);display:flex;flex-direction:column;align-items:center;gap:12px;"><div class="spinner"></div><p>Loading reformatted document…</p></div>';
+    area.innerHTML='<div style="text-align:center;padding:60px;color:var(--text-muted);display:flex;flex-direction:column;align-items:center;gap:12px;"><div class="spinner"></div><p>正在加载重排版文档…</p></div>';
     area.style.cssText='flex:1;overflow-y:auto;padding:24px 8px;background:var(--bg-tag);';
     let total=0;
     try{
@@ -506,7 +506,7 @@ async function readerOpenDocView(doc,area){
         const meta=await r.json();
         total=meta.total_pages||1;
     }catch(e){
-        area.innerHTML='<div style="text-align:center;padding:60px;color:#ff6b6b;">Failed to load reformatted document<br><span style="font-size:12px;">'+escapeHtml(e.message)+'</span></div>';
+        area.innerHTML='<div style="text-align:center;padding:60px;color:#ff6b6b;">重排版文档加载失败<br><span style="font-size:12px;">'+escapeHtml(e.message)+'</span></div>';
         return;
     }
     readerPdfTotal=total;
@@ -568,7 +568,7 @@ async function readerOpenDocView(doc,area){
                 const rect=p.getBoundingClientRect();
                 if(rect.top>=0&&rect.top<area.clientHeight/2){
                     _cur=parseInt(p.dataset.pageNum);
-                    document.getElementById('reader-toolbar').textContent='Page '+_cur+' of '+total+' · '+doc.title;
+                    document.getElementById('reader-toolbar').textContent='第 '+_cur+' 页 / 共 '+total+' 页 · '+doc.title;
                     break;
                 }
             }
@@ -650,7 +650,7 @@ async function readerRenderDocViewPage(pageNum){
         if(pageDiv.children.length<=1){
             const empty=document.createElement('div');
             empty.style.cssText='text-align:center;color:var(--text-muted);font-size:12px;font-style:italic;padding:20px 0;';
-            empty.textContent='No extractable content on this page (figure-only or blank page)';
+            empty.textContent='本页无可提取内容（整页插图或空白页）';
             pageDiv.appendChild(empty);
         }
         // KaTeX typeset when idle: text paints first, formulas pop in ~100ms
@@ -857,12 +857,12 @@ function renderGuideUiMock(kind,items){
         box.innerHTML='<div style="font-size:11px;color:var(--text-muted);margin-bottom:8px;">How it works 工作流程</div>'
             +items.map(i=>chip(i)).join('<span style="color:var(--text-muted);margin:0 4px;">→</span>');
     }else if(kind==='modes'){
-        box.innerHTML='<div style="font-size:11px;color:var(--text-muted);margin-bottom:8px;">Math Tutor modes 辅导双模式</div>'
-            +chip('General · step-by-step 分步解答')+chip('Deep · Socratic 引导思考',true)
-            +'<div style="margin-top:8px;">'+chip('Verified — every quiz question is double-checked 每道题双重验证')+'</div>';
+        box.innerHTML='<div style="font-size:11px;color:var(--text-muted);margin-bottom:8px;">辅导双模式 Math Tutor modes</div>'
+            +chip('通用 · 分步解答 step-by-step')+chip('引导 · 苏格拉底式 Socratic',true)
+            +'<div style="margin-top:8px;">'+chip('已验证 —— 每道快测题双重校验 verified')+'</div>';
     }else if(kind==='floatmenu'){
-        box.innerHTML='<div style="font-size:11px;color:var(--text-muted);margin-bottom:8px;">Select text to see 选中文字即出现</div>'
-            +chip('Translate')+chip('Highlight')+chip('Note')+chip('Ask AI',true);
+        box.innerHTML='<div style="font-size:11px;color:var(--text-muted);margin-bottom:8px;">划词三件套 Select text to see</div>'
+            +chip('翻译')+chip('高亮')+chip('笔记')+chip('问 AI',true);
     }else if(kind==='bars'){
         const rows=[
             ['Functions & Graphs 函数图像',100,'#52c41a','Mastered 掌握'],
@@ -946,7 +946,7 @@ function readerOpenGuide(doc){
         for(let p of pages){
             const rect=p.getBoundingClientRect();
             if(rect.top>=0&&rect.top<area.clientHeight/2){
-                document.getElementById('reader-toolbar').textContent='Page '+p.dataset.pageNum+' of '+total+' · '+doc.title;
+                document.getElementById('reader-toolbar').textContent='第 '+p.dataset.pageNum+' 页 / 共 '+total+' 页 · '+doc.title;
                 break;
             }
         }
