@@ -219,6 +219,12 @@ async function bsConfirmUpload(){if(!bsPendingFile||!bsPendingCat)return;
         // Sync: PDF uploaded to "notes" category should appear on Notes page
         if(uploadCat==='notes'){notesInit();}
         if(typeof logActivity==='function')logActivity('upload','上传 · '+doc.title);
+
+        // [单词本] If uploaded from vocab tab, auto-trigger vocab extraction
+        if(window.__vocabAfterUpload){
+            window.__vocabAfterUpload = false;
+            setTimeout(()=>{ bsGenVocab(doc.id); }, 500);
+        }
         showNotification(doc.needsOcr
             ?'Scanned PDF detected — enable AI re-layout now?'
             :'Uploaded: '+doc.title
@@ -249,6 +255,10 @@ async function bsGenVocab(docId){
         if(d.extracted > 0){
             showNotification('\u5df2\u63d0\u53d6 ' + d.extracted + ' \u4e2a\u672f\u8bed\u5230\u5355\u8bcd\u672c', 'success');
             if(typeof logActivity === 'function') logActivity('vocab', '\u63d0\u53d6\u672f\u8bed \u00b7 ' + d.extracted + ' \u8bcd');
+            // Auto-navigate to vocab tab and refresh data
+            if(typeof vocabLoaded !== 'undefined') vocabLoaded = false;
+            showPage('notes');
+            setTimeout(()=>{ if(typeof vocabTabSwitch==='function') vocabTabSwitch('vocab'); },100);
         }else{
             showNotification('\u672a\u63d0\u53d6\u5230\u6570\u5b66\u672f\u8bed\uff08\u6587\u6863\u53ef\u80fd\u65e0\u53ef\u63d0\u53d6\u5185\u5bb9\uff09', 'warning');
         }
