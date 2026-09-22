@@ -38,3 +38,5 @@ desktop.ini
 code_v2/uploads/
 code_v2/mineru_data/
 code_v2/backup_mineru_*/
+# Tablet variant — stays local-only for now (future dedicated repo)
+code_v2_tablet/
