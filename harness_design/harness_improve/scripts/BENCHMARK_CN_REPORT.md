@@ -1,6 +1,6 @@
 # 中国赛道双语基准测试报告（B5）
 
-> 日期：2026-09-20 · 分支：china-track · 引擎：Harness V3 + B1 中文管道
+> 日期：2026-09-20 · 仓库：ShuYue 独立仓库（原 china-track 分支） · 引擎：Harness V3 + B1 中文管道
 > 测试集：`scripts/test_set_cn.json`（24 题：中文 12 + 英文 12；MCQ 8 / 填空 8 / 证明 8）
 > 运行：`python scripts/benchmark_cn.py --workers 4`（明细：`benchmark_cn_results.json`）
 

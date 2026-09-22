@@ -51,8 +51,8 @@ AI 驱动的高考 → 中外合办大学数学衔接学习平台，专为北邮
 ## 快速开始（clone 并运行）
 
 ```bash
-git clone https://github.com/pangyueming/ShuYu.git
-cd ShuYu/code_v2
+git clone https://github.com/pangyueming/ShuYue.git
+cd ShuYue/code_v2
 
 # 1. 安装依赖
 pip install -r requirements.txt
@@ -71,12 +71,14 @@ python server.py
 
 **无需手动创建数据库、配置环境变量或获取密钥**——SQLite 数据库和 JWT 密钥在首次启动时自动初始化。
 
-## 双赛道架构
+## 姊妹项目
 
-| 仓库 | 分支 | 赛道 | 说明 |
-|------|------|------|------|
-| [ShuYu](https://github.com/pangyueming/ShuYu) | `china-track` | 中国赛道 | 高考 → 北邮中外合办（本仓库） |
-| [CogniBridge](https://github.com/pangyueming/CogniBridge) | `main` | UK 赛道 | A-Level → 英国大学 |
+数跃是**独立仓库**（2026-09 从 CogniBridge 的 china-track 分支独立而来）：
+
+| 仓库 | 赛道 | 说明 |
+|------|------|------|
+| [ShuYue](https://github.com/pangyueming/ShuYue) | 中国赛道 | 高考 → 北邮中外合办（本仓库） |
+| [CogniBridge](https://github.com/pangyueming/CogniBridge) | UK 赛道 | A-Level → 英国大学 |
 
 ## 项目文档
 

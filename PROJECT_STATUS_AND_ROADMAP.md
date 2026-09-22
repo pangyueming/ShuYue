@@ -1,8 +1,8 @@
-# 智学桥 CogniBridge — 项目进度与技术路线总览
+# 数跃 ShuYue — 项目进度与技术路线总览
 # Project Progress & Technical Roadmap
 
 > **用途**：新窗口/新协作者快速了解项目全貌
-> **最后更新**：2026年9月12日（Aurora Glass 模块化前端上线 + 真实 Day Streak + 后端启动容错；详见 #25-27）
+> **最后更新**：2026年9月22日（独立为 ShuYue 仓库；早期章节含 UK 赛道历史记录，中国赛道功能见附录）
 
 ---
 
@@ -10,11 +10,11 @@
 
 | 项目 | 内容 |
 |------|------|
-| **名称** | 智学桥 CogniBridge |
-| **定位** | AI驱动的K12→高等数学衔接学习平台 |
-| **核心问题** | A-Level数学（计算）→大学数学（证明）的认知范式断层 |
-| **目标市场** | 英国高等教育（本地学生 + 国际留学生） |
-| **目标用户** | Queen Mary等英国大学的STEM专业大一新生 |
+| **名称** | 数跃 ShuYue（前身为 CogniBridge 的 china-track 分支，2026-09 独立） |
+| **定位** | AI驱动的高考→中外合办大学数学衔接学习平台 |
+| **核心问题** | 高考数学（中文计算）→ 全英文大学数学（证明导向）的双重断层 |
+| **目标市场** | 中国中外合办大学（北邮-QMUL 式） |
+| **目标用户** | 中外合办项目 STEM 专业大一新生（高考体系出身） |
 | **项目负责人** | 越明 (Yueming) |
 
 ---
@@ -113,7 +113,7 @@
 
 ```
 D:\study\智学桥\
-├── 产品UI\
+├── ShuYue\
 │   ├── code_v2\
 │   │   ├── index.html          ← 应用外壳（56KB，引用 app/styles 模块）【2026-09-12 起】
 │   │   ├── index-legacy.html   ← 旧单文件前端备份（355KB 全功能版）
@@ -187,10 +187,10 @@ D:\study\智学桥\
 
 **启动方式：**
 ```bash
-cd D:\study\智学桥\产品UI\code_v2
+cd D:\study\智学桥\ShuYue\code_v2
 pip install fastapi uvicorn requests python-dotenv python-multipart
 python server.py
-# 运行在 http://localhost:8000
+# 运行在 http://localhost:8001
 ```
 
 **API端点（12个）：**
@@ -224,10 +224,10 @@ python server.py
 **状态**：✅ V3 已通过 `server_bridge.py` 接入 `server.py`，默认运行 V3，保留 V2 回退通道
 
 **代码位置：**
-- V3 主入口：`产品UI/harness_design/harness_improve/harness_v3.py`
-- V2 稳定版：`产品UI/harness_design/harness_uk/harness_uk_math.py`（保留备份）
-- 切换桥接：`产品UI/harness_design/harness_improve/integration/server_bridge.py`
-- 环境控制：`产品UI/code_v2/.env` → `HARNESS_VERSION=v3`
+- V3 主入口：`ShuYue/harness_design/harness_improve/harness_v3.py`
+- V2 稳定版：`ShuYue/harness_design/harness_uk/harness_uk_math.py`（保留备份）
+- 切换桥接：`ShuYue/harness_design/harness_improve/integration/server_bridge.py`
+- 环境控制：`ShuYue/code_v2/.env` → `HARNESS_VERSION=v3`
 
 **Harness V3 核心组件：**
 
@@ -318,7 +318,7 @@ Pipeline层封装Harness，提供任务特定的前后处理：
 ### 前端配置
 ```javascript
 // code_v2/index.html 第962-963行
-const AI_BACKEND_URL = 'http://localhost:8000';
+const AI_BACKEND_URL = 'http://localhost:8001';
 const USE_BACKEND = true;  // ✅ 走后端Harness
 ```
 
@@ -673,10 +673,10 @@ passlib[bcrypt]             # 密码哈希（bcrypt）
 
 ### 1. 启动后端
 ```bash
-cd D:\study\智学桥\产品UI\code_v2
+cd D:\study\智学桥\ShuYue\code_v2
 pip install -r requirements.txt
 python server.py
-# 后端运行在 http://localhost:8000
+# 后端运行在 http://localhost:8001
 # Harness V3 自动启用（ToRA+Proof Verifier+Smart Routing+完整UK Math Harness）
 # 如需回退到 V2：修改 .env → HARNESS_VERSION=v2，重启服务
 ```
@@ -688,26 +688,26 @@ MODEL=qwen3.6-35b-a3b              # 主力模型
 TRANSLATE_MODEL=qwen-turbo         # 翻译模型（成本更低）
 SECRET_KEY=                         # 留空=首次启动自动生成唯一密钥并写回.env（推荐）
 HARNESS_VERSION=v3                 # Harness版本：v3(默认) 或 v2(回退)
-PORT=8000
+PORT=8001
 HOST=0.0.0.0
 ```
 
 ### 2. 打开前端
 ```bash
 # 浏览器打开
-D:\study\智学桥\产品UI\code_v2\index.html
+D:\study\智学桥\ShuYue\code_v2\index.html
 # 前端 USE_BACKEND=true → 自动调后端
 ```
 
 ### 3. 核心文件
 ```
-前端代码：    D:\study\智学桥\产品UI\code_v2\index.html
-后端代码：    D:\study\智学桥\产品UI\code_v2\server.py
-Harness V3： D:\study\智学桥\产品UI\harness_design\harness_improve\harness_v3.py
-Harness V2： D:\study\智学桥\产品UI\harness_design\harness_uk\harness_uk_math.py
-切换桥接：   D:\study\智学桥\产品UI\harness_design\harness_improve\integration\server_bridge.py
-数据库：     D:\study\智学桥\产品UI\code_v2\cognibridge.db
-环境变量：   D:\study\智学桥\产品UI\code_v2\.env
+前端代码：    D:\study\智学桥\ShuYue\code_v2\index.html
+后端代码：    D:\study\智学桥\ShuYue\code_v2\server.py
+Harness V3： D:\study\智学桥\ShuYue\harness_design\harness_improve\harness_v3.py
+Harness V2： D:\study\智学桥\ShuYue\harness_design\harness_uk\harness_uk_math.py
+切换桥接：   D:\study\智学桥\ShuYue\harness_design\harness_improve\integration\server_bridge.py
+数据库：     D:\study\智学桥\ShuYue\code_v2\cognibridge.db
+环境变量：   D:\study\智学桥\ShuYue\code_v2\.env
 调研文档：   D:\study\智学桥\项目调研\
 PPT文件：    D:\study\智学桥\智学桥_*.pptx
 ```

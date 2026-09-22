@@ -702,11 +702,12 @@ const GUIDE_PAGES=[
   {t:'h',lvl:1,en:'Math Tutor — Two Ways to Learn',cn:'AI 辅导 — 两种学法'},
   {t:'ui',kind:'modes'},
   {t:'p',en:'General gives full step-by-step solutions with properly typeset formulas. Deep asks Socratic questions and waits for YOUR reasoning — stuck? "Need a hint" and "I\'m stuck" buttons appear.',cn:'General 给出公式排版规整的分步解答；Deep 以苏格拉底式提问等你推理——卡住时可点"要提示 / 我卡住了"按钮。'},
-  {t:'p',en:'Attach lecture PDFs with the paperclip button and ask about them. One-tap buttons generate similar practice problems or explain the A-Level connection behind any topic.',cn:'用回形针按钮附上讲义 PDF 后可直接提问；一键按钮可生成同类练习或解释知识点的 A-Level 衔接背景。'}
+  {t:'p',en:'Attach lecture PDFs/PPTs with the paperclip button and ask about them. One-tap buttons generate similar practice problems or explain the Gaokao-to-university bridge behind any topic — which school skills it builds on, and how the university (English-medium) treatment differs.',cn:'用回形针按钮附上讲义 PDF/PPT 后可直接提问；一键按钮可生成同类练习，或解释知识点的高考衔接——它以高考哪些知识为前置、大学（英文授课）的处理方式有何不同。'}
 ]},
 {blocks:[
   {t:'h',lvl:1,en:'AI Quiz — Questions You Can Trust',cn:'AI 出题 — 可信的题目'},
   {t:'p',en:'Configure a quiz in seconds: topic (your weakest are pre-suggested), 1–15 questions, difficulty, and MCQ / fill-in / mixed. Every question renders real maths notation.',cn:'几秒配好一份测验：知识点（弱点已预选）、1–15 题、难度、选择/填空/混合，题目带完整数学公式排版。'},
+  {t:'p',en:'Choose the question language: English (the exam language — with Chinese explanations that gloss key terms bilingually) or fully Chinese. A must-have for practising in the language you will be examined in.',cn:'出题语言可切换：英文（考试语言，解析为中文并附术语中英对照）或全中文——按考试语言练习，双语无缝衔接。'},
   {t:'p',en:'With Harness verification ON (recommended), each generated question is solved again by our own engine — if the two answers disagree, the question is thrown away. Expect 1–3 minutes; a wait-time estimate is shown while it works.',cn:'开启 Harness 验证（推荐）后，每道题都由解题引擎二次作答，答案不一致即弃用。耗时约 1–3 分钟，等待界面会显示预估时长。'},
   {t:'p',en:'Answers are graded instantly with full explanations, and wrong ones come back via "Retry wrong ones". Every finished attempt adds to the Problems Solved counter on your Dashboard.',cn:'即时判分并附完整解析；错题可通过"重做错题"再战。每次完成都会计入 Dashboard 的 Problems Solved。'}
 ]},
@@ -726,10 +727,28 @@ const GUIDE_PAGES=[
   {t:'p',en:'3D mode renders surfaces like z = x² − y² — rotate and zoom with the mouse. The Conics tab draws circles, ellipses, parabolas and hyperbolas with adjustable parameters, foci marked.',cn:'3D 模式渲染曲面（如 z = x² − y²），可用鼠标旋转缩放；圆锥曲线页支持圆/椭圆/抛物线/双曲线参数调节，并标注焦点。'}
 ]},
 {blocks:[
+  {t:'h',lvl:1,en:'Vocabulary Book — Your Terminology Bank',cn:'单词本 — 你的数学术语库'},
+  {t:'ui',kind:'vocab'},
+  {t:'p',en:'Bilingual maths terminology is half the battle in an English-medium programme. Your Vocabulary Book (Notes & Vocab tab) collects terms through FOUR paths — most of them automatic:',cn:'全英文授课里，双语术语就是半壁江山。单词本（笔记单词库页的"单词本"标签）通过四条路径收词——大多自动完成：'},
+  {t:'table',head:['Path 路径','How it works 工作方式'],rows:[
+    ['Upload auto-extract 上传自动提取','Upload a PDF/PPTX and 数跃 extracts university-level maths terms automatically (skips common words) 上传文档后自动提取大学级数学术语'],
+    ['Reader selection 阅读划词','Select any term while reading → "收入单词本" 阅读时选中术语 → 一键收词'],
+    ['AI concept tracing AI 概念溯源','Ask AI anything — key concepts in the answer become one-tap chips AI 回答中的关键概念一键收录'],
+    ['Manual 手动添加','Add terms yourself; group them in custom books (green ones) 手动添加 + 自定义单词本（绿色）分组']]},
+  {t:'p',en:'Every entry pairs the English term with its Chinese translation and a one-line bilingual definition; a page badge (p.45) jumps straight back to the textbook passage it came from — context is how memory sticks.',cn:'每个词条都是英文术语 + 中文对照 + 一句双语定义；出处徽章（p.45）可一键跳回教材原文——语境记忆才是术语的正解。'}
+]},
+{blocks:[
+  {t:'h',lvl:1,en:'Knowledge Graph — See the Whole Bridge',cn:'知识图谱 — 看见整座桥'},
+  {t:'ui',kind:'graph'},
+  {t:'p',en:'The Knowledge Graph lays out the entire journey in three layers: school foundations → transition gaps → the two university tracks (Mathematical Analysis · Higher Algebra). Each node carries a mastery state — mastered (solid), learning, weak (pulsing) — updated live by your pre-assessment AND every quiz you take.',cn:'知识图谱以三层呈现完整路径：高中基础 → 衔接断层 → 大学双轨（数学分析 · 高等代数）。每个节点带掌握状态——已掌握（实心）/学习中/弱项（脉冲提示）——由前测与每次答题实时更新。'},
+  {t:'p',en:'Click any node for evidence (self-rating, quiz scores, gap closure), then act on it: "Quiz this topic" starts an AI quiz pre-aimed at that node; "Find in textbook" locates it in your indexed books. Dashed edges mean a prerequisite is not yet met — follow them back to the school skill to fix first.',cn:'点击节点查看证据（自评、快测得分、缺口闭合度），并可直达行动：「本主题出题」一键定向练习；「在教材中定位」在你已索引的书中找到它。虚线＝前置未达标——沿虚线回溯，先补最源头的高中技能。'}
+]},
+{blocks:[
   {t:'h',lvl:1,en:'Organise, Sync & Quick Tips',cn:'整理、同步与快速技巧'},
   {t:'p',en:'The bookshelf has six categories (Slides, Textbooks, Exercises, Exam Papers, Research Papers, Notes). Highlights and notes made while reading sync straight to the Notes page; PDFs uploaded under "Notes" appear there too.',cn:'书架含六个分类；阅读时的高亮与笔记自动同步到 Notes 页，上传到 Notes 分类的 PDF 也会显示在那里。'},
   {t:'table',head:['What you keep','Where it lives'],rows:[
     ['Documents, notes, highlights','Bookshelf · Reader 书架与阅读器'],
+    ['Math terminology 单词本','Notes & Vocab → 单词本'],
     ['Math skill map & study plan','Dashboard 仪表板'],
     ['Quiz history & problem count','Dashboard 仪表板'],
     ['Your account','Cloud — sign in on any device 云端，任意设备登录即同步']]},
@@ -738,6 +757,8 @@ const GUIDE_PAGES=[
     ['Get lecture-aligned tasks 课表对齐任务','Dashboard → Study Plan 学习计划'],
     ['Practise a topic 练习某知识点','AI Quiz (weak topics pre-suggested 弱点已预选)'],
     ['Ask about my reading 就所读内容提问','Reader → select text → Ask AI'],
+    ['Collect math terms 收数学术语','Vocabulary Book 单词本（四条收词路径）'],
+    ['See the whole picture 看知识全貌','Knowledge Graph 知识图谱'],
     ['Visualise a function 可视化函数','Function Plotter 函数画板'],
     ['See my progress 看进度','Dashboard stat cards 仪表板统计卡']]},
   {t:'p',en:'University maths is a bridge, not a wall — and you just crossed the first step by reading this. Good luck!',cn:'大学数学是一座桥，而不是一堵墙——读完本页，你已迈出第一步。祝学习顺利！'},
@@ -849,7 +870,7 @@ function renderGuideUiMock(kind,items){
     box.style.cssText='border:1px dashed var(--border);border-radius:10px;padding:12px 14px;margin:12px 0;background:var(--bg-input);';
     const chip=(txt,accent)=>'<span style="display:inline-block;padding:4px 12px;border-radius:999px;font-size:12px;border:1px solid '+(accent?'var(--accent)':'var(--border)')+';background:'+(accent?'rgba(76,141,255,.08)':'var(--bg-card)')+';color:'+(accent?'var(--accent)':'var(--text-secondary)')+';margin:2px 4px 2px 0;">'+escapeHtml(txt)+'</span>';
     if(kind==='sidebar'){
-        const navs=[['Dashboard 仪表盘','layout-dashboard'],['Pre-Assessment 前测','clipboard-check'],['Math Tutor AI辅导','sigma'],['AI Quiz 智能出题','target'],['Function Plotter 画板','chart-line'],['Reader 阅读','book-open','hot'],['Notes 笔记','notebook-pen','hot'],['All Materials 书架','library']];
+        const navs=[['Dashboard 仪表盘','layout-dashboard'],['Pre-Assessment 前测','clipboard-check'],['Math Tutor AI辅导','sigma'],['AI Quiz 智能出题','target'],['Function Plotter 画板','chart-line'],['Reader 阅读','book-open','hot'],['Notes & Vocab 笔记单词库','notebook-pen','hot'],['Knowledge Graph 知识图谱','network'],['Forum 学习论坛','message-square'],['All Materials 书架','library']];
         box.innerHTML='<div style="font-size:11px;color:var(--text-muted);margin-bottom:8px;">Sidebar 侧边栏导览</div>'
             +navs.map(n=>'<div style="display:flex;align-items:center;gap:8px;font-size:13px;padding:3px 8px;border-radius:6px;'+(n[2]?'background:rgba(76,141,255,.10);color:var(--accent);font-weight:600;':'color:var(--text-secondary);')+'">'+iconHtml(n[1],14)+n[0]+(n[2]?' ◀ start here 从这开始':'')+'</div>').join('');
         refreshIcons();
@@ -862,7 +883,30 @@ function renderGuideUiMock(kind,items){
             +'<div style="margin-top:8px;">'+chip('已验证 —— 每道题双重校验 verified')+'</div>';
     }else if(kind==='floatmenu'){
         box.innerHTML='<div style="font-size:11px;color:var(--text-muted);margin-bottom:8px;">划词三件套 Select text to see</div>'
-            +chip('翻译')+chip('高亮')+chip('笔记')+chip('问 AI',true);
+            +chip('翻译')+chip('高亮')+chip('笔记')+chip('问 AI',true)
+            +'<div style="margin-top:6px;">'+chip('收入单词本 ⇐ 阅读时划词即可收词',true)+'</div>';
+    }else if(kind==='vocab'){
+        // term chips styled like the real vocab flow view
+        const term=(en,zh,src)=>'<span style="display:inline-flex;align-items:baseline;gap:4px;padding:5px 12px;border-radius:8px;background:var(--bg-card);border:1px solid var(--border);margin:3px 4px 3px 0;font-size:12px;">'
+            +'<span style="font-family:var(--font-mono);font-weight:600;color:var(--text-primary);">'+en+'</span>'
+            +'<span style="color:var(--text-secondary);">'+zh+'</span>'
+            +(src?'<span style="font-family:var(--font-mono);font-size:9px;color:var(--accent);">p.'+src+'</span>':'')+'</span>';
+        const book=(name,n)=>'<span style="display:inline-flex;align-items:center;gap:5px;padding:5px 12px;border-radius:8px;border:1px dashed rgba(82,196,26,.45);margin:3px 4px 3px 0;font-size:12px;color:var(--green);">'+iconHtml('notebook-pen',12)+name+' <span style="font-size:9px;color:var(--text-muted);">'+n+' 词</span></span>';
+        box.innerHTML='<div style="font-size:11px;color:var(--text-muted);margin-bottom:8px;">Vocabulary Book 单词本</div>'
+            +term('supremum','上确界','12')+term('eigenvalue','特征值','45')+term('uniform convergence','一致收敛','78')+term('ε-δ language','ε-δ 语言','')
+            +'<div style="font-size:11px;color:var(--text-muted);margin:10px 0 6px;">Custom books 自定义单词本</div>'
+            +book('第一章 极限术语','18')+book('易忘词','7');
+        refreshIcons();
+    }else if(kind==='graph'){
+        const node=(txt,color,solid)=>'<span style="display:inline-flex;align-items:center;gap:5px;padding:4px 12px;border-radius:999px;font-size:11px;margin:2px 4px 2px 0;border:1.5px solid '+color+';'+(solid?'background:'+color+';color:#fff;':'color:'+color+';')+'">'+txt+'</span>';
+        const arrow='<span style="color:var(--text-muted);margin:0 2px;">↓</span>';
+        box.innerHTML='<div style="font-size:11px;color:var(--text-muted);margin-bottom:8px;">Knowledge Graph 知识图谱（三层层级）</div>'
+            +'<div><span style="font-size:10px;color:var(--text-muted);margin-right:6px;">L1 高中</span>'+node('函数与导数','#52c41a',true)+node('数列','#4C8DFF',true)+node('概率统计','#faad14',false)+'</div>'
+            +'<div style="margin:2px 0;">'+arrow+'</div>'
+            +'<div><span style="font-size:10px;color:var(--text-muted);margin-right:6px;">L2 衔接</span>'+node('ε-δ 语言','#7a6bff',false)+node('推理与证明','#E5484D',false)+'</div>'
+            +'<div style="margin:2px 0;">'+arrow+'</div>'
+            +'<div><span style="font-size:10px;color:var(--text-muted);margin-right:6px;">L3 大学</span>'+node('数列极限','#52c41a',true)+node('矩阵与行列式','#52c41a',true)+node('向量空间','#faad14',false)+'</div>'
+            +'<div style="font-size:10px;color:var(--text-muted);margin-top:8px;">实线＝前置已达标 · 虚线＝前置未达标 · 颜色＝掌握状态（绿=已掌握 / 黄=学习中 / 红=弱项）</div>';
     }else if(kind==='bars'){
         const rows=[
             ['Functions & Graphs 函数图像',100,'#52c41a','Mastered 掌握'],
