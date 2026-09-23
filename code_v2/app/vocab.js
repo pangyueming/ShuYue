@@ -50,6 +50,21 @@ function vocabCreateBook() {
     showNotification('单词本「' + tag + '」已创建，开始添加术语吧', 'success');
 }
 
+// ===== Upload a document and auto-extract terms (toolbar button) =====
+// Sets a flag, then goes through the standard bookshelf upload flow.
+// On upload completion, bsConfirmUpload (bookshelf.js) sees the flag and
+// auto-calls bsGenVocab(doc.id); after extraction it navigates back here
+// with fresh data (receiving side shipped in 3689fc3 — this function was
+// the missing bridge).
+function vocabUploadDoc() {
+    if (!localStorage.getItem('cb_cn_token')) {
+        showNotification('登录后即可上传文档并自动提取术语', 'warning');
+        return;
+    }
+    window.__vocabAfterUpload = true;
+    bsUpload();
+}
+
 async function vocabInit() {
     await vocabLoad();
     vocabRender();

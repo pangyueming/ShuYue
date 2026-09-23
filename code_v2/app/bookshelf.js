@@ -188,7 +188,7 @@ function bsShowUploadModal(file){bsPendingFile=file;const m=document.getElementB
         <span style="margin-left:auto;font-size:12px;color:var(--text-muted);">${(bsData[c.key]||[]).length} items</span></div>`).join('');
     m.style.display='flex';refreshIcons();}
 function bsSelCat(key,el){bsPendingCat=key;el.parentElement.querySelectorAll('div').forEach(d=>{d.style.borderColor='var(--border)';d.style.background='var(--bg-input)';});el.style.borderColor='var(--accent)';el.style.background='rgba(76,141,255,.08)';}
-function bsCloseUpload(){document.getElementById('bs-upload-modal').style.display='none';bsPendingFile=null;bsPendingCat=null;}
+function bsCloseUpload(){document.getElementById('bs-upload-modal').style.display='none';bsPendingFile=null;bsPendingCat=null;window.__vocabAfterUpload=false;}
 async function bsConfirmUpload(){if(!bsPendingFile||!bsPendingCat)return;
     const cat=BS_CATS.find(c=>c.key===bsPendingCat);
     const uploadCat=bsPendingCat;   // remember before bsCloseUpload clears it
