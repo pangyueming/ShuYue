@@ -2763,8 +2763,6 @@ def auto_extract_vocab(doc_id: str, current_user: dict = Depends(get_current_use
         conn = get_db()
     n = extract_vocab_for_doc(conn, current_user["id"], doc_id, row["category"])
     conn.close()
-    if n and False:
-        pass  # frontend handles notification
     return {"extracted": n}
 
 

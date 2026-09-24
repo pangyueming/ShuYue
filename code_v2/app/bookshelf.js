@@ -1,4 +1,4 @@
-﻿// ===== BOOKSHELF PAGE =====
+// ===== BOOKSHELF PAGE =====
 async function bsPageInit(){
     renderSkeletonGrid('dash-bs-grid',5);
     renderSkeletonGrid('bs-page-grid',5);
@@ -221,9 +221,10 @@ async function bsConfirmUpload(){if(!bsPendingFile||!bsPendingCat)return;
         if(typeof logActivity==='function')logActivity('upload','上传 · '+doc.title);
 
         // [单词本] If uploaded from vocab tab, auto-trigger vocab extraction
+        // and open the resulting book directly (title passed for direct-open)
         if(window.__vocabAfterUpload){
             window.__vocabAfterUpload = false;
-            setTimeout(()=>{ bsGenVocab(doc.id); }, 500);
+            setTimeout(()=>{ bsGenVocab(doc.id, doc.title); }, 500);
         }
         showNotification(doc.needsOcr
             ?'Scanned PDF detected — enable AI re-layout now?'
@@ -243,8 +244,13 @@ async function bsConfirmUpload(){if(!bsPendingFile||!bsPendingCat)return;
 
 
 // ===== [单词本] Generate vocabulary from a document =====
-async function bsGenVocab(docId){
-    showNotification('\u6b63\u5728\u63d0\u53d6\u6570\u5b66\u672f\u8bed\u2026', 'info');
+// docTitle (optional): when provided (upload-from-vocab flow), the freshly
+// created book opens directly after extraction. Without it (bookshelf card
+// menu), behaviour stays at "refresh the vocab doc list".
+async function bsGenVocab(docId, docTitle){
+    showNotification(docTitle
+        ?('正在为《'+docTitle+'》提取数学术语，约需 10–30 秒…')
+        :'正在提取数学术语…', 'info');
     try{
         const res = await apiFetch('/api/vocab/auto/' + docId, {method:'POST'});
         if(!res.ok){
@@ -253,16 +259,23 @@ async function bsGenVocab(docId){
         }
         const d = await res.json();
         if(d.extracted > 0){
-            showNotification('\u5df2\u63d0\u53d6 ' + d.extracted + ' \u4e2a\u672f\u8bed\u5230\u5355\u8bcd\u672c', 'success');
-            if(typeof logActivity === 'function') logActivity('vocab', '\u63d0\u53d6\u672f\u8bed \u00b7 ' + d.extracted + ' \u8bcd');
-            // Auto-navigate to vocab tab and refresh data
+            showNotification('已提取 ' + d.extracted + ' 个术语到单词本', 'success');
+            if(typeof logActivity === 'function') logActivity('vocab', '提取术语 · ' + d.extracted + ' 词');
+            // Navigate to vocab tab, load fresh data, then open the new book directly
             if(typeof vocabLoaded !== 'undefined') vocabLoaded = false;
             showPage('notes');
-            setTimeout(()=>{ if(typeof vocabTabSwitch==='function') vocabTabSwitch('vocab'); },100);
+            if(typeof vocabTabSwitch==='function')vocabTabSwitch('vocab');
+            if(docTitle && typeof vocabInit==='function'){
+                try{ await vocabInit(); }catch(e2){/* fall back to doc list */}
+                if(typeof vocabOpenDoc==='function'){
+                    vocabOpenDoc(docId, docTitle);
+                    return;
+                }
+            }
         }else{
-            showNotification('\u672a\u63d0\u53d6\u5230\u6570\u5b66\u672f\u8bed\uff08\u6587\u6863\u53ef\u80fd\u65e0\u53ef\u63d0\u53d6\u5185\u5bb9\uff09', 'warning');
+            showNotification('未提取到数学术语（文档可能无可提取内容）', 'warning');
         }
     }catch(e){
-        showNotification('\u63d0\u53d6\u5931\u8d25\uff1a' + e.message, 'error');
+        showNotification('提取失败：' + e.message, 'error');
     }
 }
