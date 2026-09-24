@@ -423,19 +423,76 @@ function vocabJumpSource(docId, page) {
 }
 
 // ===== Reader capture: called from float menu "收入单词本" =====
+// Two panel states (ui-ux-pro-max: color-not-only — green is always paired
+// with a check icon + explicit text; disabled-states — the "already saved"
+// state renders NO save button instead of a dead one):
+//   A) not collected → editable form with AI-prefilled translation → 保存
+//   B) already in the vocab book → green "已在单词本中" card + 查看 jump
 async function vocabCaptureFromSelection(text, docId, page) {
     if (!text || text.length < 2) return;
+    if (!localStorage.getItem('cb_cn_token')) {
+        showNotification('登录后可收入单词本', 'warning');
+        return;
+    }
     const panel = document.getElementById('reader-action-panel');
     if (!panel) return;
     panel.style.display = 'block';
+    const term = text.substring(0, 80).trim();
     panel.innerHTML = `<div class="card" style="border-left:4px solid var(--purple);background:rgba(124,92,224,.04);">
         <div style="display:flex;align-items:center;gap:8px;margin-bottom:8px;">
             ${iconHtml('book-plus',16)}
             <span style="font-size:13px;font-weight:600;color:var(--text-primary);">收入单词本</span>
         </div>
         <div style="font-family:var(--font-mono);font-size:14px;color:var(--text-primary);margin-bottom:8px;">${escapeHtml(text.substring(0, 100))}</div>
-        <div id="vocab-capture-status" style="font-size:12px;color:var(--text-muted);">${iconHtml('loader',12)} AI 正在查询翻译...</div>
-        <div id="vocab-capture-form" style="display:none;">
+        <div id="vocab-capture-status" style="font-size:12px;color:var(--text-muted);">${iconHtml('loader',12)} 正在检查单词本并查询翻译…</div>
+        <div id="vocab-capture-body"></div>
+    </div>`;
+    refreshIcons();
+
+    // Parallel: dedup check (exact term_en match, case-insensitive) + AI translate
+    const dedupPromise = (async () => {
+        try {
+            if (!vocabLoaded) { await vocabInit(); } else if (!vocabData.length) { await vocabLoad(); vocabRender(); }
+            return vocabData.find(v => (v.term_en || '').toLowerCase() === term.toLowerCase()) || null;
+        } catch (e) { return null; }
+    })();
+    const translatePromise = fetch(AI_BACKEND_URL + '/api/translate', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ text: text.substring(0, 200), target_lang: 'auto' })
+    }).then(r => r.json()).catch(() => ({}));
+
+    const existing = await dedupPromise;
+    const body = document.getElementById('vocab-capture-body');
+    const status = document.getElementById('vocab-capture-status');
+    if (!body) return;
+    if (status) status.style.display = 'none';
+
+    if (existing) {
+        // ---- State B: already collected — no save, no overwrite ----
+        panel.querySelector('.card').style.borderLeftColor = 'var(--green)';
+        panel.querySelector('.card').style.background = 'rgba(82,196,26,.05)';
+        const eid = existing.id.replace(/'/g, "\\'");
+        body.innerHTML = `
+            <div style="display:flex;align-items:center;gap:6px;font-size:13px;font-weight:600;color:var(--green);margin-bottom:6px;">
+                ${iconHtml('check-circle',15)} 已在单词本中
+            </div>
+            <div style="font-size:12px;color:var(--text-secondary);margin-bottom:2px;">
+                <span style="font-family:var(--font-mono);font-weight:600;color:var(--text-primary);">${escapeHtml(existing.term_en)}</span>
+                ${existing.term_zh ? ' · ' + escapeHtml(existing.term_zh) : ''}
+            </div>
+            ${existing.definition ? `<div style="font-size:11px;color:var(--text-muted);line-height:1.6;margin-bottom:6px;">${escapeHtml(existing.definition)}</div>` : ''}
+            <div style="display:flex;gap:6px;margin-top:8px;">
+                <button class="btn-secondary" style="padding:6px 12px;font-size:12px;display:inline-flex;align-items:center;gap:5px;" onclick="vocabJumpTermById('${eid}')">${iconHtml('book-marked',12)}查看</button>
+                <button style="padding:6px 12px;font-size:12px;background:none;border:none;color:var(--text-muted);cursor:pointer;" onclick="document.getElementById('reader-action-panel').style.display='none'">关闭</button>
+            </div>`;
+        refreshIcons();
+        return;
+    }
+
+    // ---- State A: new term — editable form with AI prefill ----
+    body.innerHTML = `
+        <div id="vocab-capture-form">
             <input id="vocab-capture-zh" class="input" style="width:100%;font-size:13px;margin-bottom:6px;" placeholder="中文翻译">
             <input id="vocab-capture-def" class="input" style="width:100%;font-size:12px;margin-bottom:6px;" placeholder="定义（可选）">
             <input id="vocab-capture-tag" class="input" style="width:100%;font-size:12px;" placeholder="词单（可选）" list="vocab-capture-tags" value="${escapeHtml(vocabFilterTag)}">
@@ -443,20 +500,14 @@ async function vocabCaptureFromSelection(text, docId, page) {
                 ${vocabAllTags.map(t => `<option value="${escapeHtml(t)}">`).join('')}
             </datalist>
             <div style="display:flex;gap:6px;margin-top:8px;">
-                <button class="btn-primary" style="flex:1;padding:6px;font-size:12px;" onclick="vocabSaveCapture('${escapeHtml(text.substring(0, 200))}','${docId || ''}',${page || 0})">保存</button>
+                <button class="btn-primary" style="flex:1;padding:6px;font-size:12px;" onclick="vocabSaveCapture('${escapeHtml(text.substring(0, 200)).replace(/'/g,"\\'")}','${docId || ''}',${page || 0})">保存</button>
                 <button class="btn-secondary" style="padding:6px 12px;font-size:12px;" onclick="document.getElementById('reader-action-panel').style.display='none'">取消</button>
             </div>
-        </div>
-    </div>`;
+        </div>`;
     refreshIcons();
 
     try {
-        const res = await fetch(AI_BACKEND_URL + '/api/translate', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ text: text.substring(0, 200), target_lang: 'auto' })
-        });
-        const d = await res.json();
+        const d = await translatePromise;
         const translation = d.translation || '';
         const zhMatch = translation.match(/\*\*翻译\*\*:?\s*(.+?)(?:\*\*|$)/s) || translation.match(/\*\*Translation\*\*:?\s*(.+?)(?:\*\*|$)/s);
         const defMatch = translation.match(/\*\*释义\*\*:?\s*(.+)$/s) || translation.match(/\*\*Note\*\*:?\s*(.+)$/s);
@@ -464,13 +515,37 @@ async function vocabCaptureFromSelection(text, docId, page) {
         const defInput = document.getElementById('vocab-capture-def');
         if (zhInput && zhMatch) zhInput.value = zhMatch[1].trim().substring(0, 60);
         if (defInput && defMatch) defInput.value = defMatch[1].trim().substring(0, 200);
-    } catch (e) { /* AI prefill failed */ }
+    } catch (e) { /* AI prefill failed — inputs stay manual */ }
+}
 
-    const status = document.getElementById('vocab-capture-status');
-    const form = document.getElementById('vocab-capture-form');
-    if (status) status.style.display = 'none';
-    if (form) form.style.display = 'block';
-    refreshIcons();
+// Jump to the vocab book containing this term, then flash its chip
+function vocabJumpTermById(vocabId) {
+    if (!vocabLoaded && localStorage.getItem('cb_cn_token')) {
+        vocabInit().then(() => vocabJumpTermById(vocabId));
+        return;
+    }
+    const v = vocabData.find(x => x.id === vocabId);
+    if (!v) { showNotification('词条数据未加载，请稍后再试', 'warning'); return; }
+    let docId, title;
+    if (v.source_doc_id) { docId = v.source_doc_id; title = v.source_title || '文档术语'; }
+    else if (v.tag) { docId = 'tag:' + v.tag; title = v.tag; }
+    else { docId = '__manual__'; title = '手动添加'; }
+    showPage('notes');
+    if (typeof vocabTabSwitch === 'function') vocabTabSwitch('vocab');
+    setTimeout(() => {
+        vocabOpenDoc(docId, title);
+        setTimeout(() => {
+            const chips = document.querySelectorAll('#vocab-term-list span[onclick^="vocabEdit"]');
+            for (const c of chips) {
+                if (c.getAttribute('onclick').includes("'" + vocabId + "'")) {
+                    c.classList.add('vocab-flash');
+                    c.scrollIntoView({ block: 'center', behavior: 'smooth' });
+                    setTimeout(() => c.classList.remove('vocab-flash'), 2200);
+                    break;
+                }
+            }
+        }, 150);
+    }, 100);
 }
 
 async function vocabSaveCapture(text, docId, page) {
@@ -483,13 +558,20 @@ async function vocabSaveCapture(text, docId, page) {
             term_zh: zh.trim(),
             definition: def.trim(),
             source_text: text.substring(0, 200),
-            tag: tag.trim()
+            tag: tag.trim(),
+            skip_if_exists: true   // reader capture never overwrites an existing entry
         };
         if (docId) { body.source_doc_id = docId; body.source_page = page || 1; }
         const res = await apiFetch('/api/vocab', { method: 'POST', body: JSON.stringify(body) });
         if (!res.ok) throw new Error('HTTP ' + res.status);
-        showNotification('已收入单词本：' + text.substring(0, 30), 'success');
-        if (typeof logActivity === 'function') logActivity('vocab', '收入术语 · ' + text.substring(0, 30));
+        const r = await res.json().catch(() => ({}));
+        if (r.skipped) {
+            // raced another device/tab — the term is already in the book
+            showNotification('已在单词本中（未做修改）', 'info');
+        } else {
+            showNotification('已收入单词本：' + text.substring(0, 30), 'success');
+            if (typeof logActivity === 'function') logActivity('vocab', '收入术语 · ' + text.substring(0, 30));
+        }
         const panel = document.getElementById('reader-action-panel');
         if (panel) panel.style.display = 'none';
         vocabLoaded = false;

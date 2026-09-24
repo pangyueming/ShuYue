@@ -2531,6 +2531,7 @@ class VocabCreate(BaseModel):
     source_page: Optional[int] = None
     source_text: str = ""
     tag: str = ""
+    skip_if_exists: bool = False   # reader-capture: never overwrite an existing entry
 
 class VocabUpdate(BaseModel):
     term_en: Optional[str] = None
@@ -2585,6 +2586,10 @@ def create_vocab(req: VocabCreate, current_user: dict = Depends(get_current_user
         (current_user["id"], term_en)
     ).fetchone()
     if existing:
+        if req.skip_if_exists:
+            # reader-capture semantics: already collected → do NOT touch it
+            conn.close()
+            return {"id": existing["id"], "deduped": True, "skipped": True}
         conn.execute(
             "UPDATE vocab_entries SET term_zh=?, definition=?, source_doc_id=?, "
             "source_page=?, source_text=?, tag=?, updated_at=datetime('now') WHERE id=?",
