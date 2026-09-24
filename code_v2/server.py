@@ -1297,22 +1297,10 @@ async def upload_document(
             "fileType": ext, "fileSize": file_size,
             "sizeText": f"{file_size/1024/1024:.1f} MB", "source": "upload",
             "needsOcr": bool(needs_ocr), "parseStatus": "none", "aiDeclined": False}
-
-    # [单词本] Auto-extract vocabulary for slides/PPTs after upload (background)
-    # Skip scanned PDFs (they go through MinerU pipeline which has its own hook)
-    if category in ("slides", "research-papers") and not needs_ocr:
-        import threading
-        def _bg_vocab():
-            try:
-                if ensure_pages_json(doc_id):
-                    _conn = get_db()
-                    _u = _conn.execute("SELECT user_id FROM documents WHERE id=?", (doc_id,)).fetchone()
-                    if _u:
-                        extract_vocab_for_doc(_conn, _u["user_id"], doc_id, category)
-                    _conn.close()
-            except Exception as e:
-                print(f"[vocab] post-upload extraction failed for {doc_id}: {e}")
-        threading.Thread(target=_bg_vocab, daemon=True).start()
+    # NOTE: vocab extraction stays an explicit frontend-triggered action
+    # (bookshelf card 单词本 button / vocab-upload flow → POST /api/vocab/auto).
+    # A server-side post-upload auto-extract hook was drafted here once but sat
+    # after this return (unreachable). Removed — one trigger path only.
 
 
 @app.get("/api/documents")

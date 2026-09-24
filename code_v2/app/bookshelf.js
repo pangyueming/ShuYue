@@ -180,7 +180,12 @@ function bsOpenFromPage(cat,idx){showPage('reader');setTimeout(()=>readerOpenDoc
 function bsOpenFromDash(cat,idx){showPage('reader');setTimeout(()=>readerOpenDoc(cat,idx),100);}
 
 // ===== UPLOAD =====
-function bsUpload(){const old=document.getElementById('bs-file-input');if(old)old.remove();const inp=document.createElement('input');inp.type='file';inp.id='bs-file-input';inp.accept='.pdf,.pptx';inp.style.display='none';inp.onchange=()=>{if(inp.files[0])bsShowUploadModal(inp.files[0]);};document.body.appendChild(inp);inp.click();}
+function bsUpload(){const old=document.getElementById('bs-file-input');if(old)old.remove();const inp=document.createElement('input');inp.type='file';inp.id='bs-file-input';inp.accept='.pdf,.pptx';inp.style.display='none';inp.onchange=()=>{if(inp.files[0])bsShowUploadModal(inp.files[0]);};
+    // [单词本] Cancelling at the FILE-PICKER stage (modal never shown) must
+    // not leak the vocab-upload flag into the next unrelated upload.
+    // 'cancel' fires on Chromium 113+; elsewhere this is a harmless no-op.
+    inp.oncancel=()=>{window.__vocabAfterUpload=false;};
+    document.body.appendChild(inp);inp.click();}
 function bsShowUploadModal(file){bsPendingFile=file;const m=document.getElementById('bs-upload-modal');const fn=document.getElementById('bs-upload-filename');const cl=document.getElementById('bs-upload-cats');
     fn.textContent=file.name+' ('+(file.size/1024/1024).toFixed(1)+' MB)';bsPendingCat=null;
     cl.innerHTML=BS_CATS.map(c=>`<div onclick="bsSelCat('${c.key}',this)" style="display:flex;align-items:center;gap:12px;padding:12px;border-radius:8px;cursor:pointer;border:1px solid var(--border);background:var(--bg-input);">
@@ -190,6 +195,11 @@ function bsShowUploadModal(file){bsPendingFile=file;const m=document.getElementB
 function bsSelCat(key,el){bsPendingCat=key;el.parentElement.querySelectorAll('div').forEach(d=>{d.style.borderColor='var(--border)';d.style.background='var(--bg-input)';});el.style.borderColor='var(--accent)';el.style.background='rgba(76,141,255,.08)';}
 function bsCloseUpload(){document.getElementById('bs-upload-modal').style.display='none';bsPendingFile=null;bsPendingCat=null;window.__vocabAfterUpload=false;}
 async function bsConfirmUpload(){if(!bsPendingFile||!bsPendingCat)return;
+    // [单词本] Capture the vocab-upload intent HERE (before bsCloseUpload()
+    // clears it mid-confirm), and clear it now so a FAILED upload cannot leak
+    // the flag into the next unrelated one (uploadCat uses the same pattern).
+    const wantVocab=!!window.__vocabAfterUpload;
+    window.__vocabAfterUpload=false;
     const cat=BS_CATS.find(c=>c.key===bsPendingCat);
     const uploadCat=bsPendingCat;   // remember before bsCloseUpload clears it
     const formData=new FormData();
@@ -222,8 +232,7 @@ async function bsConfirmUpload(){if(!bsPendingFile||!bsPendingCat)return;
 
         // [单词本] If uploaded from vocab tab, auto-trigger vocab extraction
         // and open the resulting book directly (title passed for direct-open)
-        if(window.__vocabAfterUpload){
-            window.__vocabAfterUpload = false;
+        if(wantVocab){
             setTimeout(()=>{ bsGenVocab(doc.id, doc.title); }, 500);
         }
         showNotification(doc.needsOcr
@@ -261,21 +270,29 @@ async function bsGenVocab(docId, docTitle){
         if(d.extracted > 0){
             showNotification('已提取 ' + d.extracted + ' 个术语到单词本', 'success');
             if(typeof logActivity === 'function') logActivity('vocab', '提取术语 · ' + d.extracted + ' 词');
-            // Navigate to vocab tab, load fresh data, then open the new book directly
+            // Single-load flow: mark stale → await vocabInit() ourselves →
+            // THEN switch the tab (vocabTabSwitch sees vocabLoaded=true and
+            // does not fire a second concurrent init) → open the new book.
             if(typeof vocabLoaded !== 'undefined') vocabLoaded = false;
             showPage('notes');
-            if(typeof vocabTabSwitch==='function')vocabTabSwitch('vocab');
-            if(docTitle && typeof vocabInit==='function'){
+            if(typeof vocabInit==='function'){
                 try{ await vocabInit(); }catch(e2){/* fall back to doc list */}
-                if(typeof vocabOpenDoc==='function'){
-                    vocabOpenDoc(docId, docTitle);
-                    return;
-                }
+            }
+            if(typeof vocabTabSwitch==='function')vocabTabSwitch('vocab');
+            if(docTitle && typeof vocabOpenDoc==='function'){
+                vocabOpenDoc(docId, docTitle);
             }
         }else{
             showNotification('未提取到数学术语（文档可能无可提取内容）', 'warning');
         }
     }catch(e){
-        showNotification('提取失败：' + e.message, 'error');
+        const msg=String(e&&e.message?e.message:e);
+        if(/no extractable text/i.test(msg)){
+            // Scanned PDF: MinerU parse unlocks extraction (its completion hook
+            // auto-extracts textbooks/slides); guide the user there.
+            showNotification('扫描版 PDF 无文字层——先在阅读器启用 MinerU 解析（解析完成会自动提取术语），或解析后在书架卡片点"单词本"', 'warning');
+        }else{
+            showNotification('提取失败：' + msg, 'error');
+        }
     }
 }
