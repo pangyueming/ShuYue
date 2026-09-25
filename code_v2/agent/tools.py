@@ -134,15 +134,31 @@ TOOL_SPECS = [
     {
         "type": "function",
         "function": {
-            "name": "update_plan_task",
-            "description": "标记学习计划中某任务为已完成。当学生说'X任务我做完了/勾选X'时使用。",
+            "name": "get_knowledge_map",
+            "description": "获取学生知识图谱掌握度摘要：薄弱知识点、已掌握知识点、衔接断层预警、当前教学周。当学生问'我哪里弱/掌握得怎么样/接下来学什么'时使用。",
+            "parameters": {"type": "object", "properties": {}},
+        },
+    },
+    {
+        "type": "function",
+        "function": {
+            "name": "plot_function",
+            "description": "将函数表达式预填到函数画板并跳转（学生可在画板上交互操作）。当学生说'画一下X/可视化X的图像'时使用。",
             "parameters": {
                 "type": "object",
                 "properties": {
-                    "task_name": {"type": "string", "description": "任务名称关键词"},
+                    "expression": {"type": "string", "description": "函数表达式，如 sin(x)/x"},
                 },
-                "required": ["task_name"],
+                "required": ["expression"],
             },
+        },
+    },
+    {
+        "type": "function",
+        "function": {
+            "name": "start_assessment",
+            "description": "引导学生去做学前诊断（3分钟快测，生成个人学习路径）。当学生说'帮我做个测试/诊断'时使用。",
+            "parameters": {"type": "object", "properties": {}},
         },
     },
 ]
@@ -284,6 +300,14 @@ def execute_tool(name: str, args: dict, user_id) -> dict:
                              args.get("count"), args.get("difficulty"), user_id)
         if name == "update_plan_task":
             return _update_plan(str(args.get("task_name", ""))[:120], user_id)
+        # ---- P3.8: knowledge graph + plotter + assessment ----
+        if name == "get_knowledge_map":
+            return _knowledge_map(user_id)
+        if name == "plot_function":
+            return _plot(str(args.get("expression", ""))[:100])
+        if name == "start_assessment":
+            return {"summary": "已准备好学前诊断（3分钟）——点击跳转开始",
+                    "data": {"link": "pretest"}}
     except Exception as e:
         return {"summary": f"工具执行异常：{str(e)[:80]}", "data": {"error": str(e)[:200]}}
     return {"summary": f"工具 {name} 暂不可用", "data": {}}
@@ -454,3 +478,56 @@ def _update_plan(task_name: str, user_id) -> dict:
     finally:
         try: conn.close()
         except Exception: pass
+
+
+# ---- P3.8: knowledge graph summary (from assessments result_json) ----
+def _knowledge_map(user_id) -> dict:
+    if not user_id:
+        return _no_login()
+    import json as _json
+    from server import get_db
+    conn = get_db()
+    try:
+        a = conn.execute(
+            "SELECT result_json FROM assessments WHERE user_id=? "
+            "ORDER BY created_at DESC LIMIT 1", (user_id,)).fetchone()
+        quizzes = conn.execute(
+            "SELECT topic, score, total FROM quiz_results WHERE user_id=? "
+            "ORDER BY created_at DESC LIMIT 10", (user_id,)).fetchall()
+    finally:
+        conn.close()
+    if not a or not a["result_json"]:
+        return {"summary": "尚未做学前诊断——先做个 3 分钟测试解锁知识图谱",
+                "data": {"link": "pretest"}}
+    try:
+        r = _json.loads(a["result_json"])
+    except Exception:
+        return {"summary": "诊断数据异常", "data": {}}
+    weak = [t for t in (r.get("weakTopics") or []) if t][:8]
+    strong = [t for t in (r.get("strongTopics") or []) if t][:5]
+    danger = [t.get("n", "") if isinstance(t, dict) else t
+              for t in (r.get("dangerTopics") or [])][:3]
+    warnings = [t.get("n", "") if isinstance(t, dict) else t
+                for t in (r.get("warningTopics") or [])][:3]
+    week = r.get("currentWeek", "?")
+    avg = r.get("avgScore", 0)
+    quiz_lines = [f"{q['topic']}: {q['score']}/{q['total']}" for q in quizzes]
+    data = {
+        "avg_score": avg, "current_week": week,
+        "weak_topics": weak, "strong_topics": strong,
+        "bridge_dangers": danger, "bridge_warnings": warnings,
+        "recent_quizzes": quiz_lines,
+        "link": "graph",
+    }
+    summary = (f"掌握度{avg}% · 第{week}周 · "
+               f"薄弱{len(weak)}项({'、'.join(weak[:3])}…) · "
+               f"断层预警{len(danger)}个")
+    return {"summary": summary, "data": data}
+
+
+# ---- P3.8: plot function → prefill plotter ----
+def _plot(expr: str) -> dict:
+    if not expr.strip():
+        return {"summary": "缺少函数表达式", "data": {}}
+    return {"summary": f"已预填函数 y = {expr}（点击跳转画板）",
+            "data": {"expression": expr, "link": "plotter"}}

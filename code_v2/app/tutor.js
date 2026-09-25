@@ -440,7 +440,7 @@ async function tutorDeleteSession(id){
 
 // P3 E1: session-scoped write-tool approvals (client-held, sent with each request)
 let tutorApprovedTools=[];
-const TUTOR_LINK_LABELS={notes:'查看笔记',vocab:'去单词本',quiz:'去出题',plan:'查看计划'};
+const TUTOR_LINK_LABELS={notes:'查看笔记',vocab:'去单词本',quiz:'去出题',plan:'查看计划',graph:'查看图谱',plotter:'去画板',pretest:'去前测'};
 
 // P3 G5: /finish flow state
 let tutorFinishPending=null;   // {session_id, summary, candidates}
@@ -784,6 +784,9 @@ function tutorActionJump(link){
     else if(link==='vocab'){vocabTabSwitch('vocab');showPage('notes');}
     else if(link==='quiz'){showPage('quiz');}
     else if(link==='plan'){showPage('pretest');}
+    else if(link==='graph'){showPage('graph');if(typeof graphPageEnter==='function')graphPageEnter();}
+    else if(link==='plotter'){showPage('plotter');}
+    else if(link==='pretest'){showPage('pretest');if(typeof ptGo==='function')ptGo(0);}
 }
 
 function escapeHtmlTutor(t){return t.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;');}
