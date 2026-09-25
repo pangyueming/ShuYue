@@ -1,0 +1,278 @@
+# 数跃 Harness V4 · Agent 设计文档
+
+> **版本**：v1.0（定稿）
+> **日期**：2026-09-25
+> **状态**：P0 已完成（模型与决策层实测选型），P1 待启动
+> **用途**：V4 开发的执行对照表——每个功能带 ID/期次/验收标准，完成后勾选状态；本文档随代码版本化，是唯一权威参考
+> **工作区**：`D:\study\智学桥\ShuYue-agent\`（harness-v4 worktree，端口 8003，独立数据库，与主分支零干扰）
+> **采用条件**：P1-P4 验收通过后 merge 回 main；效果不达预期则废弃本分支，主分支无损
+
+---
+
+## 一、定案决策记录（D1-D8）
+
+| # | 决策 | 依据 |
+|---|------|------|
+| **D1** | 手写 Agent Loop，**不用** LangChain/LangGraph | 单供应商（DashScope 兼容 API）+ 11 工具 + ≤6 步线性循环，LangGraph 的状态图/断点续跑用不上；代码库零框架传统；opencode 等业界聚焦型 agent 同为手写循环 |
+| **D2** | 生成模型 = **qwen3.8-27b** | P0 双模型实测（agent-lab）：双语基准 79.2%→**83.3%**、英文题 83.3%→**91.7%**、证明题 37.5%→**50%**、快 27%、省 25% token。已于 2026-09-25 上线主分支（commit 3936e32） |
+| **D3** | 决策层 = **qwen3.8-flash，`enable_thinking=False`** | AnyJev 式封装（DashScope `decision-model-preview` 403 邀测不可用）。P0 三场景满分：意图 12/12 + 技能选择 10/10 + 答案等价 8/8；1.1s / 99 tokens（比 turbo 更省更准） |
+| **D4** | 决策级联（可选保险） | flash 置信度 < **0.85** → 升级 qwen3.8-27b 复判。单层已满分，级联为边界案例兜底 |
+| **D5** | Skills 采用 **Agent Skills 开放标准**（agentskills.io） | 模型无关（40+ 产品采纳）；Qwen 指令跟随足够，但 skill 编写须：短、命令式、带 few-shot 示例 |
+| **D6** | **Harness V3 整体降维为工具** `solve_problem` | 双车道 + 三验证器 + 中文管道全保留，零重写；出题验证与 agent 解题共用 |
+| **D7** | 隔离策略：`harness-v4` 分支 + worktree | 端口 8003、独立 DB；实验资产在 `D:\study\智学桥\agent-lab\`；merge 或废弃皆零残留 |
+| **D8** | 写工具权限：**读直通；写首次确认后本会话直通** | opencode 权限模式；防误操作与滥用 |
+
+---
+
+## 二、架构总图
+
+```
+用户消息
+   │
+   ▼
+┌─────────────────────────────────────────────────────┐
+│  决策层（模块 F · qwen3.8-flash 关thinking · ~1.1s/99tk）│
+│  意图路由：solve│chat│quiz_request│vocab_add│          │
+│            simple_query│file_op  +  技能选择(10→1)     │
+└───────┬──────────────┬──────────────┬────────────────┘
+        │              │              │
+   simple_query      chat        需工具（复杂请求）
+        │              │              │
+        ▼              ▼              ▼
+  工具直取+模板     27B 直出      ┌─────────────────────┐
+  （跳过LLM，      （system +     │ Agent Loop（27B）    │
+   零生成成本）      选中SKILL，    │ ≤6步 + 预算熔断      │
+                   不带tools）     │ ≥3工具→显式计划卡    │
+                                  └─────────┬───────────┘
+                                            │
+                        ┌───────────────────┼──────────────────┐
+                        ▼                   ▼                  ▼
+                  读工具（直通）        写工具（限频+确认）   记忆四层
+                  solve_problem        save_document…       L1工作记忆
+                  search_textbook                          L2滚动摘要
+                  get_study_state                           L3用户状态(工具拉取)
+                                                            L4语义记忆(RAG)
+                                            │
+                                            ▼
+                          SSE：text / tool_call / tool_result / actions
+                                    （前端渲染动作卡片）
+```
+
+## 三、模型路由配置（.env 目标态）
+
+```ini
+MODEL=qwen3.8-27b              # 生成：解题/讲解/出题（已上线主分支）
+DECISION_MODEL=qwen3.8-flash   # 决策层：门卫/技能选择/判分快通道（enable_thinking=False）
+TRANSLATE_MODEL=qwen-turbo     # 翻译/术语提取（保持）
+# v4 worktree 本地覆盖（不入库）：
+# PORT=8003
+```
+
+---
+
+## 四、功能清单（执行对照表）
+
+> 状态图例：✅ 完成 ｜ ⬜ 待做 ｜ 🔶 部分
+> 期次：P1 Skills快赢 → P2 Agent核心+决策层 → P3 写工具+助手化 → P4 上传工作流 → P5 长尾
+
+### 模块 A：Agent 核心引擎
+
+| ID | 功能 | 要点 | 期 | 状态 |
+|----|------|------|:--:|:----:|
+| A1 | Agent Loop 主循环 | messages+tools→LLM→tool_call→执行→回填→循环；≤6步；步数/token 超限熔断 | P2 | ⬜ |
+| A2 | 模型工具调用验证 | qwen3.8-27b 走 DashScope `tools` 参数 | P0 | ✅ 6/6 |
+| A3 | 结构化 SSE 协议 | 四事件：`text`(delta) / `tool_call` / `tool_result` / `actions`(结束汇总) | P2 | ⬜ |
+| A4 | APIClient 扩展 | tools 透传 + tool_calls 解析（复用 V3 客户端 ~30 行改造） | P2 | ⬜ |
+| A5 | 降级路径 | 工具失败/不支持 → 自动回退现有纯聊天（保底可用） | P2 | ⬜ |
+| A6 | 上下文预算管理 | 工具结果截断（如 search_textbook 只回 top-3 摘要） | P2 | ⬜ |
+
+### 模块 B：工具集（11 个，全部包装现有后端函数）
+
+| ID | 工具 | 类型 | 包装 | 期 | 状态 |
+|----|------|:---:|------|:--:|:----:|
+| B1 | `solve_problem` | 读 | Harness V3 solve_question（双车道+验证器） | P2 | ⬜ |
+| B2 | `search_textbook` | 读 | rag.py 跨语言检索 | P2 | ⬜ |
+| B3 | `get_study_state` | 读 | 图谱掌握度+计划进度+SRS 到期聚合 | P2 | ⬜ |
+| B4 | `read_document` | 读 | pages.json 指定章节 | P3 | ⬜ |
+| B5 | `list_documents` | 读 | 书架清单 | P3 | ⬜ |
+| B6 | `save_document` | 写 | 上传入架 + **agent 自动判断 category** | P3 | ⬜ |
+| B7 | `extract_vocab` | 写 | /api/vocab/auto | P3 | ⬜ |
+| B8 | `add_vocab_term` | 写 | /api/vocab | P3 | ⬜ |
+| B9 | `create_note` | 写 | /api/notes | P3 | ⬜ |
+| B10 | `generate_quiz` | 写 | quiz 生成流水线 | P3 | ⬜ |
+| B11 | `update_plan_task` | 写 | plan state 勾选/推进 | P3 | ⬜ |
+
+### 模块 C：Skills 系统（Agent Skills 标准）
+
+| ID | 功能 | 期 | 状态 |
+|----|------|:--:|:----:|
+| C1 | `skill_loader.py`（frontmatter 解析 + 按需注入，~100 行） | P1 | ⬜ |
+| C2 | `skills/` 目录（SKILL.md 标准格式） | P1 | ⬜ |
+| C3 | `GET /api/skills`（name/description/标签） | P1 | ⬜ |
+| C4 | chips + `/` 命令显式调用 | P1(chips)/P2(命令) | ⬜ |
+| C5 | agent 自动匹配（经决策层 F2，渐进披露） | P2 | ⬜ |
+| C6 | 事件触发建议（quiz 结束→错因分析；上传→摘要） | P4 | ⬜ |
+| C7 | 消息头"已启用 ××技能"徽标 | P2 | ⬜ |
+| C8 | skill：`socratic-tutor`（现 Deep 模式标准化迁移） | P1 | ⬜ |
+| C9 | skill：`gaokao-bridge`（高考↔大学概念对照） | P1 | ⬜ |
+| C10 | skill：`error-analysis`（错因诊断+归因+变式） | P1 | ⬜ |
+| C11 | skill：`graded-hints`（三级提示：方向→步骤→答案） | P1 | ⬜ |
+| C12 | skill：`proof-coach`（五类证明 rubric 批改） | P5 | ⬜ |
+| C13 | skill：`bilingual-term`（术语双语教学） | P5 | ⬜ |
+| C14 | skill：`exam-prep`（考前冲刺） | P5 | ⬜ |
+| C15 | skill：`mistake-notebook`（错题本生成→存笔记） | P5 | ⬜ |
+| C16 | skill：`weekly-review`（周复习导学，结合 SRS） | P5 | ⬜ |
+| C17 | skill：`concept-bridge`（单概念深讲，结合图谱） | P5 | ⬜ |
+
+### 模块 D：前端"AI 学习助手"
+
+| ID | 功能 | 期 | 状态 |
+|----|------|:--:|:----:|
+| D1 | 页面升级：AI 辅导→AI 助手 | P3 | ⬜ |
+| D2 | 动作卡片渲染（tool_result→图标+摘要+跳转） | P3 | ⬜ |
+| D3 | 拖拽上传→全自动链（分类入架→术语提取→摘要汇报） | P4 | ⬜ |
+| D4 | kimiCall SSE 四事件解析 | P2 | ⬜ |
+| D5 | 双模式人格保留（通用/苏格拉底） | P3 | ⬜ |
+| D6 | 技能 chips（P1）/ `/` 命令面板（P2） | P1/P2 | ⬜ |
+
+### 模块 E：安全与工程
+
+| ID | 功能 | 期 | 状态 |
+|----|------|:--:|:----:|
+| E1 | 工具权限分级（D8 方案） | P3 | ⬜ |
+| E2 | 写工具限频（每用户每日上限） | P3 | ⬜ |
+| E3 | user_id 强绑定（所有工具执行） | P2 | ⬜ |
+| E4 | 步数/token 预算熔断 | P2 | ⬜ |
+| E5 | tool_call 审计日志（谁/何时/何工具/结果摘要） | P4 | ⬜ |
+
+### 模块 F：决策层（Jev 式 · AnyJev 封装）🆕
+
+| ID | 功能 | 要点 | 期 | 状态 |
+|----|------|------|:--:|:----:|
+| F0 | 决策引擎选型+三场景实测 | 30 手标用例 ×3 引擎，flash 满分胜出 | P0 | ✅ |
+| F1 | 意图门卫 | 6 类意图路由；simple_query→工具直取+模板直答（**跳过 27B，零生成成本**） | P2 | ⬜ |
+| F2 | 技能选择器 | 10→1 选择，替代常驻描述（每条消息省 ~1000 tk） | P2 | ⬜ |
+| F3 | 判分三级快通道 | 正则（免费）→ flash（置信终结 60-80%）→ 27b（仅低置信） | P2 | ⬜ |
+| F4 | 级联升级 | confidence < 0.85 → 27b 复判（可选） | P2 | ⬜ |
+| F5 | 记忆压缩决策 | L2 何时 compact、保哪些消息 | P5 | ⬜ |
+| F6 | 术语提取预筛 | chunk 含数学术语与否预判，省 40-60% 提取调用 | P5 | ⬜ |
+
+### 模块 G：记忆（四层）🆕
+
+| ID | 层 | 设计 | 期 | 状态 |
+|----|----|------|:--:|:----:|
+| G1 | L1 工作记忆 | 会话消息服务端化（替代前端 tutorChatHistory） | P2 | ⬜ |
+| G2 | L2 滚动摘要 | 上下文超预算→旧消息压缩 summary（压缩决策可走 F5） | P3 | ⬜ |
+| G3 | L3 用户状态 | **不进上下文**，经 B3 工具按需拉取（记忆外置于系统 DB） | 随B3 | ⬜ |
+| G4 | L4 语义记忆 | 用户教材 RAG，经 B2 | 随B2 | ⬜ |
+
+### 模块 H：规划（混合式）🆕
+
+| ID | 功能 | 设计 | 期 | 状态 |
+|----|------|------|:--:|:----:|
+| H1 | ReAct 隐式规划 | ≤2 工具请求默认路径（隐含于 A1） | P2 | ⬜ |
+| H2 | 显式计划卡 | ≥3 工具→todo 卡（前端可见——学生看到 AI 拆解任务本身是教学） | P4 | ⬜ |
+| H3 | 异常重规划 | 执行失败→replan | P4 | ⬜ |
+
+---
+
+## 五、分期计划与验收标准（Definition of Done）
+
+### ✅ P0：技术验证（已完成 2026-09-25）
+
+| 验收项 | 结果 |
+|--------|------|
+| 工具调用 6 用例（选择/参数/链式/防幻觉/纯文本/解题触发） | qwen3.8-27b **6/6** |
+| 双语数学基准 24 题 | 27b **83.3%** vs 35b-a3b 79.2%（英文 91.7%） |
+| 决策层三场景 30 用例 | flash **满分**（12/12+10/10+8/8），1.1s/99tk |
+| 模型切换上线 | 主分支已采用（3936e32 + 8e2f9e3） |
+
+### ⬜ P1：Skills 快赢版（1.5-2 天）
+
+**范围**：C1 C2 C3 C4(chips) C8 C9 C10 C11 D6(chips)
+
+**DoD**：
+1. `GET /api/skills` 返回 4 个 skill（name/description 校验）
+2. 前端 chips 点选 → 消息头显示技能标记 → 回答风格符合对应 SKILL.md（每 skill 3 问人工评审）
+3. 主分支零改动（全部提交在 harness-v4）
+4. 8003 端口独立运行，主站 8001 不受影响
+
+### ⬜ P2：Agent 核心 + 决策层（4-5 天）
+
+**范围**：A1 A3 A4 A5 A6 + B1 B2 B3 + E3 E4 + F1 F2 F3 F4 + G1 + D4 + C5 C7 + D6(命令面板)
+
+**DoD**：
+1. 三类路由分流正确率：复用 `agent-lab` 30 手标用例自动断言，≥93%（对齐 P0 基线满分线留容差）
+2. "今天我该复习什么"类 simple_query **不经过 27b**（服务端日志可证：无生成调用记录）
+3. solve/search 工具在对话中可用，回答带教材出处
+4. 步数熔断测试：构造死循环输入（连续要求调用工具），6 步内终止并给出降级回复
+5. 决策层 30 用例回归通过
+
+### ⬜ P3：写工具 + 助手化（3-4 天）
+
+**范围**：B4-B11 + E1 E2 + D1 D2 D5 + G2
+
+**DoD**：
+1. 写工具首次执行弹确认卡；确认后本会话直通
+2. 限频触发 → 明确提示（非静默失败）
+3. 跨用户越权测试：user A 构造操作 user B 资源的工具调用 → 403
+4. 动作卡片可跳转对应功能页（存书架→书架页；建笔记→笔记页）
+
+### ⬜ P4：上传工作流 + 审计（2-3 天）
+
+**范围**：D3 + C6 + E5 + H2 H3
+
+**DoD**：
+1. 拖 PDF 进对话 → 自动：分类入架→术语提取→摘要，以一张汇总卡汇报"我做了 3 件事"
+2. quiz 结束出现"错因分析"建议入口
+3. 审计表可查：user/tool/时间/结果摘要
+4. ≥3 工具任务显示计划卡，逐步打勾
+
+### ⬜ P5：长尾（待定）
+
+C12-C17（每个 skill 独立 3 问人工验收）+ F5 F6 + 主动性
+
+---
+
+## 六、验证资产（已就位）
+
+| 资产 | 位置 | 用途 |
+|------|------|------|
+| 工具调用 6 用例脚本 | `agent-lab\tool_call_test.py` | P2 A1 回归 |
+| 双语基准 24 题 runner | `agent-lab\bench_runner.py`（`--model` 可换） | 模型/提示词变更回归 |
+| 决策 30 用例（手标） | `agent-lab\decision_probe.py` + `s1_detail.py` | F 层回归基线（满分线） |
+| flash thinking 开关测试 | `agent-lab\flash_thinking_test.py` | 决策延迟回归 |
+| 决策层选型报告 | `agent-lab\DECISION_LAYER_REPORT.md` | D3/D4 依据存档 |
+| 各测试结果 JSON | `agent-lab\*.json` | 数据留档 |
+
+---
+
+## 七、V4 代码组织（ShuYue-agent worktree 内新增）
+
+```
+code_v2/
+├── agent/                    🆕 V4 核心
+│   ├── loop.py               # A1 Agent 主循环
+│   ├── sse.py                # A3 事件协议
+│   ├── decision.py           # F 决策层（flash 调用+级联）
+│   ├── memory.py             # G 记忆管理
+│   ├── planner.py            # H 计划卡
+│   └── tools/                # B 工具集
+│       ├── registry.py       #   schema 注册 + 权限标注
+│       ├── read_tools.py     #   B1-B5
+│       └── write_tools.py    #   B6-B11
+├── skills/                   🆕 C Skills（Agent Skills 标准）
+│   ├── socratic-tutor/SKILL.md
+│   ├── gaokao-bridge/SKILL.md
+│   ├── error-analysis/SKILL.md
+│   └── graded-hints/SKILL.md
+└── server.py                 # +/api/skills +/api/agent/chat 等端点
+```
+
+---
+
+## 八、变更日志
+
+| 日期 | 版本 | 变更 |
+|------|------|------|
+| 2026-09-25 | v1.0 | 定稿：D1-D8 决策、A-H 功能清单（45+ 项）、P0 完成（模型+决策层实测）、P1-P5 DoD、验证资产清单 |
