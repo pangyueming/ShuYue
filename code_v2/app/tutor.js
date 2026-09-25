@@ -708,19 +708,20 @@ async function tutorSend(){
                 else if(ev.type==='tool_call'){stCalls++;stLine('calling <b>'+escapeHtmlTutor(ev.name||'tool')+'</b>…');}
                 else if(ev.type==='tool_result'){stLine('✓ '+escapeHtmlTutor(ev.name||'tool')+' done');}
                 else if(ev.type==='permission_request'){
-                    // P3 E1: confirm card — approve adds to session set + auto-resend
+                    // P3 E1: modal dialog confirm (opencode style) — not an inline card
                     stLine('🔒 <b>'+escapeHtmlTutor(ev.name)+'</b> awaiting approval');
                     const pn=ev.name||'',ph=ev.hint||'',pa=ev.args||{};
-                    content.insertAdjacentHTML('beforeend',
-                        '<div class="perm-card" style="border:1px solid rgba(250,173,20,.35);background:rgba(250,173,20,.06);border-radius:10px;padding:10px 14px;margin-top:8px;font-size:12px;">'
-                        +'<div style="display:flex;align-items:center;gap:6px;font-weight:600;color:#faad14;margin-bottom:4px;">'+iconHtml('shield',13)+' AI 请求执行写操作：'+escapeHtmlTutor(pn)+'</div>'
-                        +'<div style="color:var(--text-secondary);margin-bottom:4px;">'+escapeHtmlTutor(ph)+'</div>'
-                        +'<div style="font-family:var(--font-mono);font-size:10px;color:var(--text-muted);margin-bottom:8px;">'+escapeHtmlTutor(JSON.stringify(pa).substring(0,120))+'</div>'
-                        +'<div style="display:flex;gap:6px;">'
-                        +'<button class="btn-primary" style="font-size:11px;padding:4px 14px;" onclick="tutorApproveTool(\''+escapeHtmlTutor(pn)+'\',\''+escapeHtmlTutor(q).replace(/'/g,'&#39;').substring(0,300)+'\')">允许（本会话）</button>'
-                        +'<button class="btn-secondary" style="font-size:11px;padding:4px 14px;" onclick="this.closest(\'.perm-card\').remove()">拒绝</button>'
-                        +'</div></div>');
-                    refreshIcons();chat.scrollTop=chat.scrollHeight;
+                    const _savedQ=q;   // capture for re-send on approve
+                    showConfirmDialog({
+                        icon:'shield',
+                        iconColor:'#faad14',
+                        title:'AI 请求执行写操作',
+                        message:pn+' — '+ph+'\n\n参数：'+JSON.stringify(pa).substring(0,150),
+                        confirmText:'允许（本会话）',
+                        cancelText:'拒绝',
+                        confirmColor:'#faad14',
+                        onConfirm:()=>tutorApproveTool(pn,_savedQ),
+                    });
                 }
                 else if(ev.type==='actions'&&ev.items&&ev.items.length){
                     actionsHtml='<div style="display:flex;gap:6px;flex-wrap:wrap;margin-top:8px;">'
@@ -773,7 +774,6 @@ function tutorSkillBadgeFor(name){
 // P3 E1: approve a write tool → add to session set → auto re-send the same question
 function tutorApproveTool(name,resendQ){
     if(!tutorApprovedTools.includes(name))tutorApprovedTools.push(name);
-    document.querySelectorAll('.perm-card').forEach(c=>c.remove());
     showNotification('已授权 '+name+'（本会话生效），正在重试…','success');
     const inp=document.getElementById('tutor-input');
     if(inp){inp.value=resendQ||'';tutorAutoGrow(inp);tutorSend();}
