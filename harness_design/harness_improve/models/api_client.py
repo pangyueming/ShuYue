@@ -15,7 +15,7 @@ class APIClient:
         self,
         api_key: str,
         base_url: str = "https://dashscope.aliyuncs.com/compatible-mode/v1",
-        model: str = "qwen3.6-35b-a3b",
+        model: str = "qwen3.8-27b",
         timeout: int = 180,
         retries: int = 3,
         retry_delay: float = 2.0,

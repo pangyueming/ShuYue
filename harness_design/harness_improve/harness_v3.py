@@ -21,7 +21,7 @@ from tools.notation_mapper import NotationMapper
 
 
 # Default configuration
-DEFAULT_MODEL = "qwen3.6-35b-a3b"
+DEFAULT_MODEL = "qwen3.8-27b"
 DEFAULT_BASE_URL = "https://dashscope.aliyuncs.com/compatible-mode/v1"
 
 

@@ -1,4 +1,4 @@
-﻿"""
+"""
 数跃 Backend Server — FastAPI + Harness V3 Engine
 Runs the UK Math Harness V3 (with V2 fallback capability) for AI-powered math tutoring.
 
@@ -108,7 +108,7 @@ load_dotenv()
 
 DASHSCOPE_API_KEY = os.getenv("DASHSCOPE_API_KEY", "")
 BASE_URL = "https://dashscope.aliyuncs.com/compatible-mode/v1/chat/completions"
-MODEL = os.getenv("MODEL", "qwen3.6-35b-a3b")
+MODEL = os.getenv("MODEL", "qwen3.8-27b")
 TRANSLATE_MODEL = os.getenv("TRANSLATE_MODEL", "qwen-turbo")
 PORT = int(os.getenv("PORT", "8000"))
 HOST = os.getenv("HOST", "0.0.0.0")
@@ -760,7 +760,7 @@ def get_model_for_task(task_type: str) -> str:
     """Route to cheaper model for simple tasks."""
     if task_type == "translate":
         return TRANSLATE_MODEL  # qwen-7b-instruct (cheaper)
-    return MODEL  # qwen3.6-35b-a3b
+    return MODEL  # qwen3.8-27b
 
 # ============================================================================
 # HARNESS: Verifier (cross-check B-channel answers)

@@ -29,7 +29,7 @@ import requests
 # ============================================================================
 
 DEFAULT_BASE_URL = "https://dashscope.aliyuncs.com/compatible-mode/v1"
-DEFAULT_MODEL = "qwen3.6-35b-a3b"
+DEFAULT_MODEL = "qwen3.8-27b"
 
 # --- UK Higher Math Topic Lexicon (replaces Chinese Gaokao lexicon) ---
 TOPIC_LEXICON = [

@@ -336,7 +336,7 @@ class APIClient:
     def __init__(self, api_key, base_url, model, timeout=180, retries=3):
         # 保存配置
         self.api_key = api_key
-        self.model = model          # "qwen3.6-35b-a3b"
+        self.model = model          # "qwen3.8-27b"
         self.timeout = timeout      # 180秒超时
         self.retries = retries      # 失败重试3次
         self.session = requests.Session()  # 复用TCP连接

@@ -303,7 +303,7 @@ Pipeline层封装Harness，提供任务特定的前后处理：
 
 ### 主力模型
 ```
-模型：qwen3.6-35b-a3b（阿里云百炼）
+模型：qwen3.8-27b（阿里云百炼）
 端点：https://dashscope.aliyuncs.com/compatible-mode/v1/chat/completions
 密钥：存储在 .env 文件中（DASHSCOPE_API_KEY=sk-ws-...）
 ```
@@ -684,7 +684,7 @@ python server.py
 ### 环境变量配置（`.env`）
 ```bash
 DASHSCOPE_API_KEY=sk-ws-...       # 阿里云百炼API密钥
-MODEL=qwen3.6-35b-a3b              # 主力模型
+MODEL=qwen3.8-27b              # 主力模型
 TRANSLATE_MODEL=qwen-turbo         # 翻译模型（成本更低）
 SECRET_KEY=                         # 留空=首次启动自动生成唯一密钥并写回.env（推荐）
 HARNESS_VERSION=v3                 # Harness版本：v3(默认) 或 v2(回退)

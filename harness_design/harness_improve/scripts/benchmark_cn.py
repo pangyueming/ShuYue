@@ -29,7 +29,7 @@ ENV_PATH = os.path.join(ROOT, "..", "..", "code_v2", ".env")
 
 def load_env(path):
     key = None
-    model = "qwen3.6-35b-a3b"
+    model = "qwen3.8-27b"
     try:
         with open(path, encoding="utf-8") as f:
             for line in f:

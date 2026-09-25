@@ -84,7 +84,7 @@ def solve_question(
     question_text: str,
     options: Optional[list] = None,
     api_key: Optional[str] = None,
-    model: str = "qwen3.6-35b-a3b",
+    model: str = "qwen3.8-27b",
     base_url: str = "https://dashscope.aliyuncs.com/compatible-mode/v1",
     student_level: str = "first_year",
     use_v3: Optional[bool] = None,

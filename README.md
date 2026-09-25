@@ -42,7 +42,7 @@ AI 驱动的高考 → 中外合办大学数学衔接学习平台，专为北邮
 |----|------|
 | 前端 | Vanilla JS 模块化架构（17 模块）+ Tailwind CSS + PDF.js + Plotly.js + KaTeX + Lucide Icons |
 | 后端 | FastAPI + SQLite + JWT |
-| AI 推理模型 | Qwen3.6-35B-A3B（阿里云百炼） |
+| AI 推理模型 | Qwen3.8-27B（阿里云百炼） |
 | AI 翻译/术语提取 | Qwen-Turbo（成本更低） |
 | 嵌入模型 | text-embedding-v4（多语言，支持中英跨语言检索） |
 | Harness 引擎 | **V3**（ToRA 工具调用 + Proof Verifier 证明验证 + Smart Routing 智能路由 + **中文管道**） |

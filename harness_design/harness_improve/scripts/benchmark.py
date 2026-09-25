@@ -36,7 +36,7 @@ if os.path.exists(_env_path):
 
 API_KEY = os.getenv("DASHSCOPE_API_KEY", "")
 BASE_URL = "https://dashscope.aliyuncs.com/compatible-mode/v1"
-MODEL = "qwen3.6-35b-a3b"
+MODEL = "qwen3.8-27b"
 
 # ---------------------------------------------------------------------------
 # Mode 1: Direct API (Bare Run)
