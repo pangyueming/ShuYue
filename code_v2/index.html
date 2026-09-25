@@ -286,10 +286,11 @@
         <!-- ===== MATH TUTOR ===== -->
         <div id="page-tutor" class="page-view page-chat">
           <div style="display:flex;gap:14px;align-items:flex-start;">
-            <!-- P2 · G1 工作台侧栏 -->
-            <aside id="tutor-ws-sidebar" style="width:198px;flex-shrink:0;border:1px solid var(--border);border-radius:14px;background:var(--bg-card);padding:10px;">
-                <button class="btn-primary" style="width:100%;font-size:12px;padding:6px;display:inline-flex;align-items:center;justify-content:center;gap:5px;" onclick="tutorNewSession()"><i data-lucide="plus" style="width:13px;height:13px;"></i>新工作台</button>
-                <div id="tutor-ws-list" style="margin-top:8px;"></div>
+            <!-- P2 · G1 工作台侧栏（P2.5 Claude 式 glass 化） -->
+            <aside id="tutor-ws-sidebar" class="ws-sidebar">
+                <button class="ws-new-btn" onclick="tutorNewSession()"><i data-lucide="plus" style="width:14px;height:14px;"></i>新工作台</button>
+                <div class="ws-label">工作台</div>
+                <div id="tutor-ws-list"></div>
             </aside>
             <div style="flex:1;min-width:0;">
             <div class="page-head">
@@ -303,23 +304,16 @@
             <p id="tutor-mode-desc" class="seg-desc">直接解答：知识来源、方法拆解、通俗讲解</p>
             <!-- Uploaded materials -->
             <div id="tutor-materials" style="margin-bottom:12px;"></div>
-            <!-- Chat area -->
+            <!-- Chat area（示例建议只在空对话时显示，随 empty-hero 一起移除） -->
             <div id="tutor-chat" class="chat-area">
-                <div class="empty-hero"><div class="empty-disc"><i data-lucide="sigma"></i></div><div class="empty-title">提问或上传资料开始学习</div><div class="empty-sub">数跃 AI 提供支持</div></div>
-            </div>
-            <!-- Quick examples -->
-            <div class="chip-row">
-                <button class="chip" onclick="tutorSendQuick('Evaluate: lim(x→0) sin(x)/x')">求极限 sin(x)/x</button>
-                <button class="chip" onclick="tutorSendQuick('Prove that a²+b² ≥ 2ab for all real numbers')">证明 a²+b²≥2ab</button>
-                <button class="chip" onclick="tutorSendQuick('Find the eigenvalues of matrix [[2,1],[1,2]]')">求特征值</button>
-                <button class="chip" onclick="tutorSendQuick('Does the series Σ(1/n²) converge?')">Σ1/n² 收敛吗？</button>
+                <div class="empty-hero" style="min-height:240px;"><div class="empty-disc"><i data-lucide="sigma"></i></div><div class="empty-title">提问开始学习</div><div class="empty-sub">数跃 AI 提供支持 · 输入 / 唤起教学技能</div><div class="tutor-suggest-row"><button class="chip" onclick="tutorSendQuick('Evaluate: lim(x→0) sin(x)/x')">求极限 sin(x)/x</button><button class="chip" onclick="tutorSendQuick('Prove that a²+b² ≥ 2ab for all real numbers')">证明 a²+b²≥2ab</button><button class="chip" onclick="tutorSendQuick('Find the eigenvalues of matrix [[2,1],[1,2]]')">求特征值</button><button class="chip" onclick="tutorSendQuick('Does the series Σ(1/n²) converge?')">Σ1/n² 收敛吗？</button></div></div>
             </div>
             <!-- P1.5: active-skill pill (above composer) -->
             <div id="tutor-skill-pill-row" style="display:none;margin-bottom:8px;"></div>
-            <!-- Input -->
+            <!-- Input（P2.5 Claude 式：自增高 textarea，Enter 发送 / Shift+Enter 换行） -->
             <div class="composer card glass">
                 <span class="composer-attach" id="tutor-plus-btn" onclick="tutorTogglePlusMenu(event)" title="技能与附件" aria-label="打开技能与附件菜单" role="button" tabindex="0"><i data-lucide="plus"></i></span>
-                <input id="tutor-input" class="input composer-input" placeholder="输入数学问题… 输入 / 唤起技能" onkeydown="if(tutorSlashKey(event))return;if(event.key==='Enter')tutorSend();" oninput="tutorSlashInput(this.value)">
+                <textarea id="tutor-input" class="input composer-input" rows="1" placeholder="输入数学问题… 输入 / 唤起技能" onkeydown="if(tutorSlashKey(event))return;if(event.key==='Enter'&&!event.shiftKey){event.preventDefault();tutorSend();}" oninput="tutorSlashInput(this.value);tutorAutoGrow(this)"></textarea>
                 <button id="tutor-send-btn" class="btn-primary tutor-send-arrow" onclick="tutorSendOrStop()" title="Send" aria-label="发送"><i data-lucide="arrow-up" style="width:16px;height:16px;"></i></button>
             </div>
             <!-- P1.5: + menu & / command popup (fixed-position overlays) -->

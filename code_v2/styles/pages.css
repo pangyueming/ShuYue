@@ -281,8 +281,8 @@ body:not(.dark) .tag-step{color:var(--iris-600)}
 .verify-label{font-size:13px;color:var(--text-secondary);cursor:pointer;display:inline-flex;align-items:center;gap:6px}
 
 /* ---------------- Tutor / chat ---------------- */
-.chat-area{min-height:calc(100vh - 380px);display:flex;flex-direction:column;gap:12px;margin-bottom:16px}
-.composer{display:flex;align-items:center;gap:10px;padding:10px 12px;border-radius:var(--r-lg)}
+.chat-area{min-height:calc(100vh - 300px);display:flex;flex-direction:column;gap:16px;margin-bottom:16px}
+.composer{display:flex;align-items:flex-end;gap:10px;padding:8px 10px;border-radius:18px
 .composer-attach{cursor:pointer;color:var(--text-secondary);display:flex;align-items:center;transition:color var(--t-fast)}
 .composer-attach:hover{color:var(--text-primary)}
 .composer-attach .lucide{width:18px;height:18px}
@@ -312,8 +312,9 @@ body:not(.dark) .tag-step{color:var(--iris-600)}
 .tutor-send-liquid:active{transform:scale(.97)}
 body.dark .tutor-send-liquid{color:#12151F}
 body:not(.dark) .tutor-send-liquid{color:#fff}
-.composer-input{flex:1;border:none;background:transparent;font-size:14px}
+.composer-input{flex:1;border:none;background:transparent;font-size:14.5px;line-height:1.6;resize:none;min-height:40px;max-height:160px;padding:8px 4px;font-family:inherit;overflow-y:auto}
 .composer-input:focus{box-shadow:none}
+.composer-attach{width:40px;height:40px;border-radius:12px;display:flex;align-items:center;justify-content:center}
 
 /* ---------------- Notes editor ---------------- */
 .editor-meta-row{display:flex;gap:8px;align-items:center;margin-bottom:16px}
@@ -402,14 +403,23 @@ body:not(.dark) .tutor-send-liquid{color:#fff}
 .tutor-menu-item svg{flex-shrink:0}
 .tutor-menu-sep{height:1px;background:var(--border);margin:5px 8px}
 /* ===== P2: workspace sidebar + agent status feed ===== */
-.ws-item{display:flex;align-items:center;gap:4px;padding:6px 8px;border-radius:8px;font-size:12px;color:var(--text-secondary);cursor:pointer;position:relative}
+.ws-item{display:flex;align-items:center;gap:4px;padding:8px 10px;border-radius:10px;font-size:13px;color:var(--text-secondary);cursor:pointer;position:relative;border-left:3px solid transparent}
 .ws-item:hover{background:var(--bg-hover);color:var(--text-primary)}
-.ws-item.on{background:rgba(122,107,255,.1);color:var(--iris-400,var(--accent));font-weight:600}
-.ws-item .ws-act{display:none;align-items:center;justify-content:center;width:18px;height:18px;border-radius:4px;color:var(--text-muted);flex-shrink:0}
+.ws-item.on{background:rgba(122,107,255,.10);color:var(--iris-400,var(--accent));font-weight:600;border-left-color:var(--iris-400,var(--accent))}
+.ws-item .ws-act{display:none;align-items:center;justify-content:center;width:20px;height:20px;border-radius:5px;color:var(--text-muted);flex-shrink:0}
 .ws-item:hover .ws-act{display:inline-flex}
 .ws-item .ws-act:hover{color:var(--red);background:rgba(229,72,77,.1)}
 .ws-live{display:inline-block;width:7px;height:7px;border-radius:50%;background:var(--iris-400,var(--accent));margin-left:6px;vertical-align:middle;animation:wsPulse 1.2s ease-in-out infinite}
 @keyframes wsPulse{0%,100%{opacity:.25;transform:scale(.85)}50%{opacity:1;transform:scale(1.15)}}
+
+/* ===== P2.5 Claude-style tutor layout（参考 agent-lab/design-refs/claude-DESIGN.md）===== */
+#page-tutor.page-chat{max-width:1100px}
+.ws-sidebar{width:232px;flex-shrink:0;position:sticky;top:16px;align-self:flex-start;border:1px solid var(--glass-border,var(--border));border-radius:16px;background:var(--glass-bg,var(--bg-card));backdrop-filter:blur(var(--glass-blur,12px)) saturate(var(--glass-sat,1.4));padding:12px;max-height:calc(100vh - 96px);overflow-y:auto}
+.ws-new-btn{width:100%;font-size:13px;font-weight:600;padding:9px;display:inline-flex;align-items:center;justify-content:center;gap:6px;border-radius:10px;border:1px dashed var(--border);background:transparent;color:var(--text-secondary);cursor:pointer;transition:all .15s}
+.ws-new-btn:hover{border-color:var(--accent);color:var(--accent);background:rgba(122,107,255,.06)}
+.ws-label{font-family:var(--font-mono);font-size:10px;letter-spacing:.1em;color:var(--text-muted);padding:12px 10px 6px}
+.tutor-suggest-row{display:flex;flex-wrap:wrap;gap:8px;justify-content:center;margin-top:16px}
+.tutor-st-details summary{color:var(--text-muted)}
 .tutor-status-feed{margin-bottom:4px}
 .tutor-status-feed:empty{display:none}
 /* P2 status rows (outside bubble, English, collapsed after finish) */

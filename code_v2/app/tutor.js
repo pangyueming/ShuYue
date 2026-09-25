@@ -7,6 +7,21 @@ const tutorMaterialsBySession={};   // key -> [{name,size,file}]
 function tutorGetSkill(){return tutorSkillBySession[tutorActiveSession||'_temp']||null;}
 function tutorGetMaterials(){const k=tutorActiveSession||'_temp';if(!tutorMaterialsBySession[k])tutorMaterialsBySession[k]=[];return tutorMaterialsBySession[k];}
 function tutorRemoveMaterial(i){tutorGetMaterials().splice(i,1);tutorRenderMaterials();}
+// P2.5: textarea auto-grow (1 row → up to ~6 rows, Claude-style composer)
+function tutorAutoGrow(el){
+    if(!el)return;
+    el.style.height='auto';
+    el.style.height=Math.min(160,el.scrollHeight)+'px';
+}
+// shared: starter suggestions shown only in EMPTY conversations (empty-state guidance)
+function tutorSuggestionsHtml(){
+    return '<div class="tutor-suggest-row">'
+        +'<button class="chip" onclick="tutorSendQuick(\'Evaluate: lim(x→0) sin(x)/x\')">求极限 sin(x)/x</button>'
+        +'<button class="chip" onclick="tutorSendQuick(\'Prove that a²+b² ≥ 2ab for all real numbers\')">证明 a²+b²≥2ab</button>'
+        +'<button class="chip" onclick="tutorSendQuick(\'Find the eigenvalues of matrix [[2,1],[1,2]]\')">求特征值</button>'
+        +'<button class="chip" onclick="tutorSendQuick(\'Does the series Σ(1/n²) converge?\')">Σ1/n² 收敛吗？</button>'
+        +'</div>';
+}
 
 // ===== P1.5 · Agent Skills UI（+ 菜单统一入口 / / 命令 / pill）=====
 // v1.3 决策：常驻 chips 移除；技能 = 全局能力池，+ 与 / 均可调全部技能。
@@ -268,7 +283,7 @@ async function tutorSwitchSession(id){
                 msgs.pop();     // in-flight user turn re-attaches live below — skip its DB copy
             }
             if(!msgs.length&&!(live&&!live.done)){
-                chat.innerHTML='<div class="empty-hero" style="min-height:200px;"><div class="empty-disc"><i data-lucide="message-square"></i></div><div class="empty-title">这个工作台还没有对话</div><div class="empty-sub">在下方输入第一个问题</div></div>';
+                chat.innerHTML='<div class="empty-hero" style="min-height:240px;"><div class="empty-disc"><i data-lucide="message-square"></i></div><div class="empty-title">这个工作台还没有对话</div><div class="empty-sub">在下方输入第一个问题</div>'+tutorSuggestionsHtml()+'</div>';
             }
             msgs.forEach(m=>{
                 if(m.role==='user'){
@@ -277,7 +292,7 @@ async function tutorSwitchSession(id){
                     chat.appendChild(d);
                 }else if(m.role==='assistant'){
                     const d=document.createElement('div');d.style.cssText='display:flex;gap:8px;';
-                    d.innerHTML='<div style="width:28px;height:28px;border-radius:50%;background:linear-gradient(135deg,var(--accent),#9b59f7);display:flex;align-items:center;justify-content:center;color:#fff;font-size:11px;font-weight:600;flex-shrink:0;">AI</div><div style="background:var(--bg-hover);color:var(--text-primary);padding:8px 14px;border-radius:12px 12px 12px 4px;font-size:13px;max-width:75%;">'+mdToHtmlTutor(m.content)+'</div>';
+                    d.innerHTML='<div style="width:28px;height:28px;border-radius:50%;background:linear-gradient(135deg,var(--accent),#9b59f7);display:flex;align-items:center;justify-content:center;color:#fff;font-size:11px;font-weight:600;flex-shrink:0;">AI</div><div style="background:var(--bg-hover);color:var(--text-primary);padding:12px 16px;border-radius:14px 14px 14px 4px;font-size:13.5px;line-height:1.7;max-width:100%;">'+mdToHtmlTutor(m.content)+'</div>';
                     chat.appendChild(d);
                 }
             });
@@ -355,7 +370,7 @@ async function tutorSend(){
     const inp=document.getElementById('tutor-input');
     const q=inp.value.trim();if(!q)return;
     if(tutorStreamActive()){showNotification('本工作台正在生成中，请等待完成或按 Esc 中断','warning');return;}
-    inp.value='';
+    inp.value='';tutorAutoGrow(inp);
     const sendSession=tutorActiveSession;          // scope: this stream belongs to THIS workspace
     const sendKey=sendSession||'_temp';
     const chat=document.getElementById('tutor-chat');
@@ -379,7 +394,7 @@ async function tutorSend(){
     aiDiv.style.cssText='display:flex;gap:8px;';
     const bubbleId='tutor-bubble-'+Date.now();
     aiDiv.innerHTML='<div style="width:28px;height:28px;border-radius:50%;background:linear-gradient(135deg,var(--accent),#9b59f7);display:flex;align-items:center;justify-content:center;color:#fff;font-size:11px;font-weight:600;flex-shrink:0;">AI</div>'+
-        '<div id="'+bubbleId+'" style="background:var(--bg-hover);color:var(--text-primary);padding:8px 14px;border-radius:12px 12px 12px 4px;font-size:13px;max-width:75%;min-height:20px;"><div class="tutor-content"></div></div>';
+        '<div id="'+bubbleId+'" style="background:var(--bg-hover);color:var(--text-primary);padding:12px 16px;border-radius:14px 14px 14px 4px;font-size:13.5px;line-height:1.7;max-width:100%;min-height:20px;"><div class="tutor-content"></div></div>';
     chat.appendChild(aiDiv);
     const bubble=document.getElementById(bubbleId);
     const content=bubble.querySelector('.tutor-content');
