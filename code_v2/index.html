@@ -294,8 +294,6 @@
                 <button id="tutor-mode-deep" style="flex:1;padding:8px;border-radius:8px;border:none;font-size:13px;font-weight:600;background:transparent;color:var(--text-secondary);cursor:pointer;" onclick="tutorSwitchMode('deep')">引导模式</button>
             </div>
             <p id="tutor-mode-desc" class="seg-desc">直接解答：知识来源、方法拆解、通俗讲解</p>
-            <!-- P1 · Agent Skills: methodology chips (loaded from /api/skills) -->
-            <div id="tutor-skill-row" class="chip-row" style="margin-bottom:10px;"></div>
             <!-- Uploaded materials -->
             <div id="tutor-materials" style="margin-bottom:12px;"></div>
             <!-- Chat area -->
@@ -309,12 +307,17 @@
                 <button class="chip" onclick="tutorSendQuick('Find the eigenvalues of matrix [[2,1],[1,2]]')">求特征值</button>
                 <button class="chip" onclick="tutorSendQuick('Does the series Σ(1/n²) converge?')">Σ1/n² 收敛吗？</button>
             </div>
+            <!-- P1.5: active-skill pill (above composer) -->
+            <div id="tutor-skill-pill-row" style="display:none;margin-bottom:8px;"></div>
             <!-- Input -->
             <div class="composer card glass">
-                <span class="composer-attach" onclick="tutorUploadMaterial()" title="Attach material"><i data-lucide="paperclip"></i></span>
-                <input id="tutor-input" class="input composer-input" placeholder="输入数学问题…" onkeypress="if(event.key==='Enter')tutorSend()">
+                <span class="composer-attach" id="tutor-plus-btn" onclick="tutorTogglePlusMenu(event)" title="技能与附件" aria-label="打开技能与附件菜单" role="button" tabindex="0"><i data-lucide="plus"></i></span>
+                <input id="tutor-input" class="input composer-input" placeholder="输入数学问题… 输入 / 唤起技能" onkeydown="if(tutorSlashKey(event))return;if(event.key==='Enter')tutorSend();" oninput="tutorSlashInput(this.value)">
                 <button class="btn-primary tutor-send-arrow" onclick="tutorSend()" title="Send" aria-label="Send"><i data-lucide="arrow-up" style="width:16px;height:16px;"></i></button>
             </div>
+            <!-- P1.5: + menu & / command popup (fixed-position overlays) -->
+            <div id="tutor-plus-menu" style="display:none;"></div>
+            <div id="tutor-slash-popup" style="display:none;"></div>
         </div>
 
         <!-- ===== NOTES ===== -->

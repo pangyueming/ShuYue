@@ -3,9 +3,12 @@ let tutorMode='general';
 let tutorChatHistory=[];
 let tutorMaterials=[];
 
-// ===== P1 · Agent Skills (chips → /api/chat skill injection) =====
+// ===== P1.5 · Agent Skills UI（+ 菜单统一入口 / / 命令 / pill）=====
+// v1.3 决策：常驻 chips 移除；技能 = 全局能力池，+ 与 / 均可调全部技能。
 let tutorSkill=null;          // active skill name | null
 let tutorSkills=[];           // [{name,label,description}] from /api/skills
+let tutorSlashIdx=0;          // highlighted row in the / popup
+let tutorSlashItems=[];       // filtered skills for the / popup
 async function tutorSkillsInit(){
     try{
         const res=await fetch(AI_BACKEND_URL+'/api/skills');
@@ -13,36 +16,124 @@ async function tutorSkillsInit(){
         const data=await res.json();
         tutorSkills=(data&&data.skills)||[];
     }catch(e){tutorSkills=[];}
-    tutorRenderSkillChips();
+    tutorRenderSkillPill();
 }
-function tutorRenderSkillChips(){
-    const row=document.getElementById('tutor-skill-row');
+// --- active skill pill above the composer ---
+function tutorRenderSkillPill(){
+    const row=document.getElementById('tutor-skill-pill-row');
     if(!row)return;
-    if(!tutorSkills.length){row.innerHTML='';return;}
-    row.innerHTML=tutorSkills.map(s=>{
-        const on=s.name===tutorSkill;
-        return `<button class="chip" data-skill="${escapeHtml(s.name)}" title="${escapeHtml(s.description)}"
-            onclick="tutorSetSkill('${escapeHtml(s.name)}')" aria-pressed="${on}"
-            style="display:inline-flex;align-items:center;gap:5px;padding:6px 14px;border-radius:999px;font-size:12px;cursor:pointer;border:1px solid ${on?'var(--iris-400,var(--accent))':'var(--border)'};background:${on?'rgba(122,107,255,.12)':'var(--bg-input)'};color:${on?'var(--iris-400,var(--accent))':'var(--text-secondary)'};">
-            ${iconHtml(on?'sparkles':'sparkle',12)}${escapeHtml(s.label)}</button>`;
-    }).join('');
+    if(!tutorSkill){row.style.display='none';row.innerHTML='';return;}
+    const s=tutorSkills.find(x=>x.name===tutorSkill);
+    row.style.display='';
+    row.innerHTML='<span style="display:inline-flex;align-items:center;gap:6px;padding:4px 12px;border-radius:999px;font-size:12px;font-weight:600;color:var(--iris-400,var(--accent));background:rgba(122,107,255,.12);border:1px solid rgba(122,107,255,.3);">'
+        +iconHtml('sparkles',12)+escapeHtml(s?s.label:tutorSkill)
+        +'<span onclick="tutorPickSkill(null)" role="button" tabindex="0" aria-label="移除技能" style="display:inline-flex;align-items:center;justify-content:center;width:16px;height:16px;border-radius:50%;cursor:pointer;background:rgba(122,107,255,.2);font-size:10px;">✕</span></span>';
     refreshIcons();
 }
-function tutorSetSkill(name){
-    tutorSkill=(tutorSkill===name)?null:name;   // click again to deactivate
-    tutorRenderSkillChips();
-    if(tutorSkill){
-        const s=tutorSkills.find(x=>x.name===tutorSkill);
-        showNotification('已启用教学技能：'+(s?s.label:name)+'（再次点击关闭）','success');
+function tutorPickSkill(name){
+    tutorSkill=name;
+    tutorRenderSkillPill();
+    tutorClosePlusMenu();tutorCloseSlash();
+    if(name){
+        const s=tutorSkills.find(x=>x.name===name);
+        showNotification('已启用教学技能：'+(s?s.label:name)+'（发送时生效）','success');
     }
+    const inp=document.getElementById('tutor-input');
+    if(inp)inp.focus();
 }
+// AI 气泡顶部技能徽标（P1 保留）
 function tutorSkillBadge(){
     if(!tutorSkill)return '';
     const s=tutorSkills.find(x=>x.name===tutorSkill);
     return '<div style="display:inline-flex;align-items:center;gap:5px;font-size:10px;font-weight:600;color:var(--iris-400,var(--accent));background:rgba(122,107,255,.1);border:1px solid rgba(122,107,255,.25);border-radius:999px;padding:1px 8px;margin-bottom:6px;">'
         +iconHtml('sparkles',10)+' '+escapeHtml(s?s.label:tutorSkill)+'</div><br>';
 }
-// chips load once when the script is ready (element exists — scripts load after DOM)
+// --- + menu（技能 + 上传资料 统一入口）---
+function tutorTogglePlusMenu(ev){
+    if(ev)ev.stopPropagation();
+    const m=document.getElementById('tutor-plus-menu');
+    if(m&&m.style.display==='flex'){tutorClosePlusMenu();return;}
+    tutorCloseSlash();
+    if(!m)return;
+    const btn=document.getElementById('tutor-plus-btn');
+    const r=btn?btn.getBoundingClientRect():{left:20,bottom:80};
+    const skItems=tutorSkills.map(s=>{
+        const on=s.name===tutorSkill;
+        return `<div class="tutor-menu-item${on?' on':''}" onclick="tutorPickSkill('${on?'':escapeHtml(s.name)}')" role="button" tabindex="0">
+            ${iconHtml(on?'check-circle':'sparkles',14)}
+            <span style="flex:1;min-width:0;"><b style="font-size:12px;">${escapeHtml(s.label)}</b>
+            <span style="display:block;font-size:10px;color:var(--text-muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${escapeHtml(s.description)}</span></span>
+        </div>`;
+    }).join('');
+    m.innerHTML='<div class="tutor-menu-label">'+iconHtml('wand-sparkles',11)+'教学技能（全部可用）</div>'
+        +skItems
+        +'<div class="tutor-menu-sep"></div>'
+        +'<div class="tutor-menu-label">'+iconHtml('paperclip',11)+'附件</div>'
+        +'<div class="tutor-menu-item" onclick="tutorClosePlusMenu();tutorUploadMaterial()" role="button" tabindex="0">'+iconHtml('file-up',14)+'<span style="flex:1;font-size:12px;">上传资料（PDF/PPT）</span></div>';
+    m.style.display='flex';
+    const mw=Math.min(320,window.innerWidth-24);
+    m.style.width=mw+'px';
+    m.style.left=Math.max(12,Math.min(r.left,window.innerWidth-mw-12))+'px';
+    m.style.top='';m.style.bottom=(window.innerHeight-r.bottom+10)+'px';
+    refreshIcons();
+}
+function tutorClosePlusMenu(){const m=document.getElementById('tutor-plus-menu');if(m){m.style.display='none';m.innerHTML='';}}
+// --- / command popup（打字过滤）---
+function tutorSlashOpen(){const p=document.getElementById('tutor-slash-popup');return !!(p&&p.style.display==='flex');}
+function tutorCloseSlash(){const p=document.getElementById('tutor-slash-popup');if(p){p.style.display='none';p.innerHTML='';}tutorSlashIdx=0;}
+function tutorSlashInput(v){
+    const p=document.getElementById('tutor-slash-popup');
+    if(!p)return;
+    if(!v.startsWith('/')){tutorCloseSlash();return;}
+    const q=v.slice(1).trim().toLowerCase();
+    tutorSlashItems=tutorSkills.filter(s=>!q
+        ||s.label.toLowerCase().includes(q)
+        ||s.name.toLowerCase().includes(q)
+        ||(s.description||'').toLowerCase().includes(q));
+    if(!tutorSlashItems.length){tutorCloseSlash();return;}
+    tutorSlashIdx=Math.min(tutorSlashIdx,tutorSlashItems.length-1);
+    p.innerHTML='<div class="tutor-menu-label">'+iconHtml('slash',11)+'技能 · ↑↓ 选择 · Enter 确认</div>'
+        +tutorSlashItems.map((s,i)=>`<div class="tutor-menu-item${i===tutorSlashIdx?' hl':''}" onclick="tutorSlashPick(${i})" role="button" tabindex="0">
+            ${iconHtml('sparkles',14)}
+            <span style="flex:1;min-width:0;"><b style="font-size:12px;">${escapeHtml(s.label)}</b>
+            <span style="display:block;font-size:10px;color:var(--text-muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${escapeHtml(s.description)}</span></span>
+        </div>`).join('');
+    const inp=document.getElementById('tutor-input');
+    const r=inp?inp.getBoundingClientRect():{left:20,bottom:80};
+    const mw=Math.min(340,window.innerWidth-24);
+    p.style.display='flex';p.style.width=mw+'px';
+    p.style.left=Math.max(12,Math.min(r.left,window.innerWidth-mw-12))+'px';
+    p.style.top='';p.style.bottom=(window.innerHeight-r.bottom+10)+'px';
+    refreshIcons();
+}
+function tutorSlashPick(i){
+    const s=tutorSlashItems[i];
+    const inp=document.getElementById('tutor-input');
+    if(inp)inp.value='';           // 选中后清掉 "/..." 命令文本
+    if(s)tutorPickSkill(s.name);
+}
+function tutorSlashKey(e){
+    if(!tutorSlashOpen())return false;
+    if(e.key==='ArrowDown'){e.preventDefault();tutorSlashIdx=(tutorSlashIdx+1)%tutorSlashItems.length;tutorSlashHl();return true;}
+    if(e.key==='ArrowUp'){e.preventDefault();tutorSlashIdx=(tutorSlashIdx-1+tutorSlashItems.length)%tutorSlashItems.length;tutorSlashHl();return true;}
+    if(e.key==='Enter'){e.preventDefault();tutorSlashPick(tutorSlashIdx);return true;}
+    if(e.key==='Escape'){tutorCloseSlash();return true;}
+    return false;
+}
+function tutorSlashHl(){
+    const p=document.getElementById('tutor-slash-popup');
+    if(!p)return;
+    p.querySelectorAll('.tutor-menu-item').forEach((el,i)=>el.classList.toggle('hl',i===tutorSlashIdx));
+}
+// click-outside / Esc close the popups
+document.addEventListener('mousedown',e=>{
+    const pm=document.getElementById('tutor-plus-menu');
+    const sp=document.getElementById('tutor-slash-popup');
+    if(pm&&pm.style.display==='flex'&&!pm.contains(e.target)&&!e.target.closest('#tutor-plus-btn'))tutorClosePlusMenu();
+    if(sp&&sp.style.display==='flex'&&!sp.contains(e.target))tutorCloseSlash();
+});
+document.addEventListener('keydown',e=>{if(e.key==='Escape'){tutorClosePlusMenu();tutorCloseSlash();}});
+// chips init → pill init（P1 遗留调用点兼容）
 if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',tutorSkillsInit);
 else tutorSkillsInit();
 
