@@ -269,9 +269,14 @@ def run_agent(message: str, history: list, user_skill, user_id, approved_tools=N
                 continue
             yield _sse({"type": "tool_call", "name": name, "args": _brief(args)})
             tr = T.execute_tool(name, args, user_id)
-            actions.append({"kind": name, "text": tr["summary"], "link": tr["data"].get("link")})
+            actions.append({"kind": name, "text": tr["summary"],
+                            "link": tr["data"].get("link"),
+                            "data": {k: v for k, v in tr["data"].items()
+                                     if k in ("topic", "count", "difficulty", "expression", "title")}})
             yield _sse({"type": "tool_result", "name": name, "summary": tr["summary"],
-                        "link": tr["data"].get("link")})
+                        "link": tr["data"].get("link"),
+                        "data": {k: v for k, v in tr["data"].items()
+                                 if k in ("topic", "count", "difficulty", "expression", "title")}})
             messages.append({"role": "tool", "tool_call_id": tc.get("id", ""),
                              "content": json.dumps(tr["data"], ensure_ascii=False)[:4000]})
     else:

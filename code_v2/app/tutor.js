@@ -597,7 +597,10 @@ function tutorEscapeKey(e){
 }
 async function tutorSend(){
     const inp=document.getElementById('tutor-input');
-    const q=inp.value.trim();if(!q)return;
+    // direct-send bypass (permission retry): uses the stored question, never touches the input box
+    const q=(window.__tutorDirectSend||'').trim()||inp.value.trim();
+    window.__tutorDirectSend=null;
+    if(!q)return;
     if(tutorStreamActive()){showNotification('本工作台正在生成中，请等待完成或按 Esc 中断','warning');return;}
     inp.value='';tutorAutoGrow(inp);
     const sendSession=tutorActiveSession;          // scope: this stream belongs to THIS workspace
@@ -724,6 +727,10 @@ async function tutorSend(){
                     });
                 }
                 else if(ev.type==='actions'&&ev.items&&ev.items.length){
+                    // store prefill data for jump targets
+                    ev.items.forEach(a=>{
+                        if(a.link&&a.data)tutorActionData[a.link]=a.data;
+                    });
                     actionsHtml='<div style="display:flex;gap:6px;flex-wrap:wrap;margin-top:8px;">'
                         +ev.items.map(a=>{
                             const link=a.link||'';
@@ -772,20 +779,56 @@ function tutorSkillBadgeFor(name){
         +iconHtml('sparkles',10)+' '+escapeHtmlTutor(s?s.label:name)+'</div><br>';
 }
 // P3 E1: approve a write tool → add to session set → auto re-send the same question
+// Uses a bypass variable — the input box is NEVER touched (user sees a clean box)
 function tutorApproveTool(name,resendQ){
     if(!tutorApprovedTools.includes(name))tutorApprovedTools.push(name);
     showNotification('已授权 '+name+'（本会话生效），正在重试…','success');
-    const inp=document.getElementById('tutor-input');
-    if(inp){inp.value=resendQ||'';tutorAutoGrow(inp);tutorSend();}
+    window.__tutorDirectSend=resendQ||'';
+    tutorSend();
 }
-// P3 D2: action card jump
+// P3 D2: action card jump with prefill data
+let tutorActionData={};   // link → data payload from the tool result
+
 function tutorActionJump(link){
     if(link==='notes'){vocabTabSwitch('notes');showPage('notes');}
     else if(link==='vocab'){vocabTabSwitch('vocab');showPage('notes');}
-    else if(link==='quiz'){showPage('quiz');}
+    else if(link==='quiz'){
+        showPage('quiz');
+        const d=tutorActionData['quiz'];
+        if(d){
+            setTimeout(()=>{
+                // prefill topic (fuzzy match Chinese/English)
+                const sel=document.getElementById('quiz-topic');
+                if(sel&&d.topic){
+                    const t=d.topic.toLowerCase();
+                    const opt=[...sel.options].find(o=>
+                        o.value.toLowerCase()===t||o.text.toLowerCase().includes(t)||
+                        t.includes(o.value.toLowerCase()));
+                    if(opt)sel.value=opt.value;
+                }
+                const cnt=document.getElementById('quiz-count-input');
+                if(cnt&&d.count)cnt.value=d.count;
+                // difficulty chips
+                if(d.difficulty&&typeof quizState!=='undefined'){
+                    quizState.diff=d.difficulty;
+                    if(typeof quizRenderChips==='function')quizRenderChips();
+                }
+            },150);
+        }
+    }
     else if(link==='plan'){showPage('pretest');}
     else if(link==='graph'){showPage('graph');if(typeof graphPageEnter==='function')graphPageEnter();}
-    else if(link==='plotter'){showPage('plotter');}
+    else if(link==='plotter'){
+        showPage('plotter');
+        const d=tutorActionData['plotter'];
+        if(d&&d.expression&&typeof pf!=='undefined'&&pf.length){
+            setTimeout(()=>{
+                pf[0].e=d.expression;
+                if(typeof plotRenderFuncList==='function')plotRenderFuncList();
+                if(typeof plotRender==='function')plotRender();
+            },150);
+        }
+    }
     else if(link==='pretest'){showPage('pretest');if(typeof ptGo==='function')ptGo(0);}
 }
 
