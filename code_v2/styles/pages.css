@@ -282,7 +282,7 @@ body:not(.dark) .tag-step{color:var(--iris-600)}
 
 /* ---------------- Tutor / chat ---------------- */
 .chat-area{min-height:calc(100vh - 300px);display:flex;flex-direction:column;gap:16px;margin-bottom:16px}
-.composer{display:flex;align-items:flex-end;gap:10px;padding:8px 10px;border-radius:18px
+.composer{display:flex;align-items:flex-end;gap:10px;padding:8px 10px;border-radius:18px}
 .composer-attach{cursor:pointer;color:var(--text-secondary);display:flex;align-items:center;transition:color var(--t-fast)}
 .composer-attach:hover{color:var(--text-primary)}
 .composer-attach .lucide{width:18px;height:18px}
