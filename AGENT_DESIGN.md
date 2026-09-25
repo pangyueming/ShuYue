@@ -106,17 +106,17 @@ TRANSLATE_MODEL=qwen-turbo     # 翻译/术语提取（保持）
 
 | ID | 功能 | 期 | 状态 |
 |----|------|:--:|:----:|
-| C1 | `skill_loader.py`（frontmatter 解析 + 按需注入，~100 行） | P1 | ⬜ |
-| C2 | `skills/` 目录（SKILL.md 标准格式） | P1 | ⬜ |
-| C3 | `GET /api/skills`（name/description/标签） | P1 | ⬜ |
-| C4 | chips + `/` 命令显式调用 | P1(chips)/P2(命令) | ⬜ |
+| C1 | `skill_loader.py`（frontmatter 解析 + 按需注入，~100 行） | P1 | ✅ |
+| C2 | `skills/` 目录（SKILL.md 标准格式） | P1 | ✅ |
+| C3 | `GET /api/skills`（name/description/标签） | P1 | ✅ |
+| C4 | chips + `/` 命令显式调用 | P1(chips)✅ / P2(命令)⬜ | 🔶 |
 | C5 | agent 自动匹配（经决策层 F2，渐进披露） | P2 | ⬜ |
 | C6 | 事件触发建议（quiz 结束→错因分析；上传→摘要） | P4 | ⬜ |
-| C7 | 消息头"已启用 ××技能"徽标 | P2 | ⬜ |
-| C8 | skill：`socratic-tutor`（现 Deep 模式标准化迁移） | P1 | ⬜ |
-| C9 | skill：`gaokao-bridge`（高考↔大学概念对照） | P1 | ⬜ |
-| C10 | skill：`error-analysis`（错因诊断+归因+变式） | P1 | ⬜ |
-| C11 | skill：`graded-hints`（三级提示：方向→步骤→答案） | P1 | ⬜ |
+| C7 | 消息头"已启用 ××技能"徽标 | P2 | 🔶 P1 已实现简化版徽标 |
+| C8 | skill：`socratic-tutor`（现 Deep 模式标准化迁移） | P1 | ✅ |
+| C9 | skill：`gaokao-bridge`（高考↔大学概念对照） | P1 | ✅ |
+| C10 | skill：`error-analysis`（错因诊断+归因+变式） | P1 | ✅ |
+| C11 | skill：`graded-hints`（三级提示：方向→步骤→答案） | P1 | ✅ |
 | C12 | skill：`proof-coach`（五类证明 rubric 批改） | P5 | ⬜ |
 | C13 | skill：`bilingual-term`（术语双语教学） | P5 | ⬜ |
 | C14 | skill：`exam-prep`（考前冲刺） | P5 | ⬜ |
@@ -133,7 +133,7 @@ TRANSLATE_MODEL=qwen-turbo     # 翻译/术语提取（保持）
 | D3 | 拖拽上传→全自动链（分类入架→术语提取→摘要汇报） | P4 | ⬜ |
 | D4 | kimiCall SSE 四事件解析 | P2 | ⬜ |
 | D5 | 双模式人格保留（通用/苏格拉底） | P3 | ⬜ |
-| D6 | 技能 chips（P1）/ `/` 命令面板（P2） | P1/P2 | ⬜ |
+| D6 | 技能 chips（P1）/ `/` 命令面板（P2） | P1/P2 | 🔶 chips 已完成 |
 
 ### 模块 E：安全与工程
 
@@ -187,15 +187,15 @@ TRANSLATE_MODEL=qwen-turbo     # 翻译/术语提取（保持）
 | 决策层三场景 30 用例 | flash **满分**（12/12+10/10+8/8），1.1s/99tk |
 | 模型切换上线 | 主分支已采用（3936e32 + 8e2f9e3） |
 
-### ⬜ P1：Skills 快赢版（1.5-2 天）
+### 🔶 P1：Skills 快赢版（代码完成 2026-09-25，待用户人工评审）
 
 **范围**：C1 C2 C3 C4(chips) C8 C9 C10 C11 D6(chips)
 
 **DoD**：
-1. `GET /api/skills` 返回 4 个 skill（name/description 校验）
-2. 前端 chips 点选 → 消息头显示技能标记 → 回答风格符合对应 SKILL.md（每 skill 3 问人工评审）
-3. 主分支零改动（全部提交在 harness-v4）
-4. 8003 端口独立运行，主站 8001 不受影响
+1. ✅ `GET /api/skills` 返回 4 个 skill（8003 实测通过）
+2. 🔶 前端 chips 点选 → 消息头显示技能标记 → 回答风格符合对应 SKILL.md——**自动化冒烟 5/5 通过**（`agent-lab\skill_smoke.py`：无技能对照直答"2"；socratic 反问引导；graded-hints 严格输出"【第一级提示·方向】"；gaokao-bridge 四段式双向对照；error-analysis 按六类模式框架诊断）；**用户 3 问人工评审待做**
+3. ✅ 主分支零改动（全部在 harness-v4 worktree）
+4. ✅ 8003 端口独立运行（独立 DB），主站 8001 不受影响
 
 ### ⬜ P2：Agent 核心 + 决策层（4-5 天）
 
@@ -276,3 +276,4 @@ code_v2/
 | 日期 | 版本 | 变更 |
 |------|------|------|
 | 2026-09-25 | v1.0 | 定稿：D1-D8 决策、A-H 功能清单（45+ 项）、P0 完成（模型+决策层实测）、P1-P5 DoD、验证资产清单 |
+| 2026-09-25 | v1.1 | **P1 完成**：skills/ 4 个 SKILL.md + skill_loader.py（mtime 热重载）+ /api/skills + ChatRequest.skill 注入 + 前端 chips/徽标/kimiCall 传参；冒烟 5/5（skill_smoke.py）；DoD 1/3/4 ✅，2 待用户人工评审 |

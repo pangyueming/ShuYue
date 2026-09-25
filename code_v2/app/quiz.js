@@ -269,12 +269,14 @@ function quizReset(){
 const USE_BACKEND=true;
 // API key is now in backend .env file (not exposed in frontend)
 
-async function kimiCall(messages,onChunk,onDone,onErr){
+async function kimiCall(messages,onChunk,onDone,onErr,skill){
     try{
         // === Harness Backend route (routing + verifier) ===
         const taskType=messages[0]?.content?.includes('translate')||messages[0]?.content?.includes('翻译')?'translate':messages[0]?.content?.includes('Socratic')||messages[0]?.content?.includes('引导')?'math_guide':'general';
+        const payload={task_type:taskType,messages:messages.slice(1),temperature:0.3,max_tokens:2000,stream:true};
+        if(skill)payload.skill=skill;   // P1: activate an Agent Skill for this message
         const r=await fetch(AI_BACKEND_URL+'/api/chat',{method:'POST',headers:{'Content-Type':'application/json'},
-            body:JSON.stringify({task_type:taskType,messages:messages.slice(1),temperature:0.3,max_tokens:2000,stream:true})});
+            body:JSON.stringify(payload)});
         if(!r.ok){const e=await r.json().catch(()=>({}));throw new Error(e.error?.message||e.detail?.[0]?.msg||`HTTP ${r.status}`);}
         const reader=r.body.getReader();const dec=new TextDecoder();let full='';
         while(true){const{done,value}=await reader.read();if(done)break;

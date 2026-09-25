@@ -40,6 +40,8 @@ from mineru_client import (
     validate_token,
 )
 import rag
+import skill_loader
+from skill_loader import list_skills, load_skill, skill_label
 
 # Add harness_design paths for importing Harness V2 and V3
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..', 'harness_design', 'harness_uk'))
@@ -865,6 +867,7 @@ class ChatRequest(BaseModel):
     temperature: float = 0.3
     max_tokens: int = 2000
     stream: bool = True
+    skill: Optional[str] = None   # P1: activate an Agent Skill (SKILL.md) for this message
 
 class SolveRequest(BaseModel):
     question: str
@@ -1032,10 +1035,26 @@ async def reset_password(req: ResetPassword):
 async def health():
     return {"status": "ok", "model": MODEL, "harness": "enabled"}
 
+# ============================================================================
+# SKILLS (P1 · Agent Skills open standard) — metadata endpoint + chat injection
+# ============================================================================
+
+@app.get("/api/skills")
+def get_skills():
+    """List available Agent Skills (progressive disclosure L1: metadata only)."""
+    return {"skills": list_skills()}
+
+
 @app.post("/api/chat")
 async def chat(req: ChatRequest):
     """Streaming chat endpoint — routed through Harness V3 analysis layer."""
     question = req.messages[-1].get("content", "") if req.messages else ""
+
+    # P1 · Skills: validate + load the requested Agent Skill (SKILL.md).
+    # Unknown/absent names are silently ignored — chips are advisory, never fatal.
+    skill_body = None
+    if req.skill:
+        skill_body = load_skill(req.skill)
 
     # Use the V3 analysis layer (TopicDetector + QuestionClassifier +
     # SmartRouter) when available; fall back to the legacy lexicon otherwise.
@@ -1055,6 +1074,17 @@ async def chat(req: ChatRequest):
 
     model = get_model_for_task(req.task_type)
     system_prompt = get_system_prompt(req.task_type)
+
+    # P1 · Skills: append the active skill's instructions to the system prompt.
+    # The skill rides AFTER the base persona so its methodology rules win.
+    if skill_body:
+        system_prompt = (
+            system_prompt
+            + "\n\n===== 当前启用的教学技能 ["
+            + skill_label(req.skill)
+            + "] =====\n请严格遵守以下教学方法的每一个要求：\n\n"
+            + skill_body
+        )
 
     # Build messages with Harness system prompt
     # Filter out any system messages from frontend to avoid conflicting instructions

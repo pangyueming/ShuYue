@@ -3,6 +3,49 @@ let tutorMode='general';
 let tutorChatHistory=[];
 let tutorMaterials=[];
 
+// ===== P1 · Agent Skills (chips → /api/chat skill injection) =====
+let tutorSkill=null;          // active skill name | null
+let tutorSkills=[];           // [{name,label,description}] from /api/skills
+async function tutorSkillsInit(){
+    try{
+        const res=await fetch(AI_BACKEND_URL+'/api/skills');
+        if(!res.ok)throw new Error('HTTP '+res.status);
+        const data=await res.json();
+        tutorSkills=(data&&data.skills)||[];
+    }catch(e){tutorSkills=[];}
+    tutorRenderSkillChips();
+}
+function tutorRenderSkillChips(){
+    const row=document.getElementById('tutor-skill-row');
+    if(!row)return;
+    if(!tutorSkills.length){row.innerHTML='';return;}
+    row.innerHTML=tutorSkills.map(s=>{
+        const on=s.name===tutorSkill;
+        return `<button class="chip" data-skill="${escapeHtml(s.name)}" title="${escapeHtml(s.description)}"
+            onclick="tutorSetSkill('${escapeHtml(s.name)}')" aria-pressed="${on}"
+            style="display:inline-flex;align-items:center;gap:5px;padding:6px 14px;border-radius:999px;font-size:12px;cursor:pointer;border:1px solid ${on?'var(--iris-400,var(--accent))':'var(--border)'};background:${on?'rgba(122,107,255,.12)':'var(--bg-input)'};color:${on?'var(--iris-400,var(--accent))':'var(--text-secondary)'};">
+            ${iconHtml(on?'sparkles':'sparkle',12)}${escapeHtml(s.label)}</button>`;
+    }).join('');
+    refreshIcons();
+}
+function tutorSetSkill(name){
+    tutorSkill=(tutorSkill===name)?null:name;   // click again to deactivate
+    tutorRenderSkillChips();
+    if(tutorSkill){
+        const s=tutorSkills.find(x=>x.name===tutorSkill);
+        showNotification('已启用教学技能：'+(s?s.label:name)+'（再次点击关闭）','success');
+    }
+}
+function tutorSkillBadge(){
+    if(!tutorSkill)return '';
+    const s=tutorSkills.find(x=>x.name===tutorSkill);
+    return '<div style="display:inline-flex;align-items:center;gap:5px;font-size:10px;font-weight:600;color:var(--iris-400,var(--accent));background:rgba(122,107,255,.1);border:1px solid rgba(122,107,255,.25);border-radius:999px;padding:1px 8px;margin-bottom:6px;">'
+        +iconHtml('sparkles',10)+' '+escapeHtml(s?s.label:tutorSkill)+'</div><br>';
+}
+// chips load once when the script is ready (element exists — scripts load after DOM)
+if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',tutorSkillsInit);
+else tutorSkillsInit();
+
 function tutorSwitchMode(m){
     tutorMode=m;
     const bg=document.getElementById('tutor-mode-general');
@@ -115,8 +158,8 @@ async function tutorSend(){
     tutorAnchorAsync(q,aiDiv);
 
     kimiCall(msgs,
-        full=>{try{if(stopOrb){stopOrb();stopOrb=null;}}catch(e){}if(typeof aiBusy==='function')aiBusy(true);const el=document.getElementById(bubbleId);if(el)el.innerHTML=mdToHtmlTutor(full)+'<span style="opacity:.5;">▌</span>';chat.scrollTop=chat.scrollHeight;},
-        full=>{try{if(stopOrb){stopOrb();stopOrb=null;}}catch(e){}try{if(bubbleBeam){bubbleBeam.destroy();bubbleBeam=null;}}catch(e){bubbleBeam=null;}if(typeof aiBusy==='function')aiBusy(false);const el=document.getElementById(bubbleId);if(el)el.innerHTML=full?mdToHtmlTutor(full):'<span style="color:var(--yellow);">Empty response — please retry.</span>';tutorChatHistory.push({role:'assistant',content:full});chat.scrollTop=chat.scrollHeight;
+        full=>{try{if(stopOrb){stopOrb();stopOrb=null;}}catch(e){}if(typeof aiBusy==='function')aiBusy(true);const el=document.getElementById(bubbleId);if(el)el.innerHTML=tutorSkillBadge()+mdToHtmlTutor(full)+'<span style="opacity:.5;">▌</span>';chat.scrollTop=chat.scrollHeight;},
+        full=>{try{if(stopOrb){stopOrb();stopOrb=null;}}catch(e){}try{if(bubbleBeam){bubbleBeam.destroy();bubbleBeam=null;}}catch(e){bubbleBeam=null;}if(typeof aiBusy==='function')aiBusy(false);const el=document.getElementById(bubbleId);if(el)el.innerHTML=full?(tutorSkillBadge()+mdToHtmlTutor(full)):'<span style="color:var(--yellow);">Empty response — please retry.</span>';tutorChatHistory.push({role:'assistant',content:full});chat.scrollTop=chat.scrollHeight;
             // Post-answer concept tracing: locate theorems in user's textbooks
             traceConcepts(full,aiDiv);
             // Suggest practice + Gaokao bridging in General mode
@@ -135,6 +178,7 @@ async function tutorSend(){
             }
         },
         err=>{try{if(stopOrb){stopOrb();stopOrb=null;}}catch(e){}try{if(bubbleBeam){bubbleBeam.destroy();bubbleBeam=null;}}catch(e){bubbleBeam=null;}if(typeof aiBusy==='function')aiBusy(false);const el=document.getElementById(bubbleId);if(el)el.innerHTML='<span style="color:#ff6b6b;">'+escapeHtml(String(err&&err.message?err.message:err))+'</span>';}
+        ,tutorSkill||undefined   // P1: active Agent Skill rides along
     );
 }
 
