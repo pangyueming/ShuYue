@@ -48,9 +48,109 @@ TOOL_SPECS = [
             "parameters": {"type": "object", "properties": {}},
         },
     },
+    {
+        "type": "function",
+        "function": {
+            "name": "list_documents",
+            "description": "列出学生书架上的全部文档（标题+分类）。当学生问'我有哪些文档/书架里有什么'时使用。",
+            "parameters": {"type": "object", "properties": {}},
+        },
+    },
+    {
+        "type": "function",
+        "function": {
+            "name": "read_document",
+            "description": "读取学生书架中某文档的文本内容（按标题模糊匹配）。当学生问'X文档讲了什么/X的第几章'时使用。",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "title": {"type": "string", "description": "文档标题（模糊匹配）"},
+                },
+                "required": ["title"],
+            },
+        },
+    },
+    {
+        "type": "function",
+        "function": {
+            "name": "extract_vocab",
+            "description": "对学生书架中的某文档触发数学术语提取（提取结果存入单词本）。当学生说'帮我提取X的术语'时使用。",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "title": {"type": "string", "description": "文档标题（模糊匹配）"},
+                },
+                "required": ["title"],
+            },
+        },
+    },
+    {
+        "type": "function",
+        "function": {
+            "name": "add_vocab_term",
+            "description": "将一个数学术语收入学生的单词本。当学生说'把X记到单词本/X记一下'时使用。",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "term_en": {"type": "string", "description": "英文术语"},
+                    "term_zh": {"type": "string", "description": "中文翻译"},
+                    "definition": {"type": "string", "description": "简短定义（可选）"},
+                },
+                "required": ["term_en"],
+            },
+        },
+    },
+    {
+        "type": "function",
+        "function": {
+            "name": "create_note",
+            "description": "将内容保存为学生的一条笔记。当学生说'记成笔记/保存这个解法'时使用。",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "title": {"type": "string", "description": "笔记标题"},
+                    "content": {"type": "string", "description": "笔记内容（Markdown）"},
+                },
+                "required": ["content"],
+            },
+        },
+    },
+    {
+        "type": "function",
+        "function": {
+            "name": "generate_quiz",
+            "description": "为学生预填出题配置并跳转出题页（主题+数量+难度）。当学生说'给我出N道X题'时使用。",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "topic": {"type": "string", "description": "数学主题"},
+                    "count": {"type": "integer", "description": "题目数量 1-15"},
+                    "difficulty": {"type": "string", "enum": ["Easy", "Medium", "Hard", "Mixed"]},
+                },
+                "required": ["topic"],
+            },
+        },
+    },
+    {
+        "type": "function",
+        "function": {
+            "name": "update_plan_task",
+            "description": "标记学习计划中某任务为已完成。当学生说'X任务我做完了/勾选X'时使用。",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "task_name": {"type": "string", "description": "任务名称关键词"},
+                },
+                "required": ["task_name"],
+            },
+        },
+    },
 ]
 
 VALID_TOOLS = {t["function"]["name"] for t in TOOL_SPECS}
+
+# P3: tools that write user data — require per-session approval (E1)
+WRITE_TOOLS = {"extract_vocab", "add_vocab_term", "create_note", "generate_quiz", "update_plan_task"}
 
 
 def _no_login():
@@ -164,6 +264,193 @@ def execute_tool(name: str, args: dict, user_id) -> dict:
             return _search(str(args.get("query", ""))[:200], user_id)
         if name == "get_study_state":
             return _state(user_id)
+        # ---- P3 read tools ----
+        if name == "list_documents":
+            return _list_docs(user_id)
+        if name == "read_document":
+            return _read_doc(str(args.get("title", ""))[:200], user_id)
+        # ---- P3 write tools (permission-checked in loop.py before dispatch) ----
+        if name == "extract_vocab":
+            return _extract_vocab(str(args.get("title", ""))[:200], user_id)
+        if name == "add_vocab_term":
+            return _add_vocab(str(args.get("term_en", ""))[:80],
+                              str(args.get("term_zh", ""))[:60] or "",
+                              str(args.get("definition", ""))[:200] or "", user_id)
+        if name == "create_note":
+            return _create_note(str(args.get("title", ""))[:80],
+                                str(args.get("content", ""))[:4000], user_id)
+        if name == "generate_quiz":
+            return _gen_quiz(str(args.get("topic", ""))[:60],
+                             args.get("count"), args.get("difficulty"), user_id)
+        if name == "update_plan_task":
+            return _update_plan(str(args.get("task_name", ""))[:120], user_id)
     except Exception as e:
         return {"summary": f"工具执行异常：{str(e)[:80]}", "data": {"error": str(e)[:200]}}
     return {"summary": f"工具 {name} 暂不可用", "data": {}}
+
+
+# ===================== P3 tools =====================
+
+# ---- B5: list bookshelf docs ----
+def _list_docs(user_id) -> dict:
+    if not user_id:
+        return _no_login()
+    from server import get_db
+    conn = get_db()
+    try:
+        rows = conn.execute(
+            "SELECT title, category, parse_status FROM documents "
+            "WHERE user_id=? AND is_deleted=0 ORDER BY created_at DESC LIMIT 30",
+            (user_id,)).fetchall()
+    finally:
+        conn.close()
+    if not rows:
+        return {"summary": "书架为空", "data": {"docs": []}}
+    docs = [{"title": r["title"], "category": r["category"]} for r in rows]
+    return {"summary": f"书架 {len(docs)} 份文档", "data": {"docs": docs}}
+
+
+# ---- B4: read a document's text (pages.json, capped) ----
+def _read_doc(title_query: str, user_id) -> dict:
+    if not user_id:
+        return _no_login()
+    if not title_query:
+        return {"summary": "缺少文档标题", "data": {}}
+    from server import get_db, MINERU_DATA_DIR
+    import os as _os
+    conn = get_db()
+    try:
+        rows = conn.execute(
+            "SELECT id, title FROM documents WHERE user_id=? AND title LIKE ? "
+            "ORDER BY created_at DESC LIMIT 1", (user_id, f"%{title_query}%")).fetchall()
+        if not rows:
+            return {"summary": f"未找到「{title_query}」", "data": {}}
+        doc_id, title = rows[0]["id"], rows[0]["title"]
+    finally:
+        conn.close()
+    pages_path = _os.path.join(MINERU_DATA_DIR, doc_id, "pages.json")
+    if not _os.path.exists(pages_path):
+        from server import ensure_pages_json
+        if not ensure_pages_json(doc_id):
+            return {"summary": f"「{title}」无可提取文本", "data": {}}
+    import json as _json
+    try:
+        pages = _json.load(open(pages_path, encoding="utf-8"))
+    except Exception:
+        return {"summary": f"「{title}」读取失败", "data": {}}
+    text = "\n".join((p.get("text") or "") for p in pages)[:6000]   # A6 truncation
+    return {"summary": f"已读取「{title}」（{len(pages)}页，截取前6000字）",
+            "data": {"title": title, "doc_id": doc_id, "text": text}}
+
+
+# ---- B7: trigger vocab extraction on an existing doc ----
+def _extract_vocab(title_query: str, user_id) -> dict:
+    if not user_id:
+        return _no_login()
+    from server import get_db, extract_vocab_for_doc
+    conn = get_db()
+    try:
+        row = conn.execute(
+            "SELECT id, title FROM documents WHERE user_id=? AND title LIKE ? "
+            "ORDER BY created_at DESC LIMIT 1", (user_id, f"%{title_query}%")).fetchone()
+        if not row:
+            conn.close()
+            return {"summary": f"未找到「{title_query}」", "data": {}}
+        n = extract_vocab_for_doc(conn, user_id, row["id"], "slides")
+        conn.commit()
+        return {"summary": f"已从「{row['title']}」提取 {n} 个术语",
+                "data": {"extracted": n, "doc": row["title"],
+                         "link": "vocab"}}
+    finally:
+        try: conn.close()
+        except Exception: pass
+
+
+# ---- B8: add a vocab term ----
+def _add_vocab(term_en: str, term_zh: str, definition: str, user_id) -> dict:
+    if not user_id:
+        return _no_login()
+    if not term_en.strip():
+        return {"summary": "缺少术语", "data": {}}
+    from server import get_db
+    import time as _time
+    import json as _json
+    conn = get_db()
+    try:
+        vid = f"vocab_{int(_time.time()*1000)}"
+        conn.execute(
+            "INSERT OR IGNORE INTO vocab_entries (id,user_id,term_en,term_zh,definition) "
+            "VALUES (?,?,?,?,?)", (vid, user_id, term_en.strip(), term_zh, definition))
+        conn.commit()
+    finally:
+        conn.close()
+    return {"summary": f"已收录「{term_en}」→{term_zh or '待补'}",
+            "data": {"term_en": term_en, "term_zh": term_zh, "link": "vocab"}}
+
+
+# ---- B9: create a note ----
+def _create_note(title: str, content: str, user_id) -> dict:
+    if not user_id:
+        return _no_login()
+    if not content.strip():
+        return {"summary": "笔记内容为空", "data": {}}
+    from server import get_db
+    import time as _time
+    conn = get_db()
+    try:
+        nid = f"note_{int(_time.time()*1000)}"
+        conn.execute(
+            "INSERT INTO notes (id,user_id,title,content,source) VALUES (?,?,?,?,?)",
+            (nid, user_id, title or "AI 助手笔记", content, "agent"))
+        conn.commit()
+    finally:
+        conn.close()
+    return {"summary": f"已存笔记「{title or 'AI 助手笔记'}」",
+            "data": {"note_id": nid, "title": title, "link": "notes"}}
+
+
+# ---- B10 (A方案): prefill quiz config → frontend jumps to quiz page ----
+def _gen_quiz(topic: str, count, difficulty, user_id) -> dict:
+    try:
+        n = int(count) if count else 5
+        n = max(1, min(15, n))
+    except (TypeError, ValueError):
+        n = 5
+    diff = str(difficulty or "Mixed")
+    if diff not in ("Easy", "Medium", "Hard", "Mixed"):
+        diff = "Mixed"
+    return {"summary": f"已预填出题：{topic or '综合'} × {n} 题 · {diff}（点击跳转出题页）",
+            "data": {"topic": topic, "count": n, "difficulty": diff, "link": "quiz"}}
+
+
+# ---- B11: mark a plan task done ----
+def _update_plan(task_name: str, user_id) -> dict:
+    if not user_id:
+        return _no_login()
+    import json as _json
+    from server import get_db
+    conn = get_db()
+    try:
+        row = conn.execute(
+            "SELECT state_json FROM study_plans WHERE user_id=? "
+            "ORDER BY last_updated DESC LIMIT 1", (user_id,)).fetchone()
+        if not row or not row["state_json"]:
+            return {"summary": "尚无学习计划（先做前测）", "data": {}}
+        state = _json.loads(row["state_json"])
+        completed = state.setdefault("completed", {})
+        # find matching task key
+        key = None
+        for k in list(state.get("progress", {}).keys()) + list(completed.keys()):
+            if task_name and task_name[:20] in k:
+                key = k; break
+        if not key:
+            return {"summary": f"计划中未找到「{task_name}」相关任务", "data": {}}
+        completed[key] = True
+        conn.execute("UPDATE study_plans SET state_json=? WHERE user_id=?",
+                     (_json.dumps(state, ensure_ascii=False), user_id))
+        conn.commit()
+        return {"summary": f"已标记完成：{key.split('|')[-1][:40]}",
+                "data": {"task": key, "link": "plan"}}
+    finally:
+        try: conn.close()
+        except Exception: pass

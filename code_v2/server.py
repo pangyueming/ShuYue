@@ -298,6 +298,17 @@ def init_db():
         created_at TEXT DEFAULT (datetime('now'))
     );
     CREATE INDEX IF NOT EXISTS idx_chat_messages_session ON chat_messages(session_id, id);
+
+    -- P3 G5: long-term memory entries (semi-auto curated, user-approved)
+    CREATE TABLE IF NOT EXISTS memory_entries (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        user_id TEXT NOT NULL REFERENCES users(id),
+        kind TEXT NOT NULL,
+        content TEXT NOT NULL,
+        source_session TEXT DEFAULT '',
+        created_at TEXT DEFAULT (datetime('now'))
+    );
+    CREATE INDEX IF NOT EXISTS idx_memory_user ON memory_entries(user_id, id DESC);
     """)
 
     # === Migration: add user_id to legacy tables (notes/documents) ===
@@ -1079,6 +1090,242 @@ class AgentChatRequest(BaseModel):
     message: str
     skill: Optional[str] = None
     history: List[dict] = []   # guest / no-workspace context (client-held)
+    approved_tools: List[str] = []   # P3 E1: session write-tool approvals
+
+# ============================================================================
+# P3 · G2: Context Compaction (auto ≥80% budget + manual)
+# ============================================================================
+
+_COMPACT_CONTEXT_BUDGET = 16000   # ~chars of message history before compaction
+_KEEP_RECENT_TURNS = 5            # recent rounds kept verbatim after compaction
+
+_COMPACT_SYSTEM = (
+    "你是学习助手数跃。将以下学习对话压缩为结构化摘要，用于后续继续辅导。"
+    "用中文输出以下四节（Markdown）：\n"
+    "## 学过的概念\n（列出讨论过的知识点，一行一个）\n"
+    "## 犯过的错误\n（学生的错误模式和纠正，如有）\n"
+    "## 当前卡点\n（学生目前在哪里卡住/正在解决的问题）\n"
+    "## 教学要点\n（哪些讲解方式有效、学生的偏好）\n"
+    "保留所有数学细节和术语，控制在500字以内。"
+)
+
+def _should_compact(history: list) -> bool:
+    total = sum(len(str(m.get("content", ""))) for m in history)
+    return total >= _COMPACT_CONTEXT_BUDGET * 0.8
+
+def _compact_session(conn, session_id: str, user_id: str):
+    """G2: summarize old messages → replace with a summary row, keep recent N turns."""
+    rows = conn.execute(
+        "SELECT id, role, content FROM chat_messages WHERE session_id=? ORDER BY id",
+        (session_id,)).fetchall()
+    if len(rows) <= _KEEP_RECENT_TURNS * 2:
+        return {"compacted": False, "reason": "too_short", "kept": len(rows)}
+    recent = rows[-(_KEEP_RECENT_TURNS * 2):]
+    old = rows[:-(_KEEP_RECENT_TURNS * 2)]
+    old_text = "\n".join(f"[{r['role']}]: {r['content'][:500]}" for r in old[:40])
+    try:
+        resp = requests.post(BASE_URL, headers={
+            "Authorization": f"Bearer {DASHSCOPE_API_KEY}",
+            "Content-Type": "application/json",
+        }, json={
+            "model": MODEL,
+            "messages": [
+                {"role": "system", "content": _COMPACT_SYSTEM},
+                {"role": "user", "content": old_text[:12000]},
+            ],
+            "temperature": 0.2, "max_tokens": 1500, "enable_thinking": False,
+        }, timeout=90)
+        resp.raise_for_status()
+        summary = resp.json()["choices"][0]["message"].get("content", "").strip()
+    except Exception as e:
+        return {"compacted": False, "reason": f"summarize_failed: {e}", "kept": len(rows)}
+    if not summary:
+        return {"compacted": False, "reason": "empty_summary", "kept": len(rows)}
+    recent_ids = [r["id"] for r in recent]
+    conn.execute(
+        f"DELETE FROM chat_messages WHERE session_id=? AND id NOT IN "
+        f"({','.join('?' * len(recent_ids))})",
+        [session_id] + recent_ids)
+    conn.execute(
+        "INSERT INTO chat_messages (session_id,role,content,meta) VALUES (?,?,?,?)",
+        (session_id, "system", summary,
+         json.dumps({"type": "compaction_summary"}, ensure_ascii=False)))
+    conn.commit()
+    return {"compacted": True, "summary": summary[:200], "removed": len(old),
+            "kept": len(recent) + 1}
+
+
+@app.post("/api/agent/sessions/{sid}/compact")
+def compact_session(sid: str, current_user: dict = Depends(get_current_user)):
+    """G2: manually trigger context compaction."""
+    if not current_user:
+        raise HTTPException(401, "Please log in")
+    conn = get_db()
+    try:
+        row = conn.execute("SELECT user_id FROM chat_sessions WHERE id=?", (sid,)).fetchone()
+        if not row:
+            conn.close(); raise HTTPException(404, "Not found")
+        if row["user_id"] != current_user["id"]:
+            conn.close(); raise HTTPException(403, "Access denied")
+        return _compact_session(conn, sid, current_user["id"])
+    finally:
+        try: conn.close()
+        except Exception: pass
+
+
+# ============================================================================
+# P3 · G5: Long-term memory (semi-auto: /finish extracts candidates → user
+# confirms → stored; injected into new sessions ≤300tk; transparency page)
+# ============================================================================
+
+_FINISH_SYSTEM = (
+    "你是学习助手数跃。根据以下对话完成两个任务：\n"
+    "1. 用3-5句中文总结本次学习对话的核心内容。\n"
+    "2. 提取值得长期记住的信息（学生的偏好、薄弱点、学习习惯、重要事实）。\n"
+    "输出JSON:\n"
+    '{"summary": "...", "candidates": [{"kind": "profile|episodic|preference", "content": "..."}]}\n'
+    "kind说明: profile=学生画像（水平/背景）, episodic=学习事件（某次卡在哪）, preference=偏好（喜欢中文讲解等）。\n"
+    "candidates 最多5条，每条≤50字。没有值得记的就返回空数组。"
+)
+
+class MemorySaveRequest(BaseModel):
+    items: List[dict] = []          # [{kind, content}]
+    session_id: str = ""
+
+@app.post("/api/agent/sessions/{sid}/finish")
+def finish_session(sid: str, current_user: dict = Depends(get_current_user)):
+    """G5 /完成: summarize the session + extract memory candidates (user confirms)."""
+    if not current_user:
+        raise HTTPException(401, "Please log in")
+    conn = get_db()
+    try:
+        row = conn.execute("SELECT user_id FROM chat_sessions WHERE id=?", (sid,)).fetchone()
+        if not row:
+            conn.close(); raise HTTPException(404, "Not found")
+        if row["user_id"] != current_user["id"]:
+            conn.close(); raise HTTPException(403, "Access denied")
+        msgs = conn.execute(
+            "SELECT role, content FROM chat_messages WHERE session_id=? "
+            "ORDER BY id DESC LIMIT 30", (sid,)).fetchall()
+    finally:
+        conn.close()
+    if not msgs:
+        raise HTTPException(400, "会话为空")
+    transcript = "\n".join(f"[{m['role']}]: {m['content'][:400]}" for m in reversed(msgs))
+    try:
+        resp = requests.post(BASE_URL, headers={
+            "Authorization": f"Bearer {DASHSCOPE_API_KEY}",
+            "Content-Type": "application/json",
+        }, json={
+            "model": MODEL,
+            "messages": [
+                {"role": "system", "content": _FINISH_SYSTEM},
+                {"role": "user", "content": transcript[:12000]},
+            ],
+            "temperature": 0.2, "max_tokens": 1500, "enable_thinking": False,
+            "response_format": {"type": "json_object"},
+        }, timeout=90)
+        resp.raise_for_status()
+        txt = resp.json()["choices"][0]["message"].get("content", "{}")
+        data = json.loads(txt)
+    except Exception as e:
+        raise HTTPException(502, f"Finish failed: {e}")
+    return {
+        "summary": data.get("summary", ""),
+        "candidates": [c for c in (data.get("candidates") or [])
+                       if isinstance(c, dict) and c.get("content")][:5],
+    }
+
+@app.post("/api/agent/memory")
+def save_memory(req: MemorySaveRequest, current_user: dict = Depends(get_current_user)):
+    """Store confirmed memory entries."""
+    if not current_user:
+        raise HTTPException(401, "Please log in")
+    conn = get_db()
+    try:
+        saved = 0
+        for item in req.items[:10]:
+            kind = str(item.get("kind", "episodic"))
+            content = str(item.get("content", "")).strip()[:200]
+            if content and kind in ("profile", "episodic", "preference"):
+                conn.execute(
+                    "INSERT INTO memory_entries (user_id,kind,content,source_session) "
+                    "VALUES (?,?,?,?)",
+                    (current_user["id"], kind, content, req.session_id))
+                saved += 1
+        conn.commit()
+    finally:
+        conn.close()
+    return {"saved": saved}
+
+@app.get("/api/agent/memory")
+def list_memory(current_user: dict = Depends(get_current_user)):
+    """Transparency: list what the assistant remembers."""
+    if not current_user:
+        raise HTTPException(401, "Please log in")
+    conn = get_db()
+    try:
+        rows = conn.execute(
+            "SELECT id, kind, content, created_at FROM memory_entries "
+            "WHERE user_id=? ORDER BY id DESC LIMIT 100",
+            (current_user["id"],)).fetchall()
+    finally:
+        conn.close()
+    return [{"id": r["id"], "kind": r["kind"], "content": r["content"],
+             "created_at": r["created_at"]} for r in rows]
+
+@app.delete("/api/agent/memory/{mid}")
+def delete_memory(mid: int, current_user: dict = Depends(get_current_user)):
+    if not current_user:
+        raise HTTPException(401, "Please log in")
+    conn = get_db()
+    try:
+        row = conn.execute("SELECT user_id FROM memory_entries WHERE id=?", (mid,)).fetchone()
+        if not row:
+            conn.close(); raise HTTPException(404, "Not found")
+        if row["user_id"] != current_user["id"]:
+            conn.close(); raise HTTPException(403, "Access denied")
+        conn.execute("DELETE FROM memory_entries WHERE id=?", (mid,))
+        conn.commit()
+    finally:
+        try: conn.close()
+        except Exception: pass
+    return {"deleted": True}
+
+@app.delete("/api/agent/memory")
+def clear_memory(current_user: dict = Depends(get_current_user)):
+    if not current_user:
+        raise HTTPException(401, "Please log in")
+    conn = get_db()
+    try:
+        conn.execute("DELETE FROM memory_entries WHERE user_id=?", (current_user["id"],))
+        conn.commit()
+    finally:
+        conn.close()
+    return {"cleared": True}
+
+def _memory_injection(user_id: str) -> str:
+    """G5: build the ≤300tk memory block for the system prompt."""
+    if not user_id:
+        return ""
+    conn = get_db()
+    try:
+        rows = conn.execute(
+            "SELECT kind, content FROM memory_entries WHERE user_id=? "
+            "ORDER BY id DESC LIMIT 8", (user_id,)).fetchall()
+    except Exception:
+        return ""
+    finally:
+        try: conn.close()
+        except Exception: pass
+    if not rows:
+        return ""
+    lines = [f"- [{r['kind']}] {r['content']}" for r in reversed(rows)]
+    block = "\n".join(lines)
+    if len(block) > 1200:   # ~300 tokens
+        block = block[:1200] + "\n…"
+    return ("\n\n===== 你记得关于这个学生的事 =====\n" + block +
+            "\n（自然运用这些记忆，不要逐条朗读。）")
 
 @app.get("/api/agent/sessions")
 def list_agent_sessions(current_user: dict = Depends(get_current_user)):
@@ -1193,12 +1440,66 @@ def agent_chat(req: AgentChatRequest,
             conn.execute("UPDATE chat_sessions SET updated_at=datetime('now') WHERE id=?",
                          (req.session_id,))
             conn.commit()
+            # P3 G2: auto-compact when history ≥ 80% budget (before building context)
+            if _should_compact(history):
+                try:
+                    _c = _compact_session(conn, req.session_id, user_id)
+                    if _c.get("compacted"):
+                        rows = conn.execute(
+                            "SELECT role, content FROM chat_messages WHERE session_id=? "
+                            "ORDER BY id DESC LIMIT 24", (req.session_id,)).fetchall()
+                        history = [{"role": r["role"], "content": r["content"]}
+                                   for r in reversed(rows)]
+                        print(f"[agent] auto-compacted session {req.session_id}: "
+                              f"removed {_c['removed']} msgs")
+                except Exception as e:
+                    print(f"[agent] auto-compact failed: {e}")
         if conn:
             conn.close()
     elif not req.session_id and req.history:
         # guest / temporary chat: honour client-held context (server stays stateless)
         history = [m for m in req.history[-24:]
                    if isinstance(m, dict) and m.get("role") in ("user", "assistant")]
+
+    # P3 G5: inject long-term memory as a leading system item (≤300tk)
+    if user_id:
+        _mb = _memory_injection(user_id)
+        if _mb:
+            history = [{"role": "system", "content": _mb}] + history
+
+    # P3 D7: resolve @title references → inject document context
+    import re as _re
+    _at_refs = _re.findall(r'@([^\s@]{2,80})', message)
+    if user_id and _at_refs:
+        _doc_ctx = []
+        conn3 = get_db()
+        try:
+            for ref in _at_refs[:3]:
+                row = conn3.execute(
+                    "SELECT id, title FROM documents WHERE user_id=? AND title LIKE ? "
+                    "ORDER BY created_at DESC LIMIT 1",
+                    (user_id, f"%{ref}%")).fetchone()
+                if row:
+                    pages_path = os.path.join(MINERU_DATA_DIR, row["id"], "pages.json")
+                    text = ""
+                    if os.path.exists(pages_path):
+                        try:
+                            pages = json.load(open(pages_path, encoding="utf-8"))
+                            text = "\n".join((p.get("text") or "") for p in pages)[:2000]
+                        except Exception:
+                            pass
+                    if not text:
+                        from agent.tools import _read_doc
+                        _rd = _read_doc(ref, user_id)
+                        text = str((_rd.get("data") or {}).get("text", ""))[:2000]
+                    if text:
+                        _doc_ctx.append(f"=== 《{row['title']}》内容节选 ===\n{text}")
+        finally:
+            try: conn3.close()
+            except Exception: pass
+        if _doc_ctx:
+            history = history + [{"role": "system", "content":
+                "以下是学生引用的文档内容：\n" + "\n\n".join(_doc_ctx)}]
 
     def _persist(full_text):
         """Save the assistant turn + auto-title on first exchange (G1)."""
@@ -1226,7 +1527,8 @@ def agent_chat(req: AgentChatRequest,
     def stream():
         full_text = ""
         try:
-            for chunk in agent_loop.run_agent(message, history, req.skill, user_id):
+            for chunk in agent_loop.run_agent(message, history, req.skill, user_id,
+                                              approved_tools=req.approved_tools):
                 yield chunk
                 if chunk.startswith("data: "):
                     try:

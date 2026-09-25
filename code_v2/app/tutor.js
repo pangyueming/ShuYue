@@ -13,6 +13,61 @@ function tutorAutoGrow(el){
     if(!el)return;
     el.style.height='auto';
     el.style.height=Math.min(160,el.scrollHeight)+'px';
+    // P3 D7: @ trigger for bookshelf docs
+    const v=el.value;
+    const atIdx=v.lastIndexOf('@');
+    if(atIdx>=0&&atIdx===v.length-1||(atIdx>=0&&!/\s/.test(v.substring(atIdx+1))&&atIdx>0&&/\s/.test(v[atIdx-1]))){
+        tutorAtShowPopup(atIdx);
+    }else{
+        tutorAtClosePopup();
+    }
+}
+// P3 D7: @ reference bookshelf docs
+let tutorAtTriggerPos=-1;
+let tutorAtItems=[];
+function tutorAtClosePopup(){
+    const p=document.getElementById('tutor-at-popup');
+    if(p){p.style.display='none';p.innerHTML='';}
+    tutorAtTriggerPos=-1;
+}
+async function tutorAtShowPopup(atIdx){
+    const p=document.getElementById('tutor-at-popup');
+    if(!p)return;
+    if(!tutorAtItems.length){
+        try{
+            const res=await apiFetch('/api/documents?category=all');
+            if(res.ok){
+                const docs=await res.json();
+                tutorAtItems=(docs||[]).slice(0,15).map(d=>d.title||d.name||'?');
+            }
+        }catch(e){tutorAtItems=[];}
+    }
+    if(!tutorAtItems.length){tutorAtClosePopup();return;}
+    tutorAtTriggerPos=atIdx;
+    const inp=document.getElementById('tutor-input');
+    const r=inp?inp.getBoundingClientRect():{left:20,bottom:80};
+    const mw=Math.min(320,window.innerWidth-24);
+    p.innerHTML='<div class="tutor-menu-label">'+iconHtml('at-sign',11)+'引用文档</div>'
+        +tutorAtItems.map((title,i)=>
+            `<div class="tutor-menu-item" onclick="tutorAtPick(${i})" role="button" tabindex="0">
+                ${iconHtml('file-text',14)}
+                <span style="flex:1;font-size:12px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${escapeHtml(title)}</span>
+            </div>`).join('');
+    p.style.display='flex';p.style.width=mw+'px';
+    p.style.left=Math.max(12,Math.min(r.left,window.innerWidth-mw-12))+'px';
+    p.style.top='';p.style.bottom=(window.innerHeight-r.bottom+10)+'px';
+    refreshIcons();
+}
+function tutorAtPick(i){
+    const title=tutorAtItems[i];
+    if(!title)return;
+    const inp=document.getElementById('tutor-input');
+    if(inp&&tutorAtTriggerPos>=0){
+        inp.value=inp.value.substring(0,tutorAtTriggerPos)+'@'+title+' ';
+        tutorAutoGrow(inp);
+        inp.focus();
+    }
+    tutorAtClosePopup();
 }
 // shared: starter suggestions shown only in EMPTY conversations (empty-state guidance)
 function tutorSuggestionsHtml(){
@@ -96,7 +151,11 @@ function tutorTogglePlusMenu(ev){
         +skItems
         +'<div class="tutor-menu-sep"></div>'
         +'<div class="tutor-menu-label">'+iconHtml('paperclip',11)+'附件</div>'
-        +'<div class="tutor-menu-item" onclick="tutorClosePlusMenu();tutorUploadMaterial()" role="button" tabindex="0">'+iconHtml('file-up',14)+'<span style="flex:1;font-size:12px;">上传资料（PDF/PPT）</span></div>';
+        +'<div class="tutor-menu-item" onclick="tutorClosePlusMenu();tutorUploadMaterial()" role="button" tabindex="0">'+iconHtml('file-up',14)+'<span style="flex:1;font-size:12px;">上传资料（PDF/PPT）</span></div>'
+        +'<div class="tutor-menu-sep"></div>'
+        +'<div class="tutor-menu-label">'+iconHtml('settings',11)+'会话</div>'
+        +'<div class="tutor-menu-item" onclick="tutorClosePlusMenu();tutorFinishSession()" role="button" tabindex="0">'+iconHtml('check-circle',14)+'<span style="flex:1;font-size:12px;">完成本次学习（总结+记忆）</span></div>'
+        +'<div class="tutor-menu-item" onclick="tutorClosePlusMenu();tutorCompactSession()" role="button" tabindex="0">'+iconHtml('fold-horizontal',14)+'<span style="flex:1;font-size:12px;">整理对话（压缩上下文）</span></div>';
     m.style.display='flex';
     const mw=Math.min(320,window.innerWidth-24);
     m.style.width=mw+'px';
@@ -113,15 +172,24 @@ function tutorSlashInput(v){
     if(!p)return;
     if(!v.startsWith('/')){tutorCloseSlash();return;}
     const q=v.slice(1).trim().toLowerCase();
-    tutorSlashItems=tutorSkills.filter(s=>!q
+    // P3: action commands alongside skills
+    const ACTIONS=[
+        {name:'__finish__',label:'完成学习',description:'总结本次学习+提取记忆候选'},
+        {name:'__compact__',label:'整理对话',description:'压缩长对话上下文'},
+    ];
+    let items=[
+        ...tutorSkills.map(s=>({...s,isAction:false})),
+        ...ACTIONS.map(a=>({...a,isAction:true})),
+    ].filter(s=>!q
         ||s.label.toLowerCase().includes(q)
         ||s.name.toLowerCase().includes(q)
         ||(s.description||'').toLowerCase().includes(q));
-    if(!tutorSlashItems.length){tutorCloseSlash();return;}
-    tutorSlashIdx=Math.min(tutorSlashIdx,tutorSlashItems.length-1);
-    p.innerHTML='<div class="tutor-menu-label">'+iconHtml('slash',11)+'技能 · ↑↓ 选择 · Enter 确认</div>'
-        +tutorSlashItems.map((s,i)=>`<div class="tutor-menu-item${i===tutorSlashIdx?' hl':''}" onclick="tutorSlashPick(${i})" role="button" tabindex="0">
-            ${iconHtml('sparkles',14)}
+    if(!items.length){tutorCloseSlash();return;}
+    tutorSlashItems=items;
+    tutorSlashIdx=Math.min(tutorSlashIdx,items.length-1);
+    p.innerHTML='<div class="tutor-menu-label">'+iconHtml('slash',11)+'技能与操作 · ↑↓ 选择 · Enter 确认</div>'
+        +items.map((s,i)=>`<div class="tutor-menu-item${i===tutorSlashIdx?' hl':''}" onclick="tutorSlashPick(${i})" role="button" tabindex="0">
+            ${iconHtml(s.isAction?'settings':'sparkles',14)}
             <span style="flex:1;min-width:0;"><b style="font-size:12px;">${escapeHtml(s.label)}</b>
             <span style="display:block;font-size:10px;color:var(--text-muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${escapeHtml(s.description)}</span></span>
         </div>`).join('');
@@ -137,7 +205,13 @@ function tutorSlashPick(i){
     const s=tutorSlashItems[i];
     const inp=document.getElementById('tutor-input');
     if(inp)inp.value='';           // 选中后清掉 "/..." 命令文本
-    if(s)tutorPickSkill(s.name);
+    if(!s)return;
+    if(s.isAction){
+        if(s.name==='__finish__')tutorFinishSession();
+        else if(s.name==='__compact__')tutorCompactSession();
+        return;
+    }
+    tutorPickSkill(s.name);
 }
 function tutorSlashKey(e){
     if(!tutorSlashOpen())return false;
@@ -156,8 +230,10 @@ function tutorSlashHl(){
 document.addEventListener('mousedown',e=>{
     const pm=document.getElementById('tutor-plus-menu');
     const sp=document.getElementById('tutor-slash-popup');
+    const ap=document.getElementById('tutor-at-popup');
     if(pm&&pm.style.display==='flex'&&!pm.contains(e.target)&&!e.target.closest('#tutor-plus-btn'))tutorClosePlusMenu();
     if(sp&&sp.style.display==='flex'&&!sp.contains(e.target))tutorCloseSlash();
+    if(ap&&ap.style.display==='flex'&&!ap.contains(e.target))tutorAtClosePopup();
 });
 document.addEventListener('keydown',e=>{if(e.key==='Escape'){if(tutorEscapeKey(e))return;tutorClosePlusMenu();tutorCloseSlash();}});
 // chips init → pill init（P1 遗留调用点兼容）+ 工作台加载（P2）+ 侧栏折叠态（P2.6）
@@ -362,6 +438,137 @@ async function tutorDeleteSession(id){
     }catch(e){showNotification('删除失败：'+e.message,'error');}
 }
 
+// P3 E1: session-scoped write-tool approvals (client-held, sent with each request)
+let tutorApprovedTools=[];
+const TUTOR_LINK_LABELS={notes:'查看笔记',vocab:'去单词本',quiz:'去出题',plan:'查看计划'};
+
+// P3 G5: /finish flow state
+let tutorFinishPending=null;   // {session_id, summary, candidates}
+
+async function tutorFinishSession(){
+    if(!tutorActiveSession){showNotification('需要工作台才能完成（登录+选工作台）','warning');return;}
+    if(tutorFinishPending){tutorFinishShowCard();return;}
+    showNotification('正在总结本次学习…','info');
+    try{
+        const res=await apiFetch('/api/agent/sessions/'+tutorActiveSession+'/finish',{method:'POST'});
+        if(!res.ok){const e=await res.json().catch(()=>({}));throw new Error(e.detail||'HTTP '+res.status);}
+        tutorFinishPending=await res.json();
+        tutorFinishShowCard();
+    }catch(e){showNotification('完成失败：'+e.message,'error');}
+}
+function tutorFinishShowCard(){
+    const f=tutorFinishPending;
+    if(!f)return;
+    const chat=document.getElementById('tutor-chat');
+    const empty=chat.querySelector('.empty-hero');if(empty)empty.remove();
+    const wrap=document.createElement('div');
+    wrap.className='finish-card';
+    wrap.style.cssText='border:1px solid rgba(122,107,255,.3);background:rgba(122,107,255,.05);border-radius:14px;padding:14px 18px;font-size:13px;margin:4px 0;';
+    let candHtml='';
+    if(f.candidates&&f.candidates.length){
+        candHtml='<div style="font-size:11px;color:var(--text-muted);margin:10px 0 6px;font-weight:600;">✨ 值得记住的：</div>'
+            +f.candidates.map((c,i)=>
+                '<label style="display:flex;align-items:flex-start;gap:8px;padding:5px 8px;border-radius:8px;cursor:pointer;font-size:12px;color:var(--text-secondary);">'
+                +'<input type="checkbox" class="finish-cand" data-kind="'+escapeHtmlTutor(c.kind||'episodic')+'" data-content="'+escapeHtmlTutor(c.content)+'" checked style="margin-top:2px;accent-color:var(--accent);flex-shrink:0;">'
+                +'<span><span style="font-family:var(--font-mono);font-size:9px;color:var(--iris-400,var(--accent));">['+(c.kind||'?')+']</span> '+escapeHtmlTutor(c.content)+'</span></label>'
+            ).join('');
+    }
+    wrap.innerHTML=
+        '<div style="display:flex;align-items:center;gap:8px;font-weight:650;color:var(--iris-400,var(--accent));margin-bottom:8px;">'+iconHtml('sparkles',16)+' 本次学习总结</div>'
+        +'<div style="color:var(--text-secondary);line-height:1.7;">'+escapeHtmlTutor(f.summary||'（无摘要）')+'</div>'
+        +candHtml
+        +'<div style="display:flex;gap:8px;margin-top:12px;">'
+        +(f.candidates&&f.candidates.length?'<button class="btn-primary" style="font-size:12px;padding:6px 18px;" onclick="tutorFinishSave()">保存选中记忆</button>':'')
+        +'<button class="btn-secondary" style="font-size:12px;padding:6px 14px;" onclick="tutorFinishClose()">跳过</button>'
+        +'<button class="btn-secondary" style="font-size:12px;padding:6px 14px;display:inline-flex;align-items:center;gap:5px;" onclick="tutorShowMemory()">'+iconHtml('brain',12)+'数跃记得我什么</button>'
+        +'</div>';
+    chat.appendChild(wrap);
+    chat.scrollTop=chat.scrollHeight;
+    refreshIcons();
+}
+function tutorFinishClose(){
+    document.querySelectorAll('.finish-card').forEach(c=>c.remove());
+    tutorFinishPending=null;
+}
+async function tutorFinishSave(){
+    const checked=document.querySelectorAll('.finish-cand:checked');
+    const items=Array.from(checked).map(c=>({kind:c.dataset.kind,content:c.dataset.content}));
+    if(!items.length){showNotification('请至少勾选一条','warning');return;}
+    try{
+        const res=await apiFetch('/api/agent/memory',{method:'POST',
+            body:JSON.stringify({items,session_id:tutorActiveSession||''})});
+        if(!res.ok)throw new Error('HTTP '+res.status);
+        showNotification('已保存 '+items.length+' 条记忆','success');
+        tutorFinishClose();
+    }catch(e){showNotification('保存失败：'+e.message,'error');}
+}
+async function tutorShowMemory(){
+    const overlay=document.createElement('div');
+    overlay.id='tutor-memory-overlay';
+    overlay.style.cssText='position:fixed;inset:0;z-index:100;display:flex;align-items:center;justify-content:center;';
+    overlay.innerHTML='<div style="position:absolute;inset:0;background:rgba(8,10,18,.6);backdrop-filter:blur(6px);" onclick="this.parentElement.remove()"></div>'
+        +'<div style="position:relative;width:min(480px,92vw);max-height:70vh;overflow-y:auto;padding:20px 24px;border-radius:16px;background:var(--glass-bg);backdrop-filter:blur(var(--glass-blur)) saturate(var(--glass-sat));border:1px solid var(--glass-border);box-shadow:var(--shadow-glass);font-size:13px;">'
+        +'<div style="display:flex;align-items:center;gap:8px;font-size:15px;font-weight:650;color:var(--text-primary);margin-bottom:14px;">'+iconHtml('brain',18)+' 数跃记得我什么</div>'
+        +'<div id="tutor-memory-list" style="display:flex;flex-direction:column;gap:6px;"><span style="color:var(--text-muted);padding:16px 0;text-align:center;">加载中…</span></div>'
+        +'<div style="display:flex;gap:8px;margin-top:14px;justify-content:flex-end;">'
+        +'<button class="btn-secondary" style="font-size:11px;padding:5px 12px;color:#ff6b6b;border-color:rgba(255,107,107,.3);" onclick="tutorClearMemory()">清空全部</button>'
+        +'<button class="btn-secondary" style="font-size:11px;padding:5px 12px;" onclick="document.getElementById(\'tutor-memory-overlay\').remove()">关闭</button>'
+        +'</div></div>';
+    document.body.appendChild(overlay);
+    refreshIcons();
+    try{
+        const res=await apiFetch('/api/agent/memory');
+        if(!res.ok)throw new Error('HTTP '+res.status);
+        const entries=await res.json();
+        const list=document.getElementById('tutor-memory-list');
+        if(!list)return;
+        if(!entries.length){list.innerHTML='<span style="color:var(--text-muted);padding:16px 0;text-align:center;">还没有记忆——完成一次学习对话试试</span>';return;}
+        list.innerHTML=entries.map(m=>
+            '<div style="display:flex;align-items:flex-start;gap:8px;padding:8px 10px;border-radius:8px;background:var(--bg-input);font-size:12px;color:var(--text-secondary);">'
+            +'<span style="font-family:var(--font-mono);font-size:9px;color:var(--iris-400,var(--accent));flex-shrink:0;margin-top:2px;">['+escapeHtmlTutor(m.kind)+']</span>'
+            +'<span style="flex:1;min-width:0;">'+escapeHtmlTutor(m.content)+'</span>'
+            +'<button onclick="tutorDelMemory('+m.id+')" style="color:var(--text-muted);background:none;border:none;cursor:pointer;padding:2px;" aria-label="删除">'+iconHtml('trash-2',11)+'</button>'
+            +'</div>').join('');
+        refreshIcons();
+    }catch(e){
+        const list=document.getElementById('tutor-memory-list');
+        if(list)list.innerHTML='<span style="color:#ff6b6b;text-align:center;padding:12px;">加载失败：'+escapeHtmlTutor(e.message)+'</span>';
+    }
+}
+async function tutorDelMemory(mid){
+    try{
+        await apiFetch('/api/agent/memory/'+mid,{method:'DELETE'});
+        const overlay=document.getElementById('tutor-memory-overlay');
+        if(overlay)overlay.remove();
+        tutorShowMemory();
+    }catch(e){showNotification('删除失败','error');}
+}
+async function tutorClearMemory(){
+    if(!confirm('确定清空全部记忆？'))return;
+    try{
+        await apiFetch('/api/agent/memory',{method:'DELETE'});
+        showNotification('已清空','success');
+        const overlay=document.getElementById('tutor-memory-overlay');
+        if(overlay)overlay.remove();
+    }catch(e){showNotification('清空失败','error');}
+}
+// P3 G2: manual compact
+async function tutorCompactSession(){
+    if(!tutorActiveSession){showNotification('需要工作台','warning');return;}
+    showNotification('正在整理对话…','info');
+    try{
+        const res=await apiFetch('/api/agent/sessions/'+tutorActiveSession+'/compact',{method:'POST'});
+        if(!res.ok)throw new Error('HTTP '+res.status);
+        const d=await res.json();
+        if(d.compacted){
+            showNotification('已压缩：移除 '+d.removed+' 条旧消息，保留最近 5 轮','success');
+            await tutorSwitchSession(tutorActiveSession);
+        }else{
+            showNotification('对话还太短，不需要整理','info');
+        }
+    }catch(e){showNotification('整理失败：'+e.message,'error');}
+}
+
 // ===== P2 · 强制中断 + 后台流注册表（每个工作台一条可后台续跑的流）=====
 const tutorStreams=new Map();      // sessionKey -> {session,message,statusWrap,aiDiv,abort,done}
 function tutorSessionKey(){return tutorActiveSession||'_temp';}
@@ -452,7 +659,8 @@ async function tutorSend(){
     const curSel=tutorGetSkill();
     const effSkillSel=curSel||undefined;
     const body={session_id:tutorActiveSession||undefined,message:message,skill:effSkillSel,
-        history:tutorActiveSession?undefined:tutorChatHistory.slice(0,-1)};
+        history:tutorActiveSession?undefined:tutorChatHistory.slice(0,-1),
+        approved_tools:tutorApprovedTools};   // P3 E1: session write approvals
     let full='';let effSkill=effSkillSel||null;let gotText=false;let interrupted=false;let actionsHtml='';
     // register the stream (survives workspace switches — background continuation)
     const stream={key:sendKey,session:sendSession,message:message,
@@ -499,9 +707,30 @@ async function tutorSend(){
                 }
                 else if(ev.type==='tool_call'){stCalls++;stLine('calling <b>'+escapeHtmlTutor(ev.name||'tool')+'</b>…');}
                 else if(ev.type==='tool_result'){stLine('✓ '+escapeHtmlTutor(ev.name||'tool')+' done');}
+                else if(ev.type==='permission_request'){
+                    // P3 E1: confirm card — approve adds to session set + auto-resend
+                    stLine('🔒 <b>'+escapeHtmlTutor(ev.name)+'</b> awaiting approval');
+                    const pn=ev.name||'',ph=ev.hint||'',pa=ev.args||{};
+                    content.insertAdjacentHTML('beforeend',
+                        '<div class="perm-card" style="border:1px solid rgba(250,173,20,.35);background:rgba(250,173,20,.06);border-radius:10px;padding:10px 14px;margin-top:8px;font-size:12px;">'
+                        +'<div style="display:flex;align-items:center;gap:6px;font-weight:600;color:#faad14;margin-bottom:4px;">'+iconHtml('shield',13)+' AI 请求执行写操作：'+escapeHtmlTutor(pn)+'</div>'
+                        +'<div style="color:var(--text-secondary);margin-bottom:4px;">'+escapeHtmlTutor(ph)+'</div>'
+                        +'<div style="font-family:var(--font-mono);font-size:10px;color:var(--text-muted);margin-bottom:8px;">'+escapeHtmlTutor(JSON.stringify(pa).substring(0,120))+'</div>'
+                        +'<div style="display:flex;gap:6px;">'
+                        +'<button class="btn-primary" style="font-size:11px;padding:4px 14px;" onclick="tutorApproveTool(\''+escapeHtmlTutor(pn)+'\',\''+escapeHtmlTutor(q).replace(/'/g,'&#39;').substring(0,300)+'\')">允许（本会话）</button>'
+                        +'<button class="btn-secondary" style="font-size:11px;padding:4px 14px;" onclick="this.closest(\'.perm-card\').remove()">拒绝</button>'
+                        +'</div></div>');
+                    refreshIcons();chat.scrollTop=chat.scrollHeight;
+                }
                 else if(ev.type==='actions'&&ev.items&&ev.items.length){
-                    actionsHtml='<div style="display:flex;gap:4px;flex-wrap:wrap;margin-top:6px;">'
-                        +ev.items.map(a=>'<span style="font-size:9px;padding:1px 7px;border-radius:999px;background:rgba(82,196,26,.1);color:var(--green);border:1px solid rgba(82,196,26,.25);">'+iconHtml('check',9)+' '+escapeHtmlTutor((a.text||'').slice(0,40))+'</span>').join('')+'</div>';
+                    actionsHtml='<div style="display:flex;gap:6px;flex-wrap:wrap;margin-top:8px;">'
+                        +ev.items.map(a=>{
+                            const link=a.link||'';
+                            const lk=TUTOR_LINK_LABELS[link]||'';
+                            const skip=link==='permission';
+                            if(skip)return '';
+                            return '<span onclick="tutorActionJump(\''+escapeHtmlTutor(link)+'\')" style="display:inline-flex;align-items:center;gap:4px;font-size:10px;padding:3px 10px;border-radius:999px;background:rgba(82,196,26,.1);color:var(--green);border:1px solid rgba(82,196,26,.25);cursor:pointer;">'+iconHtml('check',9)+' '+escapeHtmlTutor((a.text||'').slice(0,36))+(lk?' '+iconHtml('arrow-right',9)+' '+lk:'')+'</span>';
+                        }).join('')+'</div>';
                     render();
                 }
                 else if(ev.type==='error'){content.innerHTML='<span style="color:#ff6b6b;">'+escapeHtmlTutor(ev.text||'generation failed')+'</span>';}
@@ -540,6 +769,21 @@ function tutorSkillBadgeFor(name){
     const s=tutorSkills.find(x=>x.name===name);
     return '<div style="display:inline-flex;align-items:center;gap:5px;font-size:10px;font-weight:600;color:var(--iris-400,var(--accent));background:rgba(122,107,255,.1);border:1px solid rgba(122,107,255,.25);border-radius:999px;padding:1px 8px;margin-bottom:6px;">'
         +iconHtml('sparkles',10)+' '+escapeHtmlTutor(s?s.label:name)+'</div><br>';
+}
+// P3 E1: approve a write tool → add to session set → auto re-send the same question
+function tutorApproveTool(name,resendQ){
+    if(!tutorApprovedTools.includes(name))tutorApprovedTools.push(name);
+    document.querySelectorAll('.perm-card').forEach(c=>c.remove());
+    showNotification('已授权 '+name+'（本会话生效），正在重试…','success');
+    const inp=document.getElementById('tutor-input');
+    if(inp){inp.value=resendQ||'';tutorAutoGrow(inp);tutorSend();}
+}
+// P3 D2: action card jump
+function tutorActionJump(link){
+    if(link==='notes'){vocabTabSwitch('notes');showPage('notes');}
+    else if(link==='vocab'){vocabTabSwitch('vocab');showPage('notes');}
+    else if(link==='quiz'){showPage('quiz');}
+    else if(link==='plan'){showPage('pretest');}
 }
 
 function escapeHtmlTutor(t){return t.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;');}

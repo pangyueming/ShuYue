@@ -25,6 +25,7 @@ import re
 
 MAX_STEPS = 6
 MAX_LOOP_TOKENS = 12000
+_DAILY_WRITE_OPS = {}   # (kind,user_id) → date / count  (E2, process-lifetime)
 
 _SYSTEM_BASE = (
     "你是数跃 (ShuYue)，中外合办大学（北邮-QMUL式）一年级 AI 学习助手，"
@@ -64,10 +65,14 @@ def _upstream(messages, tools=None, stream=False, temperature=0.3, max_tokens=20
     return resp
 
 
-def run_agent(message: str, history: list, user_skill, user_id):
+def run_agent(message: str, history: list, user_skill, user_id, approved_tools=None):
     """
     Generator of SSE strings. history = [{"role","content"}] prior turns.
     user_skill = explicitly selected skill name (from + menu / / command) or None.
+    approved_tools = session-scoped write-tool approvals (E1, client-held);
+    write tools not in this set emit a permission_request event and are NOT
+    executed — the frontend shows a confirm card and re-sends with the tool
+    approved (one extra round-trip, first use per tool per session only).
     """
     from agent import decision as D
     from agent import tools as T
@@ -75,6 +80,23 @@ def run_agent(message: str, history: list, user_skill, user_id):
 
     actions = []
     used_tokens = 0
+    approved = set(approved_tools or [])
+
+    def _rate_limited():
+        """E2: per-user daily cap on write operations (soft, in-memory)."""
+        if not user_id:
+            return False
+        import time as _t
+        today = _t.strftime("%Y-%m-%d")
+        key = ("write_ops", user_id, today)
+        global _DAILY_WRITE_OPS
+        if _DAILY_WRITE_OPS.get(("write_ops", user_id)) != today:
+            _DAILY_WRITE_OPS[("write_ops", user_id)] = today
+            _DAILY_WRITE_OPS[("count", user_id)] = 0
+        if _DAILY_WRITE_OPS.get(("count", user_id), 0) >= 50:
+            return True
+        _DAILY_WRITE_OPS[("count", user_id)] = _DAILY_WRITE_OPS.get(("count", user_id), 0) + 1
+        return False
 
     # ---------- 1. Decision layer (F1 intent + F2 skill) ----------
     dec = D.decide_intent(message)
@@ -124,10 +146,15 @@ def run_agent(message: str, history: list, user_skill, user_id):
     if skill_body:
         system_prompt += ("\n\n===== 当前启用的教学技能 [" + skill_loader.skill_label(skill)
                           + "] =====\n请严格遵守以下教学方法的每一个要求：\n\n" + skill_body)
+    # P3 G5: preserve system-role history items (long-term memory injection)
+    # while keeping the tail of user/assistant turns
+    _sys_hist = [m for m in history if m.get("role") == "system"]
+    _usr_hist = [m for m in history if m.get("role") != "system"][-12:]
+    _hist = _sys_hist + _usr_hist
 
     # ---------- 2b. chat: direct stream, no tools ----------
     if intent not in D.TOOL_LOOP_INTENTS:
-        messages = [{"role": "system", "content": system_prompt}] + history[-12:] + \
+        messages = [{"role": "system", "content": system_prompt}] + _hist + \
                    [{"role": "user", "content": message}]
         full = ""
         try:
@@ -167,7 +194,7 @@ def run_agent(message: str, history: list, user_skill, user_id):
     # user, and letting the model call them just burns loop steps.
     tool_specs = T.TOOL_SPECS if user_id else \
         [s for s in T.TOOL_SPECS if s["function"]["name"] == "solve_problem"]
-    messages = [{"role": "system", "content": system_prompt}] + history[-12:] + \
+    messages = [{"role": "system", "content": system_prompt}] + _hist + \
                [{"role": "user", "content": message}]
     final_text = ""
     for step in range(MAX_STEPS):   # E4 step cap
@@ -210,10 +237,31 @@ def run_agent(message: str, history: list, user_skill, user_id):
                                  "content": json.dumps({"error": f"unknown tool {name}"},
                                                        ensure_ascii=False)})
                 continue
+            # E1: write tools need session-scoped approval
+            if name in T.WRITE_TOOLS and name not in approved:
+                yield _sse({"type": "permission_request", "name": name,
+                            "args": _brief(args),
+                            "hint": _perm_hint(name)})
+                messages.append({"role": "tool", "tool_call_id": tc.get("id", ""),
+                                 "content": json.dumps(
+                                     {"status": "pending_user_approval",
+                                      "note": "用户尚未授权此操作，请先告知用户需要做什么，等待授权后重试。"},
+                                     ensure_ascii=False)})
+                actions.append({"kind": "permission", "text": f"待授权：{name}"})
+                continue
+            # E2: daily cap
+            if name in T.WRITE_TOOLS and _rate_limited():
+                yield _sse({"type": "tool_result", "name": name,
+                            "summary": "今日写操作已达上限（50次/天），明天再试"})
+                messages.append({"role": "tool", "tool_call_id": tc.get("id", ""),
+                                 "content": json.dumps({"error": "rate_limited"},
+                                                       ensure_ascii=False)})
+                continue
             yield _sse({"type": "tool_call", "name": name, "args": _brief(args)})
             tr = T.execute_tool(name, args, user_id)
-            actions.append({"kind": name, "text": tr["summary"]})
-            yield _sse({"type": "tool_result", "name": name, "summary": tr["summary"]})
+            actions.append({"kind": name, "text": tr["summary"], "link": tr["data"].get("link")})
+            yield _sse({"type": "tool_result", "name": name, "summary": tr["summary"],
+                        "link": tr["data"].get("link")})
             messages.append({"role": "tool", "tool_call_id": tc.get("id", ""),
                              "content": json.dumps(tr["data"], ensure_ascii=False)[:4000]})
     else:
@@ -237,3 +285,13 @@ def _brief(args: dict) -> dict:
         s = v if isinstance(v, str) else json.dumps(v, ensure_ascii=False)
         out[k] = s[:80]
     return out
+
+
+def _perm_hint(name: str) -> str:
+    return {
+        "extract_vocab": "AI 将从你的文档中提取术语存入单词本",
+        "add_vocab_term": "AI 将向你的单词本添加一个术语",
+        "create_note": "AI 将保存一条笔记",
+        "generate_quiz": "AI 将预填出题配置并跳转出题页",
+        "update_plan_task": "AI 将标记你的学习计划任务为已完成",
+    }.get(name, f"AI 请求执行写操作 {name}")

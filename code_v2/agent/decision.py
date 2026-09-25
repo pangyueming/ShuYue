@@ -21,7 +21,7 @@ CASCADE_THRESHOLD = 0.85   # F4: below this, re-ask with the big model
 _INTENTS = ["solve", "chat", "quiz_request", "vocab_add", "simple_query", "file_op"]
 
 # Intents that should be served by the tool loop rather than plain chat.
-TOOL_LOOP_INTENTS = {"solve", "quiz_request", "file_op"}
+TOOL_LOOP_INTENTS = {"solve", "quiz_request", "file_op", "vocab_add"}
 
 _intent_sys = (
     "你是路由器。将学生消息分类为一个意图并输出JSON。\n"
