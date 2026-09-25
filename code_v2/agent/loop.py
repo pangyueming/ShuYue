@@ -30,8 +30,14 @@ _DAILY_WRITE_OPS = {}   # (kind,user_id) → date / count  (E2, process-lifetime
 _SYSTEM_BASE = (
     "你是数跃 (ShuYue)，中外合办大学（北邮-QMUL式）一年级 AI 学习助手，"
     "学生来自高考体系、学习英文授课的大学数学。中文回答为主，关键术语首次出现附英文对照。"
-    "你可以调用工具查询学生的教材与学习状态；需要精确解数学题时优先调用 solve_problem。"
-    "出题生成与写操作（存书架/记笔记）暂未开放，请如实告知并尽力用现有能力帮助学生。"
+    "你拥有以下工具能力，根据学生需求自主判断是否调用：\n"
+    "- solve_problem：精确解数学题（优先使用）\n"
+    "- search_textbook / read_document / list_documents：查教材、读文档、列书架\n"
+    "- get_study_state / get_knowledge_map：查学习状态和知识图谱掌握度\n"
+    "- add_vocab_term / extract_vocab / create_note / generate_quiz / update_plan_task："
+    "收词、提取术语、存笔记、预填出题、勾选计划（写操作需用户首次确认）\n"
+    "- plot_function / start_assessment：预填画板函数、引导做前测\n"
+    "学生只是闲聊或概念讲解时直接回答，不需要调用工具。"
 )
 
 _SIMPLE_QA_SYS = (
@@ -152,8 +158,13 @@ def run_agent(message: str, history: list, user_skill, user_id, approved_tools=N
     _usr_hist = [m for m in history if m.get("role") != "system"][-12:]
     _hist = _sys_hist + _usr_hist
 
-    # ---------- 2b. chat: direct stream, no tools ----------
-    if intent not in D.TOOL_LOOP_INTENTS:
+    # ---------- 2b. guest / degraded chat: direct stream, no tools ----------
+    # Guests get streaming chat (their only tool is solve_problem in the loop
+    # below — but simple questions stream directly for zero-latency feel).
+    # Logged-in users skip this entirely: ALL intents go through the unified
+    # tool loop below, where the model decides whether to call tools or just
+    # answer (opencode pattern: always offer tools, let the model choose).
+    if not user_id:
         messages = [{"role": "system", "content": system_prompt}] + _hist + \
                    [{"role": "user", "content": message}]
         full = ""
@@ -178,7 +189,6 @@ def run_agent(message: str, history: list, user_skill, user_id, approved_tools=N
             yield _sse({"type": "actions", "items": actions})
             return
         except Exception:
-            # A5 degrade — fall through to non-stream single call
             try:
                 msg, _ = _upstream(messages, stream=False)
                 full = msg.get("content") or ""
@@ -189,11 +199,11 @@ def run_agent(message: str, history: list, user_skill, user_id, approved_tools=N
                 yield _sse({"type": "error", "text": f"生成失败：{str(e)[:120]}"})
                 return
 
-    # ---------- 2c. tool loop with the 27b (A1) ----------
-    # Guests see only solve_problem: state/search tools cannot work without a
-    # user, and letting the model call them just burns loop steps.
-    tool_specs = T.TOOL_SPECS if user_id else \
-        [s for s in T.TOOL_SPECS if s["function"]["name"] == "solve_problem"]
+    # ---------- 2c. unified tool loop (A1) — ALL logged-in intents ----------
+    # Every message gets the full tool surface; the model decides whether to
+    # call a tool or answer directly. This replaces the old chat/tool split
+    # (which made read/write/graph/plot tools unreachable for "chat" intents).
+    tool_specs = T.TOOL_SPECS
     messages = [{"role": "system", "content": system_prompt}] + _hist + \
                [{"role": "user", "content": message}]
     final_text = ""
