@@ -401,6 +401,15 @@ body:not(.dark) .tutor-send-liquid{color:#fff}
 .tutor-menu-item.on{color:var(--iris-400,var(--accent))}
 .tutor-menu-item svg{flex-shrink:0}
 .tutor-menu-sep{height:1px;background:var(--border);margin:5px 8px}
+/* ===== P2: workspace sidebar + agent status feed ===== */
+.ws-item{display:flex;align-items:center;gap:4px;padding:6px 8px;border-radius:8px;font-size:12px;color:var(--text-secondary);cursor:pointer;position:relative}
+.ws-item:hover{background:var(--bg-hover);color:var(--text-primary)}
+.ws-item.on{background:rgba(122,107,255,.1);color:var(--iris-400,var(--accent));font-weight:600}
+.ws-item .ws-act{display:none;align-items:center;justify-content:center;width:18px;height:18px;border-radius:4px;color:var(--text-muted);flex-shrink:0}
+.ws-item:hover .ws-act{display:inline-flex}
+.ws-item .ws-act:hover{color:var(--red);background:rgba(229,72,77,.1)}
+.tutor-status-feed{margin-bottom:4px}
+.tutor-status-feed:empty{display:none}
 .btn-ai{
     flex-shrink:0;display:flex;align-items:center;gap:6px;
     padding:6px 14px;border-radius:var(--r-sm);

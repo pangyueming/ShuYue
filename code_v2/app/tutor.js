@@ -132,10 +132,11 @@ document.addEventListener('mousedown',e=>{
     if(pm&&pm.style.display==='flex'&&!pm.contains(e.target)&&!e.target.closest('#tutor-plus-btn'))tutorClosePlusMenu();
     if(sp&&sp.style.display==='flex'&&!sp.contains(e.target))tutorCloseSlash();
 });
-document.addEventListener('keydown',e=>{if(e.key==='Escape'){tutorClosePlusMenu();tutorCloseSlash();}});
-// chips init → pill init（P1 遗留调用点兼容）
-if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',tutorSkillsInit);
-else tutorSkillsInit();
+document.addEventListener('keydown',e=>{if(e.key==='Escape'){if(tutorEscapeKey(e))return;tutorClosePlusMenu();tutorCloseSlash();}});
+// chips init → pill init（P1 遗留调用点兼容）+ 工作台加载（P2）
+function tutorInitAll(){tutorSkillsInit();tutorSessionsInit();}
+if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',tutorInitAll);
+else tutorInitAll();
 
 function tutorSwitchMode(m){
     tutorMode=m;
@@ -189,88 +190,236 @@ function tutorSendQuick(q){
     tutorSend();
 }
 
+// ===== P2 · Workspaces (G1) — 用户命名的独立聊天场所 =====
+let tutorSessions=[];
+let tutorActiveSession=null;
+
+async function tutorSessionsInit(){
+    if(!localStorage.getItem('cb_cn_token')){tutorSessions=[];tutorActiveSession=null;tutorRenderSessions();return;}
+    try{
+        const res=await apiFetch('/api/agent/sessions');
+        if(!res.ok)throw new Error('HTTP '+res.status);
+        tutorSessions=await res.json();
+        if(tutorActiveSession&&!tutorSessions.find(s=>s.id===tutorActiveSession))tutorActiveSession=null;
+    }catch(e){tutorSessions=[];}
+    tutorRenderSessions();
+}
+function tutorRenderSessions(){
+    const list=document.getElementById('tutor-ws-list');
+    if(!list)return;
+    if(!localStorage.getItem('cb_cn_token')){
+        list.innerHTML='<div style="font-size:11px;color:var(--text-muted);padding:8px 4px;line-height:1.6;">登录后即可使用工作台——每个工作台是独立的聊天场所，上下文互不干扰</div>';
+        return;
+    }
+    if(!tutorSessions.length){
+        list.innerHTML='<div style="font-size:11px;color:var(--text-muted);padding:8px 4px;">还没有工作台<br>点击上方「+ 新工作台」开始</div>';
+        return;
+    }
+    list.innerHTML=tutorSessions.map(s=>{
+        const on=s.id===tutorActiveSession;
+        return `<div class="ws-item${on?' on':''}" data-id="${s.id}">
+            <span class="ws-dot" onclick="tutorSwitchSession('${s.id}')" style="flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${on?'● ':'短'}${escapeHtml(s.title)}</span>
+            <span class="ws-act" title="重命名" onclick="tutorRenameSession('${s.id}')">${iconHtml('pencil',10)}</span>
+            <span class="ws-act" title="删除" onclick="tutorDeleteSession('${s.id}')">${iconHtml('trash-2',10)}</span>
+        </div>`;
+    }).join('');
+    const t=document.getElementById('tutor-ws-title');
+    if(t){
+        const cur=tutorSessions.find(s=>s.id===tutorActiveSession);
+        t.textContent=cur?cur.title:'学习助手';
+    }
+    refreshIcons();
+}
+async function tutorNewSession(){
+    if(!localStorage.getItem('cb_cn_token')){showNotification('登录后使用工作台','warning');return;}
+    try{
+        const res=await apiFetch('/api/agent/sessions',{method:'POST',body:JSON.stringify({title:''})});
+        if(!res.ok)throw new Error('HTTP '+res.status);
+        const s=await res.json();
+        await tutorSessionsInit();
+        await tutorSwitchSession(s.id);
+    }catch(e){showNotification('创建失败：'+e.message,'error');}
+}
+async function tutorSwitchSession(id){
+    if(!id||id===tutorActiveSession&&document.getElementById('tutor-chat').children.length>1)return;
+    tutorActiveSession=id;
+    document.getElementById('tutor-chat').innerHTML='';
+    tutorChatHistory=[];
+    try{
+        const res=await apiFetch('/api/agent/sessions/'+id+'/messages');
+        if(res.ok){
+            const msgs=await res.json();
+            const chat=document.getElementById('tutor-chat');
+            msgs.forEach(m=>{
+                if(m.role==='user'){
+                    const d=document.createElement('div');d.style.cssText='display:flex;flex-direction:row-reverse;gap:8px;';
+                    d.innerHTML='<div style="width:28px;height:28px;border-radius:50%;background:var(--accent);display:flex;align-items:center;justify-content:center;color:#fff;font-size:12px;font-weight:600;flex-shrink:0;">Y</div><div style="background:var(--accent);color:#fff;padding:8px 14px;border-radius:12px 12px 4px 12px;font-size:13px;max-width:75%;">'+escapeHtmlTutor(m.content)+'</div>';
+                    chat.appendChild(d);
+                }else if(m.role==='assistant'){
+                    const d=document.createElement('div');d.style.cssText='display:flex;gap:8px;';
+                    d.innerHTML='<div style="width:28px;height:28px;border-radius:50%;background:linear-gradient(135deg,var(--accent),#9b59f7);display:flex;align-items:center;justify-content:center;color:#fff;font-size:11px;font-weight:600;flex-shrink:0;">AI</div><div style="background:var(--bg-hover);color:var(--text-primary);padding:8px 14px;border-radius:12px 12px 12px 4px;font-size:13px;max-width:75%;">'+mdToHtmlTutor(m.content)+'</div>';
+                    chat.appendChild(d);
+                }
+            });
+            tutorChatHistory=msgs.filter(m=>m.role==='user'||m.role==='assistant')
+                .map(m=>({role:m.role,content:m.content}));
+            chat.scrollTop=chat.scrollHeight;
+        }
+    }catch(e){/* restore failed → empty session */}
+    tutorRenderSessions();
+}
+async function tutorRenameSession(id){
+    const s=tutorSessions.find(x=>x.id===id);if(!s)return;
+    const t=prompt('工作台名称：',s.title);
+    if(t===null)return;
+    try{
+        const res=await apiFetch('/api/agent/sessions/'+id,{method:'PUT',body:JSON.stringify({title:t})});
+        if(!res.ok)throw new Error('HTTP '+res.status);
+        await tutorSessionsInit();
+    }catch(e){showNotification('重命名失败：'+e.message,'error');}
+}
+async function tutorDeleteSession(id){
+    const s=tutorSessions.find(x=>x.id===id);if(!s)return;
+    if(!confirm('删除工作台「'+s.title+'」？对话记录将一并删除。'))return;
+    try{
+        const res=await apiFetch('/api/agent/sessions/'+id,{method:'DELETE'});
+        if(!res.ok)throw new Error('HTTP '+res.status);
+        if(tutorActiveSession===id){tutorActiveSession=null;document.getElementById('tutor-chat').innerHTML='';tutorChatHistory=[];}
+        await tutorSessionsInit();
+    }catch(e){showNotification('删除失败：'+e.message,'error');}
+}
+
+// ===== P2 · 强制中断（opencode 式：Esc / 停止按钮随时中止生成）=====
+let tutorAbort=null;
+let tutorStreaming=false;
+function tutorSetSendBtn(streaming){
+    const b=document.getElementById('tutor-send-btn');
+    if(!b)return;
+    b.innerHTML=streaming?iconHtml('square',14):iconHtml('arrow-up',16);
+    b.title=streaming?'停止生成（Esc）':'Send';
+    b.setAttribute('aria-label',streaming?'停止生成':'发送');
+    b.style.background=streaming?'#ff6b6b':'';
+    refreshIcons();
+}
+function tutorSendOrStop(){ if(tutorStreaming){tutorStopStreaming();}else{tutorSend();} }
+function tutorStopStreaming(){
+    if(tutorAbort){try{tutorAbort.abort();}catch(e){}}
+}
+function tutorEscapeKey(e){
+    if(e.key==='Escape'&&tutorStreaming){tutorStopStreaming();return true;}
+    return false;
+}
+// P2 · Agent send (A1/F/B — SSE via /api/agent/chat)
+function tutorStatusLine(icon,text,color){
+    return '<div style="display:flex;align-items:center;gap:5px;font-size:10.5px;color:var(--text-muted);padding:1px 0;">'
+        +'<span style="color:'+color+';display:inline-flex;">'+iconHtml(icon,11)+'</span>'
+        +'<span style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">'+escapeHtmlTutor(text)+'</span></div>';
+}
 async function tutorSend(){
     const inp=document.getElementById('tutor-input');
     const q=inp.value.trim();if(!q)return;
     inp.value='';
     const chat=document.getElementById('tutor-chat');
-    // Clear placeholder
-    if(tutorChatHistory.length===0)chat.innerHTML='';
-    // User message
-    const sysMsg=tutorMode==='general'?
-        '你是数跃，中外合办大学（北邮-QMUL式）一年级 AI 辅导老师，学生来自高考体系、学习英文授课的大学数学。逐步解题、过程清晰，关键术语首次出现附英文对照（如 极限 limit），记号遵循英文教材并在需要时对照高考习惯。最终答案用**加粗**标出。中文提问用中文回答，英文提问用英文回答。':
-        '你是数跃，一位苏格拉底式引导老师（Socratic tutor）。不直接给答案，通过引导式提问帮助学生自己发现答案。跟随学生提问语言（默认中文）。';
-    // Build messages with history
-    let msgs=[{role:'system',content:sysMsg}];
-    if(tutorMaterials.length>0){
-        msgs.push({role:'system',content:'The student has uploaded these reference materials: '+tutorMaterials.map(m=>m.name).join(', ')});
-    }
-    msgs=msgs.concat(tutorChatHistory);
-    msgs.push({role:'user',content:q});
+    const empty=chat.querySelector('.empty-hero');if(empty)empty.remove();
+    let message=q;
+    if(tutorMaterials.length>0)message+='\n（学生附带了资料：'+tutorMaterials.map(m=>m.name).join(', ')+'）';
     tutorChatHistory.push({role:'user',content:q});
 
-    // Render user bubble
+    // user bubble
     const userDiv=document.createElement('div');
     userDiv.style.cssText='display:flex;flex-direction:row-reverse;gap:8px;';
     userDiv.innerHTML='<div style="width:28px;height:28px;border-radius:50%;background:var(--accent);display:flex;align-items:center;justify-content:center;color:#fff;font-size:12px;font-weight:600;flex-shrink:0;">Y</div>'+
         '<div style="background:var(--accent);color:#fff;padding:8px 14px;border-radius:12px 12px 4px 12px;font-size:13px;max-width:75%;">'+escapeHtmlTutor(q)+'</div>';
     chat.appendChild(userDiv);
 
-    // AI bubble (streaming)
+    // AI bubble: status feed + content
     const aiDiv=document.createElement('div');
     aiDiv.style.cssText='display:flex;gap:8px;';
     const bubbleId='tutor-bubble-'+Date.now();
-    aiDiv.innerHTML='<div style="width:28px;height:28px;border-radius:50%;background:linear-gradient(135deg,'+(tutorMode==='general'?'#4C8DFF,#4090e8':'var(--accent),#9b59f7')+');display:flex;align-items:center;justify-content:center;color:#fff;font-size:12px;font-weight:600;flex-shrink:0;">'+(tutorMode==='general'?'AI':iconHtml('brain',14))+'</div>'+
-        '<div id="'+bubbleId+'" style="background:var(--bg-hover);color:var(--text-primary);padding:8px 14px;border-radius:12px 12px 12px 4px;font-size:13px;max-width:75%;min-height:20px;"></div>';
+    aiDiv.innerHTML='<div style="width:28px;height:28px;border-radius:50%;background:linear-gradient(135deg,var(--accent),#9b59f7);display:flex;align-items:center;justify-content:center;color:#fff;font-size:11px;font-weight:600;flex-shrink:0;">AI</div>'+
+        '<div id="'+bubbleId+'" style="background:var(--bg-hover);color:var(--text-primary);padding:8px 14px;border-radius:12px 12px 12px 4px;font-size:13px;max-width:75%;min-height:20px;">'+
+        '<div class="tutor-status-feed"></div><div class="tutor-content"></div></div>';
     chat.appendChild(aiDiv);
+    const bubble=document.getElementById(bubbleId);
+    const feed=bubble.querySelector('.tutor-status-feed');
+    const content=bubble.querySelector('.tutor-content');
     refreshIcons();
-    // Effects are best-effort: any orb/beam failure must degrade to a plain
-    // bubble, never abort tutorSend before kimiCall fires (that left the
-    // bubble permanently empty).
     var stopOrb=function(){};
-    try{ stopOrb=orbThinking(document.getElementById(bubbleId),tutorMode==='general'?'solving':'weaving')||function(){}; }catch(e){ console.error('[tutorSend] orb init failed:',e); }
-    // Streaming glow: the bubble being written carries a soft md beam; it is
-    // destroyed the moment the answer completes or errors out.
-    var bubbleEl=document.getElementById(bubbleId);
-    var bubbleBeam=null;
-    try{
-        if(bubbleEl&&window.BorderBeam&&typeof reducedMotionOn==='function'&&!reducedMotionOn()){
-            bubbleBeam=BorderBeam.apply(bubbleEl,{
-                size:'md',colorVariant:'ocean',theme:'auto',active:true,strength:.55,
-                wrapperStyle:'display:block;flex-shrink:1;min-width:0;'
-            });
-        }
-    }catch(e){ console.error('[tutorSend] beam init failed:',e); bubbleBeam=null; }
+    try{ stopOrb=orbThinking(content,'solving')||function(){}; }catch(e){}
     if(typeof aiBusy==='function')aiBusy(true);
     chat.scrollTop=chat.scrollHeight;
 
-    // Auto textbook anchoring: NON-BLOCKING — the answer streams immediately;
-    // a citation strip appears above the bubble when retrieval hits
-    tutorAnchorAsync(q,aiDiv);
-
-    kimiCall(msgs,
-        full=>{try{if(stopOrb){stopOrb();stopOrb=null;}}catch(e){}if(typeof aiBusy==='function')aiBusy(true);const el=document.getElementById(bubbleId);if(el)el.innerHTML=tutorSkillBadge()+mdToHtmlTutor(full)+'<span style="opacity:.5;">▌</span>';chat.scrollTop=chat.scrollHeight;},
-        full=>{try{if(stopOrb){stopOrb();stopOrb=null;}}catch(e){}try{if(bubbleBeam){bubbleBeam.destroy();bubbleBeam=null;}}catch(e){bubbleBeam=null;}if(typeof aiBusy==='function')aiBusy(false);const el=document.getElementById(bubbleId);if(el)el.innerHTML=full?(tutorSkillBadge()+mdToHtmlTutor(full)):'<span style="color:var(--yellow);">Empty response — please retry.</span>';tutorChatHistory.push({role:'assistant',content:full});chat.scrollTop=chat.scrollHeight;
-            // Post-answer concept tracing: locate theorems in user's textbooks
-            traceConcepts(full,aiDiv);
-            // Suggest practice + Gaokao bridging in General mode
-            if(tutorMode==='general'){
-                const sug=document.createElement('div');sug.style.cssText='display:flex;gap:8px;margin-top:4px;flex-wrap:wrap;';
-                sug.innerHTML='<div style="width:28px;flex-shrink:0;"></div>'+
-                    '<button onclick="tutorSendQuick(\'生成3道类似的练习题并附解答（题目用英文，解析用中文）\')" style="display:inline-flex;align-items:center;gap:5px;font-size:11px;padding:4px 10px;border-radius:6px;background:rgba(82,196,26,.1);border:1px solid rgba(82,196,26,.3);color:#52c41a;cursor:pointer;white-space:nowrap;">'+iconHtml('target',12)+'同类练习</button>'+
-                    '<button onclick="tutorSendQuick(\'请说明这个概念与高考数学的衔接：它对应高考哪些具体知识点作前置？大学（英文授课）的处理方式与高考有何不同？请给出从高考理解过渡到大学理解的具体例子，关键术语中英对照。\')" style="display:inline-flex;align-items:center;gap:5px;font-size:11px;padding:4px 10px;border-radius:6px;background:rgba(76,141,255,.1);border:1px solid rgba(76,141,255,.3);color:#4C8DFF;cursor:pointer;white-space:nowrap;">'+iconHtml('link',12)+'高考衔接</button>';
-                chat.appendChild(sug);refreshIcons();chat.scrollTop=chat.scrollHeight;
-            }else if(tutorMode==='deep'){
-                const sug=document.createElement('div');sug.style.cssText='display:flex;gap:8px;margin-top:4px;flex-wrap:wrap;';
-                sug.innerHTML='<div style="width:28px;flex-shrink:0;"></div>'+
-                    '<button onclick="tutorSendQuick(\'我需要一点提示\')" style="font-size:11px;padding:4px 10px;border-radius:6px;background:rgba(250,172,22,.1);border:1px solid rgba(250,172,22,.3);color:#faad14;cursor:pointer;white-space:nowrap;">给我提示</button>'+
-                    '<button onclick="tutorSendQuick(\'我卡住了，能带我一步步走一遍吗？\')" style="font-size:11px;padding:4px 10px;border-radius:6px;background:rgba(255,107,107,.1);border:1px solid rgba(255,107,107,.3);color:#ff6b6b;cursor:pointer;white-space:nowrap;">我卡住了</button>';
-                chat.appendChild(sug);chat.scrollTop=chat.scrollHeight;
+    // 旧"引导模式"开关优雅映射到 socratic-tutor 技能（未手动选技能时）
+    const effSkillSel=tutorSkill||(tutorMode==='deep'?'socratic-tutor':undefined);
+    const body={session_id:tutorActiveSession||undefined,message:message,skill:effSkillSel,
+        history:tutorActiveSession?undefined:tutorChatHistory.slice(0,-1)};
+    let full='';let effSkill=effSkillSel||null;let gotText=false;let interrupted=false;
+    tutorAbort=new AbortController();tutorStreaming=true;tutorSetSendBtn(true);
+    const render=()=>{
+        const badge=effSkill?tutorSkillBadgeFor(effSkill):'';
+        content.innerHTML=badge+mdToHtmlTutor(full)+(gotText?'':'<span style="opacity:.5;">▌</span>');
+        chat.scrollTop=chat.scrollHeight;
+    };
+    try{
+        const r=await fetch(AI_BACKEND_URL+'/api/agent/chat',{method:'POST',
+            headers:{'Content-Type':'application/json'},body:JSON.stringify(body),
+            signal:tutorAbort.signal});
+        if(!r.ok){const e=await r.json().catch(()=>({}));throw new Error(e.detail||('HTTP '+r.status));}
+        const reader=r.body.getReader();const dec=new TextDecoder();let buf='';
+        while(true){
+            const{done,value}=await reader.read();if(done)break;
+            buf+=dec.decode(value);
+            let idx;
+            while((idx=buf.indexOf('\n\n'))>=0){
+                const frame=buf.slice(0,idx);buf=buf.slice(idx+2);
+                const line=frame.split('\n').find(l=>l.startsWith('data: '));
+                if(!line)continue;
+                const data=line.slice(6);
+                if(data==='[DONE]')continue;
+                let ev;try{ev=JSON.parse(data);}catch(e){continue;}
+                if(ev.type==='text'){gotText=true;full+=ev.delta||'';render();}
+                else if(ev.type==='status'){feed.insertAdjacentHTML('beforeend',tutorStatusLine('sparkles',ev.text||'','var(--iris-400,var(--accent))'));}
+                else if(ev.type==='tool_call'){feed.insertAdjacentHTML('beforeend',tutorStatusLine('settings','调用 '+ev.name+'…','#faad14'));}
+                else if(ev.type==='tool_result'){feed.insertAdjacentHTML('beforeend',tutorStatusLine('check-circle',(ev.summary||'').slice(0,80),'var(--green)'));}
+                else if(ev.type==='decision'){
+                    if(ev.skill&&!tutorSkill)effSkill=ev.skill;
+                    feed.insertAdjacentHTML('beforeend',tutorStatusLine('git-branch','意图 '+ev.intent+(ev.confidence?' ('+Math.round(ev.confidence*100)+'%)':''),'var(--text-muted)'));
+                }
+                else if(ev.type==='actions'&&ev.items&&ev.items.length){
+                    feed.insertAdjacentHTML('beforeend','<div style="display:flex;gap:4px;flex-wrap:wrap;margin:4px 0;">'
+                        +ev.items.map(a=>'<span style="font-size:9px;padding:1px 7px;border-radius:999px;background:rgba(82,196,26,.1);color:var(--green);border:1px solid rgba(82,196,26,.25);">'+iconHtml('check',9)+' '+escapeHtmlTutor((a.text||'').slice(0,40))+'</span>').join('')+'</div>');
+                }
+                else if(ev.type==='error'){content.innerHTML='<span style="color:#ff6b6b;">'+escapeHtmlTutor(ev.text||'生成失败')+'</span>';}
+                chat.scrollTop=chat.scrollHeight;
             }
-        },
-        err=>{try{if(stopOrb){stopOrb();stopOrb=null;}}catch(e){}try{if(bubbleBeam){bubbleBeam.destroy();bubbleBeam=null;}}catch(e){bubbleBeam=null;}if(typeof aiBusy==='function')aiBusy(false);const el=document.getElementById(bubbleId);if(el)el.innerHTML='<span style="color:#ff6b6b;">'+escapeHtml(String(err&&err.message?err.message:err))+'</span>';}
-        ,tutorSkill||undefined   // P1: active Agent Skill rides along
-    );
+        }
+        if(!full&&!content.textContent.trim())content.innerHTML='<span style="color:var(--yellow);">未收到回复，请重试</span>';
+        else render();
+        tutorChatHistory.push({role:'assistant',content:full});
+    }catch(e){
+        if(e&&e.name==='AbortError'){
+            interrupted=true;
+            if(full){render();
+                content.insertAdjacentHTML('beforeend','<div style="font-size:10px;color:var(--text-muted);margin-top:4px;display:inline-flex;align-items:center;gap:4px;">'+iconHtml('square',9)+'已中断</div>');
+                tutorChatHistory.push({role:'assistant',content:full});
+            }else{
+                content.innerHTML='<span style="color:var(--text-muted);font-size:11px;">已中断</span>';
+            }
+        }else{
+            content.innerHTML='<span style="color:#ff6b6b;">'+escapeHtmlTutor(String(e.message||e))+'</span>';
+        }
+    }finally{
+        tutorStreaming=false;tutorAbort=null;tutorSetSendBtn(false);
+        try{stopOrb();}catch(_){}
+        if(typeof aiBusy==='function')aiBusy(false);
+        if(tutorActiveSession&&!interrupted)tutorSessionsInit();   // refresh title/updated_at
+        else tutorRenderSessions();
+    }
+}
+function tutorSkillBadgeFor(name){
+    const s=tutorSkills.find(x=>x.name===name);
+    return '<div style="display:inline-flex;align-items:center;gap:5px;font-size:10px;font-weight:600;color:var(--iris-400,var(--accent));background:rgba(122,107,255,.1);border:1px solid rgba(122,107,255,.25);border-radius:999px;padding:1px 8px;margin-bottom:6px;">'
+        +iconHtml('sparkles',10)+' '+escapeHtmlTutor(s?s.label:name)+'</div><br>';
 }
 
 function escapeHtmlTutor(t){return t.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;');}

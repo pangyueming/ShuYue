@@ -285,9 +285,16 @@
 
         <!-- ===== MATH TUTOR ===== -->
         <div id="page-tutor" class="page-view page-chat">
+          <div style="display:flex;gap:14px;align-items:flex-start;">
+            <!-- P2 · G1 工作台侧栏 -->
+            <aside id="tutor-ws-sidebar" style="width:198px;flex-shrink:0;border:1px solid var(--border);border-radius:14px;background:var(--bg-card);padding:10px;">
+                <button class="btn-primary" style="width:100%;font-size:12px;padding:6px;display:inline-flex;align-items:center;justify-content:center;gap:5px;" onclick="tutorNewSession()"><i data-lucide="plus" style="width:13px;height:13px;"></i>新工作台</button>
+                <div id="tutor-ws-list" style="margin-top:8px;"></div>
+            </aside>
+            <div style="flex:1;min-width:0;">
             <div class="page-head">
-                <div class="page-eyebrow">AI 辅导</div>
-                <h1 class="page-title">AI 解题助手</h1>
+                <div class="page-eyebrow">AI 助手</div>
+                <h1 class="page-title" id="tutor-ws-title">学习助手</h1>
             </div>
             <div class="seg" style="margin-bottom:4px;">
                 <button id="tutor-mode-general" style="flex:1;padding:8px;border-radius:8px;border:none;font-size:13px;font-weight:600;background:var(--accent);color:#fff;cursor:pointer;" onclick="tutorSwitchMode('general')">通用模式</button>
@@ -313,11 +320,13 @@
             <div class="composer card glass">
                 <span class="composer-attach" id="tutor-plus-btn" onclick="tutorTogglePlusMenu(event)" title="技能与附件" aria-label="打开技能与附件菜单" role="button" tabindex="0"><i data-lucide="plus"></i></span>
                 <input id="tutor-input" class="input composer-input" placeholder="输入数学问题… 输入 / 唤起技能" onkeydown="if(tutorSlashKey(event))return;if(event.key==='Enter')tutorSend();" oninput="tutorSlashInput(this.value)">
-                <button class="btn-primary tutor-send-arrow" onclick="tutorSend()" title="Send" aria-label="Send"><i data-lucide="arrow-up" style="width:16px;height:16px;"></i></button>
+                <button id="tutor-send-btn" class="btn-primary tutor-send-arrow" onclick="tutorSendOrStop()" title="Send" aria-label="发送"><i data-lucide="arrow-up" style="width:16px;height:16px;"></i></button>
             </div>
             <!-- P1.5: + menu & / command popup (fixed-position overlays) -->
             <div id="tutor-plus-menu" style="display:none;"></div>
             <div id="tutor-slash-popup" style="display:none;"></div>
+            </div>
+          </div>
         </div>
 
         <!-- ===== NOTES ===== -->

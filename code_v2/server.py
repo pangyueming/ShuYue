@@ -279,6 +279,25 @@ def init_db():
         pages INTEGER DEFAULT 0,
         PRIMARY KEY (user_id, day)
     );
+
+    -- Agent V4 · G1 工作台（用户命名，独立聊天场所；消息/摘要按会话隔离）
+    CREATE TABLE IF NOT EXISTS chat_sessions (
+        id TEXT PRIMARY KEY,
+        user_id TEXT NOT NULL REFERENCES users(id),
+        title TEXT DEFAULT '新工作台',
+        created_at TEXT DEFAULT (datetime('now')),
+        updated_at TEXT DEFAULT (datetime('now'))
+    );
+    CREATE INDEX IF NOT EXISTS idx_chat_sessions_user ON chat_sessions(user_id, updated_at);
+    CREATE TABLE IF NOT EXISTS chat_messages (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        session_id TEXT NOT NULL REFERENCES chat_sessions(id),
+        role TEXT NOT NULL,
+        content TEXT NOT NULL,
+        meta TEXT DEFAULT '{}',
+        created_at TEXT DEFAULT (datetime('now'))
+    );
+    CREATE INDEX IF NOT EXISTS idx_chat_messages_session ON chat_messages(session_id, id);
     """)
 
     # === Migration: add user_id to legacy tables (notes/documents) ===
@@ -1043,6 +1062,189 @@ async def health():
 def get_skills():
     """List available Agent Skills (progressive disclosure L1: metadata only)."""
     return {"skills": list_skills()}
+
+
+# ============================================================================
+# AGENT V4 (P2) · Workspaces (G1) + agent chat loop (A1/F/B)
+# ============================================================================
+
+class AgentSessionCreate(BaseModel):
+    title: str = ""
+
+class AgentSessionRename(BaseModel):
+    title: str
+
+class AgentChatRequest(BaseModel):
+    session_id: Optional[str] = None
+    message: str
+    skill: Optional[str] = None
+    history: List[dict] = []   # guest / no-workspace context (client-held)
+
+@app.get("/api/agent/sessions")
+def list_agent_sessions(current_user: dict = Depends(get_current_user)):
+    """G1 — list the user's workspaces (newest first)."""
+    if not current_user:
+        raise HTTPException(401, "Please log in")
+    conn = get_db()
+    rows = conn.execute(
+        "SELECT s.id, s.title, s.updated_at,"
+        " (SELECT COUNT(*) FROM chat_messages m WHERE m.session_id=s.id) AS msgs"
+        " FROM chat_sessions s WHERE s.user_id=?"
+        " ORDER BY s.updated_at DESC LIMIT 100",
+        (current_user["id"],),
+    ).fetchall()
+    conn.close()
+    return [{"id": r["id"], "title": r["title"], "updated_at": r["updated_at"],
+             "messages": r["msgs"]} for r in rows]
+
+@app.post("/api/agent/sessions")
+def create_agent_session(req: AgentSessionCreate, current_user: dict = Depends(get_current_user)):
+    if not current_user:
+        raise HTTPException(401, "Please log in")
+    sid = "ws_" + str(uuid.uuid4())[:10]
+    title = (req.title or "").strip()[:40] or "新工作台"
+    conn = get_db()
+    conn.execute("INSERT INTO chat_sessions (id,user_id,title) VALUES (?,?,?)",
+                 (sid, current_user["id"], title))
+    conn.commit(); conn.close()
+    return {"id": sid, "title": title}
+
+@app.put("/api/agent/sessions/{sid}")
+def rename_agent_session(sid: str, req: AgentSessionRename,
+                         current_user: dict = Depends(get_current_user)):
+    if not current_user:
+        raise HTTPException(401, "Please log in")
+    conn = get_db()
+    row = conn.execute("SELECT user_id FROM chat_sessions WHERE id=?", (sid,)).fetchone()
+    if not row:
+        conn.close(); raise HTTPException(404, "Not found")
+    if row["user_id"] != current_user["id"]:
+        conn.close(); raise HTTPException(403, "Access denied")
+    conn.execute("UPDATE chat_sessions SET title=?, updated_at=datetime('now') WHERE id=?",
+                 ((req.title or "").strip()[:40] or "新工作台", sid))
+    conn.commit(); conn.close()
+    return {"renamed": True}
+
+@app.delete("/api/agent/sessions/{sid}")
+def delete_agent_session(sid: str, current_user: dict = Depends(get_current_user)):
+    if not current_user:
+        raise HTTPException(401, "Please log in")
+    conn = get_db()
+    row = conn.execute("SELECT user_id FROM chat_sessions WHERE id=?", (sid,)).fetchone()
+    if not row:
+        conn.close(); raise HTTPException(404, "Not found")
+    if row["user_id"] != current_user["id"]:
+        conn.close(); raise HTTPException(403, "Access denied")
+    conn.execute("DELETE FROM chat_messages WHERE session_id=?", (sid,))
+    conn.execute("DELETE FROM chat_sessions WHERE id=?", (sid,))
+    conn.commit(); conn.close()
+    return {"deleted": True}
+
+@app.get("/api/agent/sessions/{sid}/messages")
+def get_agent_session_messages(sid: str, current_user: dict = Depends(get_current_user)):
+    """Restore a workspace's conversation (G1 — refresh-proof)."""
+    if not current_user:
+        raise HTTPException(401, "Please log in")
+    conn = get_db()
+    row = conn.execute("SELECT user_id FROM chat_sessions WHERE id=?", (sid,)).fetchone()
+    if not row:
+        conn.close(); raise HTTPException(404, "Not found")
+    if row["user_id"] != current_user["id"]:
+        conn.close(); raise HTTPException(403, "Access denied")
+    msgs = conn.execute(
+        "SELECT role, content, meta FROM chat_messages WHERE session_id=? ORDER BY id",
+        (sid,)).fetchall()
+    conn.close()
+    return [{"role": m["role"], "content": m["content"],
+             "meta": json.loads(m["meta"] or "{}")} for m in msgs]
+
+@app.post("/api/agent/chat")
+def agent_chat(req: AgentChatRequest,
+               current_user: Optional[dict] = Depends(get_current_user)):
+    """
+    V4 agent chat (A1 loop, decision-layer routed) as an SSE stream.
+    Guests: full agent features minus persistence (E3 — tools see no user data).
+    """
+    from agent import loop as agent_loop
+    from agent import decision as agent_decision
+
+    user_id = current_user["id"] if current_user else None
+    message = (req.message or "").strip()
+    if not message:
+        raise HTTPException(400, "Empty message")
+
+    # load workspace history (G1) — guests run context-free
+    history = []
+    conn = None
+    if user_id and req.session_id:
+        conn = get_db()
+        row = conn.execute("SELECT user_id FROM chat_sessions WHERE id=?",
+                           (req.session_id,)).fetchone()
+        if row and row["user_id"] == user_id:
+            rows = conn.execute(
+                "SELECT role, content FROM chat_messages WHERE session_id=? "
+                "ORDER BY id DESC LIMIT 24", (req.session_id,)).fetchall()
+            history = [{"role": r["role"], "content": r["content"]} for r in reversed(rows)]
+            # persist the user turn
+            conn.execute("INSERT INTO chat_messages (session_id,role,content,meta) "
+                         "VALUES (?,?,?,?)",
+                         (req.session_id, "user", message,
+                          json.dumps({"skill": req.skill or ""}, ensure_ascii=False)))
+            conn.execute("UPDATE chat_sessions SET updated_at=datetime('now') WHERE id=?",
+                         (req.session_id,))
+            conn.commit()
+        if conn:
+            conn.close()
+    elif not req.session_id and req.history:
+        # guest / temporary chat: honour client-held context (server stays stateless)
+        history = [m for m in req.history[-24:]
+                   if isinstance(m, dict) and m.get("role") in ("user", "assistant")]
+
+    def _persist(full_text):
+        """Save the assistant turn + auto-title on first exchange (G1)."""
+        if not (user_id and req.session_id and full_text):
+            return
+        try:
+            conn2 = get_db()
+            conn2.execute(
+                "INSERT INTO chat_messages (session_id,role,content,meta) VALUES (?,?,?,?)",
+                (req.session_id, "assistant", full_text, "{}"))
+            row = conn2.execute(
+                "SELECT title, (SELECT COUNT(*) FROM chat_messages WHERE session_id=?) n"
+                " FROM chat_sessions WHERE id=?",
+                (req.session_id, req.session_id)).fetchone()
+            if row and (row["title"] == "新工作台" or not row["title"]) and row["n"] <= 2:
+                title = agent_decision.auto_title(message)
+                conn2.execute("UPDATE chat_sessions SET title=? WHERE id=?",
+                              (title, req.session_id))
+            conn2.commit(); conn2.close()
+        except Exception as e:
+            print(f"[agent] persist failed: {e}")
+
+    def stream():
+        full_text = ""
+        try:
+            for chunk in agent_loop.run_agent(message, history, req.skill, user_id):
+                yield chunk
+                if chunk.startswith("data: "):
+                    try:
+                        ev = json.loads(chunk[6:].strip())
+                        if ev.get("type") == "text" and ev.get("delta"):
+                            full_text += ev["delta"]
+                    except Exception:
+                        pass
+            yield "data: [DONE]\n\n"
+        except GeneratorExit:
+            # client aborted (Esc/stop) — keep the partial answer for the workspace
+            _persist(full_text)
+            raise
+        except Exception as e:
+            yield f"data: {json.dumps({'type': 'error', 'text': str(e)[:200]}, ensure_ascii=False)}\n\n"
+            yield "data: [DONE]\n\n"
+            return
+        _persist(full_text)
+
+    return StreamingResponse(stream(), media_type="text/event-stream")
 
 
 @app.post("/api/chat")
@@ -2298,6 +2500,17 @@ def quiz_grade(req: QuizGradeRequest, current_user: Optional[dict] = Depends(get
         else:
             correct = False
         correct_answer = gold
+        if not correct:
+            # F3 decision-layer fast path (flash, ~1s): confident verdicts in
+            # BOTH directions terminate here; only uncertain cases fall through
+            # to the slower per-token model check below.
+            try:
+                from agent.decision import answer_equivalence
+                fast = answer_equivalence(gold, student)
+                if fast.get("confidence", 0) >= 0.85 and fast.get("equivalent") is not None:
+                    correct = bool(fast["equivalent"])
+            except Exception:
+                pass
         if not correct:
             # Soft fallback: cheap model judges equivalence (free local check failed)
             try:
