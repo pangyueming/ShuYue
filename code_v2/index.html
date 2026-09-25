@@ -286,22 +286,28 @@
         <!-- ===== MATH TUTOR ===== -->
         <div id="page-tutor" class="page-view page-chat">
           <div style="display:flex;gap:14px;align-items:flex-start;">
-            <!-- P2 · G1 工作台侧栏（P2.5 Claude 式 glass 化） -->
+            <!-- P2.6 · G1 工作台侧栏（可折叠：把手+微+ / Ctrl+B / 状态记忆） -->
             <aside id="tutor-ws-sidebar" class="ws-sidebar">
+                <button class="ws-collapse-btn" onclick="tutorToggleWs()" title="折叠侧栏 (Ctrl+B)" aria-label="折叠工作台侧栏"><i data-lucide="panel-left-close" style="width:14px;height:14px;"></i></button>
                 <button class="ws-new-btn" onclick="tutorNewSession()"><i data-lucide="plus" style="width:14px;height:14px;"></i>新工作台</button>
                 <div class="ws-label">工作台</div>
                 <div id="tutor-ws-list"></div>
             </aside>
+            <div id="tutor-ws-handle" class="ws-handle" style="display:none;">
+                <button onclick="tutorToggleWs()" title="展开工作台 (Ctrl+B)" aria-label="展开工作台侧栏"><i data-lucide="panel-left-open" style="width:15px;height:15px;"></i></button>
+                <button onclick="tutorWsCollapsed=false;tutorApplyWsState();tutorNewSession()" title="新工作台" aria-label="新工作台"><i data-lucide="plus" style="width:15px;height:15px;"></i></button>
+                <span class="ws-handle-live" id="tutor-ws-handle-live" style="display:none;" title="有工作台正在生成"></span>
+            </div>
             <div style="flex:1;min-width:0;">
             <div class="page-head">
                 <div class="page-eyebrow">AI 助手</div>
                 <h1 class="page-title" id="tutor-ws-title">学习助手</h1>
             </div>
-            <div class="seg" style="margin-bottom:4px;">
-                <button id="tutor-mode-general" style="flex:1;padding:8px;border-radius:8px;border:none;font-size:13px;font-weight:600;background:var(--accent);color:#fff;cursor:pointer;" onclick="tutorSwitchMode('general')">通用模式</button>
-                <button id="tutor-mode-deep" style="flex:1;padding:8px;border-radius:8px;border:none;font-size:13px;font-weight:600;background:transparent;color:var(--text-secondary);cursor:pointer;" onclick="tutorSwitchMode('deep')">引导模式</button>
+            <!-- P2.6 · B 方案：模式并入技能系统——单一快捷 chip 切换 socratic-tutor（按工作台隔离） -->
+            <div class="tutor-topbar">
+                <button id="tutor-mode-chip" onclick="tutorToggleGuideMode()" aria-pressed="false" title="切换引导模式（=苏格拉底技能，本工作台生效）"><i data-lucide="graduation-cap" style="width:13px;height:13px;"></i><span>引导模式</span></button>
+                <span class="tutor-topbar-hint">关闭=通用直答 · 点 + 或输入 / 唤起全部技能</span>
             </div>
-            <p id="tutor-mode-desc" class="seg-desc">直接解答：知识来源、方法拆解、通俗讲解</p>
             <!-- Uploaded materials -->
             <div id="tutor-materials" style="margin-bottom:12px;"></div>
             <!-- Chat area（示例建议只在空对话时显示，随 empty-hero 一起移除） -->

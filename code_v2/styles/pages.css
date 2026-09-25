@@ -414,12 +414,25 @@ body:not(.dark) .tutor-send-liquid{color:#fff}
 
 /* ===== P2.5 Claude-style tutor layout（参考 agent-lab/design-refs/claude-DESIGN.md）===== */
 #page-tutor.page-chat{max-width:1100px}
-.ws-sidebar{width:232px;flex-shrink:0;position:sticky;top:16px;align-self:flex-start;border:1px solid var(--glass-border,var(--border));border-radius:16px;background:var(--glass-bg,var(--bg-card));backdrop-filter:blur(var(--glass-blur,12px)) saturate(var(--glass-sat,1.4));padding:12px;max-height:calc(100vh - 96px);overflow-y:auto}
-.ws-new-btn{width:100%;font-size:13px;font-weight:600;padding:9px;display:inline-flex;align-items:center;justify-content:center;gap:6px;border-radius:10px;border:1px dashed var(--border);background:transparent;color:var(--text-secondary);cursor:pointer;transition:all .15s}
+.ws-sidebar{width:232px;min-width:232px;flex-shrink:0;position:sticky;top:16px;align-self:flex-start;border:1px solid var(--glass-border,var(--border));border-radius:16px;background:var(--glass-bg,var(--bg-card));backdrop-filter:blur(var(--glass-blur,12px)) saturate(var(--glass-sat,1.4));padding:12px;max-height:calc(100vh - 96px);overflow-y:auto;transition:width .22s ease,min-width .22s ease,padding .22s ease,opacity .18s ease,border-width .22s ease}
+.ws-sidebar.collapsed{width:0;min-width:0;padding:0;border-width:0;opacity:0;pointer-events:none}
+.ws-collapse-btn{position:absolute;top:8px;right:8px;width:26px;height:26px;border-radius:8px;border:none;background:transparent;color:var(--text-muted);display:flex;align-items:center;justify-content:center;cursor:pointer;z-index:2}
+.ws-collapse-btn:hover{color:var(--text-primary);background:var(--bg-hover)}
+.ws-handle{flex-direction:column;gap:6px;align-items:center;flex-shrink:0;position:sticky;top:16px}
+.ws-handle button{width:32px;height:32px;border-radius:10px;border:1px solid var(--border);background:var(--bg-card);color:var(--text-secondary);display:flex;align-items:center;justify-content:center;cursor:pointer;transition:all .15s}
+.ws-handle button:hover{color:var(--accent);border-color:var(--accent)}
+.ws-handle-live{width:8px;height:8px;border-radius:50%;background:var(--iris-400,var(--accent));animation:wsPulse 1.2s ease-in-out infinite}
+.ws-new-btn{width:calc(100% - 26px);font-size:13px;font-weight:600;padding:9px;display:inline-flex;align-items:center;justify-content:center;gap:6px;border-radius:10px;border:1px dashed var(--border);background:transparent;color:var(--text-secondary);cursor:pointer;transition:all .15s}
 .ws-new-btn:hover{border-color:var(--accent);color:var(--accent);background:rgba(122,107,255,.06)}
 .ws-label{font-family:var(--font-mono);font-size:10px;letter-spacing:.1em;color:var(--text-muted);padding:12px 10px 6px}
 .tutor-suggest-row{display:flex;flex-wrap:wrap;gap:8px;justify-content:center;margin-top:16px}
 .tutor-st-details summary{color:var(--text-muted)}
+/* P2.6 · 引导模式快捷 chip（模式并入技能系统的薄壳） */
+.tutor-topbar{display:flex;align-items:center;gap:10px;margin-bottom:14px;flex-wrap:wrap}
+.tutor-topbar #tutor-mode-chip{display:inline-flex;align-items:center;gap:6px;padding:6px 14px;border-radius:999px;font-size:12.5px;font-weight:600;cursor:pointer;border:1px solid var(--border);background:var(--bg-input);color:var(--text-secondary);transition:all .15s}
+.tutor-topbar #tutor-mode-chip:hover{border-color:var(--iris-400,var(--accent));color:var(--iris-400,var(--accent))}
+.tutor-topbar #tutor-mode-chip.on{border-color:var(--iris-400,var(--accent));background:rgba(122,107,255,.12);color:var(--iris-400,var(--accent))}
+.tutor-topbar-hint{font-size:11px;color:var(--text-muted)}
 .tutor-status-feed{margin-bottom:4px}
 .tutor-status-feed:empty{display:none}
 /* P2 status rows (outside bubble, English, collapsed after finish) */

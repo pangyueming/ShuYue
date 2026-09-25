@@ -1,5 +1,6 @@
 ﻿// ===== MATH TUTOR =====
-let tutorMode='general';
+// P2.6: General/Deep mode seg RETIRED — 引导模式 became a thin shortcut over
+// the per-workspace skill system (tutorToggleGuideMode). No global mode state.
 let tutorChatHistory=[];
 // per-workspace state: skill selection + materials never leak across rooms (v1.4.2)
 const tutorSkillBySession={};       // key -> skill name
@@ -56,6 +57,7 @@ function tutorPickSkill(name){
     const k=tutorActiveSession||'_temp';
     if(name)tutorSkillBySession[k]=name;else delete tutorSkillBySession[k];
     tutorRenderSkillPill();
+    tutorRenderModeChip();     // P2.6: chip reflects the room's skill state
     tutorClosePlusMenu();tutorCloseSlash();
     if(name){
         const s=tutorSkills.find(x=>x.name===name);
@@ -158,36 +160,55 @@ document.addEventListener('mousedown',e=>{
     if(sp&&sp.style.display==='flex'&&!sp.contains(e.target))tutorCloseSlash();
 });
 document.addEventListener('keydown',e=>{if(e.key==='Escape'){if(tutorEscapeKey(e))return;tutorClosePlusMenu();tutorCloseSlash();}});
-// chips init → pill init（P1 遗留调用点兼容）+ 工作台加载（P2）
-function tutorInitAll(){tutorSkillsInit();tutorSessionsInit();}
+// chips init → pill init（P1 遗留调用点兼容）+ 工作台加载（P2）+ 侧栏折叠态（P2.6）
+function tutorInitAll(){tutorSkillsInit();tutorSessionsInit();tutorWsInit();}
 if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',tutorInitAll);
 else tutorInitAll();
 
-function tutorSwitchMode(m){
-    tutorMode=m;
-    const bg=document.getElementById('tutor-mode-general');
-    const bd=document.getElementById('tutor-mode-deep');
-    const desc=document.getElementById('tutor-mode-desc');
-    if(m==='general'){
-        bd.style.background='transparent';bd.style.color='var(--text-secondary)';
-        bg.style.color='#fff';
-        desc.textContent='直接解答：知识来源、方法拆解、通俗讲解（术语中英对照）';
-    }else{
-        bg.style.background='transparent';bg.style.color='var(--text-secondary)';
-        bd.style.color='#fff';
-        desc.textContent='引导式发现——苏格拉底式逐步提问。耗时更长，但帮你真正理解';
-    }
-    // Liquid indicator carries the active background (init.js); fall back to
-    // solid button backgrounds when the effect layer is unavailable.
-    if(window.__tutorGooeyMove){
-        bg.style.background='transparent';bd.style.background='transparent';
-        window.__tutorGooeyMove(m);
-    }else if(m==='general'){
-        bg.style.background='var(--accent)';
-    }else{
-        bd.style.background='var(--accent)';
-    }
+// P2.6 · 引导模式 = socratic-tutor 技能的快捷开关（按工作台隔离，走技能系统）
+function tutorToggleGuideMode(){
+    const cur=tutorGetSkill();
+    tutorPickSkill(cur==='socratic-tutor'?null:'socratic-tutor');
 }
+function tutorRenderModeChip(){
+    const b=document.getElementById('tutor-mode-chip');if(!b)return;
+    const on=tutorGetSkill()==='socratic-tutor';
+    b.setAttribute('aria-pressed',on);
+    b.classList.toggle('on',on);
+    const t=document.querySelector('.tutor-topbar-hint');
+    if(t)t.textContent=on?'苏格拉底技能已挂载 · 仅本工作台生效':'关闭=通用直答 · 点 + 或输入 / 唤起全部技能';
+}
+
+// P2.6 · 工作台侧栏折叠（Ctrl+B / 把手 / 状态记忆 / 后台流呼吸点）
+let tutorWsCollapsed=false;
+function tutorApplyWsState(){
+    const sb=document.getElementById('tutor-ws-sidebar');
+    const hd=document.getElementById('tutor-ws-handle');
+    if(!sb||!hd)return;
+    sb.classList.toggle('collapsed',tutorWsCollapsed);
+    hd.style.display=tutorWsCollapsed?'flex':'none';
+    try{localStorage.setItem('cb_cn_ws_collapsed',tutorWsCollapsed?'1':'0');}catch(e){}
+    tutorUpdateHandleLive();
+}
+function tutorToggleWs(){
+    tutorWsCollapsed=!tutorWsCollapsed;
+    tutorApplyWsState();
+}
+function tutorUpdateHandleLive(){
+    const dot=document.getElementById('tutor-ws-handle-live');
+    if(!dot)return;
+    let live=false;
+    tutorStreams.forEach(s=>{if(!s.done)live=true;});
+    dot.style.display=live?'':'none';
+}
+function tutorWsInit(){
+    const saved=localStorage.getItem('cb_cn_ws_collapsed');
+    tutorWsCollapsed=saved!==null?saved==='1':(window.innerWidth<900);   // 窄屏默认折叠
+    tutorApplyWsState();
+}
+document.addEventListener('keydown',e=>{
+    if(e.ctrlKey&&!e.altKey&&(e.key==='b'||e.key==='B')){e.preventDefault();tutorToggleWs();}
+});
 
 function tutorUploadMaterial(){
     const inp=document.createElement('input');
@@ -311,6 +332,7 @@ async function tutorSwitchSession(id){
     // per-workspace UI state follows the room (skill pill / materials)
     tutorRenderSkillPill();
     tutorRenderMaterials();
+    tutorRenderModeChip();
     tutorSetSendBtn(tutorStreamActive());
     tutorRenderSessions();
 }
@@ -426,9 +448,9 @@ async function tutorSend(){
         }
     };
 
-    // 旧"引导模式"开关优雅映射到 socratic-tutor 技能（未手动选技能时）
+    // 技能选择（引导模式 chip 已并入技能系统——无独立全局状态）
     const curSel=tutorGetSkill();
-    const effSkillSel=curSel||(tutorMode==='deep'?'socratic-tutor':undefined);
+    const effSkillSel=curSel||undefined;
     const body={session_id:tutorActiveSession||undefined,message:message,skill:effSkillSel,
         history:tutorActiveSession?undefined:tutorChatHistory.slice(0,-1)};
     let full='';let effSkill=effSkillSel||null;let gotText=false;let interrupted=false;let actionsHtml='';
@@ -511,6 +533,7 @@ async function tutorSend(){
         // sidebar refresh: clears this stream's pulse; background completion also lands here
         if(sendSession)tutorSessionsInit();
         else tutorRenderSessions();
+        tutorUpdateHandleLive();     // collapsed handle dot follows background streams
     }
 }
 function tutorSkillBadgeFor(name){

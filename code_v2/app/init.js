@@ -79,52 +79,9 @@ function initAiEffects() {
     }
 }
 
-// ===== Tutor mode liquid indicator (liquid-gooey) =====
-// An accent pill slides between General / Deep with a liquid trail; the buttons
-// themselves stay transparent — the pill carries the active state.
-function initTutorGooey() {
-    var seg = document.querySelector('#page-tutor .seg');
-    var general = document.getElementById('tutor-mode-general');
-    var deep = document.getElementById('tutor-mode-deep');
-    if (!seg || !general || !deep) return;
-    if (!window.LiquidGooey || reducedMotionOn()) return;
-
-    var pill = document.createElement('div');
-    pill.style.cssText = 'position:absolute;top:3px;bottom:3px;left:0;width:0;border-radius:8px;background:var(--accent);z-index:0;will-change:left,width;transition:left .45s cubic-bezier(.34,1.56,.64,1),width .45s cubic-bezier(.34,1.56,.64,1);';
-    var prevPos = seg.style.position;
-    seg.style.position = 'relative';
-    seg.insertBefore(pill, seg.firstChild);
-    [general, deep].forEach(function (b) {
-        b.style.background = 'transparent';
-        b.style.position = 'relative';
-        b.style.zIndex = '1';
-    });
-
-    var goo = LiquidGooey.create(seg, { fill: 'var(--accent)', filterPadding: 14, blur: 5 });
-    goo.item(pill, { effect: ['morph', 'move'], move: { springiness: .55, stretch: .45, trail: .5 } });
-
-    var pillMode = 'general';   // mirrors tutor.js tutorMode ('general' is the boot default)
-    function place(instant) {
-        var btn = pillMode === 'deep' ? deep : general;
-        if (instant) pill.style.transition = 'none';
-        pill.style.left = (btn.offsetLeft + 3) + 'px';
-        pill.style.width = (btn.offsetWidth - 6) + 'px';
-        if (instant) {
-            void pill.offsetWidth;   // flush the instant placement
-            pill.style.transition = '';
-        }
-    }
-    window.__tutorGooeyMove = function (m) {
-        if (m) pillMode = m;
-        place(false);
-    };
-    place(true);
-    // Keep geometry in step with container resizes
-    if (typeof ResizeObserver !== 'undefined') {
-        var ro = new ResizeObserver(function () { place(true); });
-        ro.observe(seg);
-    }
-}
+// ===== (removed) Tutor mode liquid indicator — the General/Deep seg was
+// retired in P2.6: mode merged into the skill system (single shortcut chip,
+// per-workspace). The plotter keeps its own gooey below. =====
 
 // ===== Plotter mode liquid indicator (liquid-gooey) =====
 // Same sliding-pill pattern as the tutor mode switch, for the 2D/3D seg.
@@ -291,7 +248,6 @@ document.addEventListener('DOMContentLoaded',async()=>{
     bsRenderDashboard(bsPageCat);
     dashboardInit();
     initAiEffects();
-    initTutorGooey();
     initTutorSendLiquid();
     initPlotGooey();
     initFormEffects();
