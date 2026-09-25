@@ -412,8 +412,11 @@ body:not(.dark) .tutor-send-liquid{color:#fff}
 .ws-live{display:inline-block;width:7px;height:7px;border-radius:50%;background:var(--iris-400,var(--accent));margin-left:6px;vertical-align:middle;animation:wsPulse 1.2s ease-in-out infinite}
 @keyframes wsPulse{0%,100%{opacity:.25;transform:scale(.85)}50%{opacity:1;transform:scale(1.15)}}
 
-/* ===== P2.5 Claude-style tutor layout（参考 agent-lab/design-refs/claude-DESIGN.md）===== */
-#page-tutor.page-chat{max-width:1100px}
+/* P2.5/P2.7 Claude-style tutor layout（参考 agent-lab/design-refs/claude-DESIGN.md）
+   自适应：主导航折叠(body.sb-collapsed)时页面放宽，聊天列经 .tutor-column 护栏保持阅读宽度 */
+#page-tutor.page-chat{max-width:1160px;transition:max-width .2s ease}
+body.sb-collapsed #page-tutor.page-chat{max-width:1400px}
+.tutor-column{flex:1;min-width:0;width:100%;max-width:920px;margin:0 auto}
 .ws-sidebar{width:232px;min-width:232px;flex-shrink:0;position:sticky;top:16px;align-self:flex-start;border:1px solid var(--glass-border,var(--border));border-radius:16px;background:var(--glass-bg,var(--bg-card));backdrop-filter:blur(var(--glass-blur,12px)) saturate(var(--glass-sat,1.4));padding:12px;max-height:calc(100vh - 96px);overflow-y:auto;transition:width .22s ease,min-width .22s ease,padding .22s ease,opacity .18s ease,border-width .22s ease}
 .ws-sidebar.collapsed{width:0;min-width:0;padding:0;border-width:0;opacity:0;pointer-events:none}
 .ws-collapse-btn{position:absolute;top:8px;right:8px;width:26px;height:26px;border-radius:8px;border:none;background:transparent;color:var(--text-muted);display:flex;align-items:center;justify-content:center;cursor:pointer;z-index:2}

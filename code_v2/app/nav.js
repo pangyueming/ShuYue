@@ -52,11 +52,25 @@ function showPage(id){
 }
 function toggleSidebar(){
     const sb=document.getElementById('app-sidebar');
-    if(sb.style.width==='0px'){
+    const collapsed=sb.style.width==='0px';
+    if(collapsed){
         sb.style.width='240px';sb.style.minWidth='240px';sb.style.borderRight='1px solid var(--border)';
     }else{
         sb.style.width='0';sb.style.minWidth='0';sb.style.borderRight='none';
     }
+    // P2.7: body-level state class (CSS adapts wide pages) + persistence
+    document.body.classList.toggle('sb-collapsed',!collapsed);
+    try{localStorage.setItem('cb_cn_sb_collapsed',!collapsed?'1':'0');}catch(e){}
 }
+// restore the persisted sidebar state on boot (refresh keeps it collapsed)
+(function(){
+    try{
+        if(localStorage.getItem('cb_cn_sb_collapsed')==='1'){
+            const sb=document.getElementById('app-sidebar');
+            if(sb){sb.style.width='0';sb.style.minWidth='0';sb.style.borderRight='none';}
+            document.body.classList.add('sb-collapsed');
+        }
+    }catch(e){}
+})();
 function toggleTheme(){document.body.classList.toggle('dark');try{localStorage.setItem('cb_theme',document.body.classList.contains('dark')?'dark':'light');}catch(e){}}
 
