@@ -163,6 +163,10 @@ def run_agent(message: str, history: list, user_skill, user_id):
                 return
 
     # ---------- 2c. tool loop with the 27b (A1) ----------
+    # Guests see only solve_problem: state/search tools cannot work without a
+    # user, and letting the model call them just burns loop steps.
+    tool_specs = T.TOOL_SPECS if user_id else \
+        [s for s in T.TOOL_SPECS if s["function"]["name"] == "solve_problem"]
     messages = [{"role": "system", "content": system_prompt}] + history[-12:] + \
                [{"role": "user", "content": message}]
     final_text = ""
@@ -171,7 +175,7 @@ def run_agent(message: str, history: list, user_skill, user_id):
             if used_tokens > MAX_LOOP_TOKENS:   # E4 token budget
                 yield _sse({"type": "status", "text": "已达本次对话工具预算上限，直接作答"})
                 messages.append({"role": "user", "content": "（预算提示：不要再调用工具，直接给出最终回答）"})
-            msg, usage = _upstream(messages, tools=T.TOOL_SPECS, stream=False)
+            msg, usage = _upstream(messages, tools=tool_specs, stream=False)
             used_tokens += usage
         except Exception as e:
             yield _sse({"type": "error", "text": f"生成失败：{str(e)[:120]}"})

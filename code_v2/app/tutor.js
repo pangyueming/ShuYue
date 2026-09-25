@@ -250,6 +250,9 @@ async function tutorSwitchSession(id){
         if(res.ok){
             const msgs=await res.json();
             const chat=document.getElementById('tutor-chat');
+            if(!msgs.length){
+                chat.innerHTML='<div class="empty-hero" style="min-height:200px;"><div class="empty-disc"><i data-lucide="message-square"></i></div><div class="empty-title">这个工作台还没有对话</div><div class="empty-sub">在下方输入第一个问题</div></div>';
+            }
             msgs.forEach(m=>{
                 if(m.role==='user'){
                     const d=document.createElement('div');d.style.cssText='display:flex;flex-direction:row-reverse;gap:8px;';
@@ -309,12 +312,6 @@ function tutorEscapeKey(e){
     if(e.key==='Escape'&&tutorStreaming){tutorStopStreaming();return true;}
     return false;
 }
-// P2 · Agent send (A1/F/B — SSE via /api/agent/chat)
-function tutorStatusLine(icon,text,color){
-    return '<div style="display:flex;align-items:center;gap:5px;font-size:10.5px;color:var(--text-muted);padding:1px 0;">'
-        +'<span style="color:'+color+';display:inline-flex;">'+iconHtml(icon,11)+'</span>'
-        +'<span style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">'+escapeHtmlTutor(text)+'</span></div>';
-}
 async function tutorSend(){
     const inp=document.getElementById('tutor-input');
     const q=inp.value.trim();if(!q)return;
@@ -332,16 +329,17 @@ async function tutorSend(){
         '<div style="background:var(--accent);color:#fff;padding:8px 14px;border-radius:12px 12px 4px 12px;font-size:13px;max-width:75%;">'+escapeHtmlTutor(q)+'</div>';
     chat.appendChild(userDiv);
 
-    // AI bubble: status feed + content
+    // AI bubble — status feed lives OUTSIDE the bubble (Codex-style collapsed rows)
+    const statusWrap=document.createElement('div');
+    statusWrap.style.cssText='padding:0 0 2px 36px;';
+    chat.appendChild(statusWrap);
     const aiDiv=document.createElement('div');
     aiDiv.style.cssText='display:flex;gap:8px;';
     const bubbleId='tutor-bubble-'+Date.now();
     aiDiv.innerHTML='<div style="width:28px;height:28px;border-radius:50%;background:linear-gradient(135deg,var(--accent),#9b59f7);display:flex;align-items:center;justify-content:center;color:#fff;font-size:11px;font-weight:600;flex-shrink:0;">AI</div>'+
-        '<div id="'+bubbleId+'" style="background:var(--bg-hover);color:var(--text-primary);padding:8px 14px;border-radius:12px 12px 12px 4px;font-size:13px;max-width:75%;min-height:20px;">'+
-        '<div class="tutor-status-feed"></div><div class="tutor-content"></div></div>';
+        '<div id="'+bubbleId+'" style="background:var(--bg-hover);color:var(--text-primary);padding:8px 14px;border-radius:12px 12px 12px 4px;font-size:13px;max-width:75%;min-height:20px;"><div class="tutor-content"></div></div>';
     chat.appendChild(aiDiv);
     const bubble=document.getElementById(bubbleId);
-    const feed=bubble.querySelector('.tutor-status-feed');
     const content=bubble.querySelector('.tutor-content');
     refreshIcons();
     var stopOrb=function(){};
@@ -349,23 +347,49 @@ async function tutorSend(){
     if(typeof aiBusy==='function')aiBusy(true);
     chat.scrollTop=chat.scrollHeight;
 
+    // status feed: english technical labels, live elapsed timer, collapse on finish
+    const stLines=[];let stCalls=0;let stIntent='chat';const stT0=Date.now();
+    let stTimer=setInterval(()=>{
+        const el=statusWrap.querySelector('.tutor-elapsed');
+        if(el)el.textContent=Math.round((Date.now()-stT0)/1000)+'s';
+    },1000);
+    const stLine=(html)=>{
+        const d=document.createElement('div');
+        d.className='tutor-st-line';
+        d.innerHTML='<span class="tutor-elapsed">'+Math.round((Date.now()-stT0)/1000)+'s</span>'+html;
+        statusWrap.appendChild(d);
+        chat.scrollTop=chat.scrollHeight;
+    };
+    const stCollapse=()=>{
+        clearInterval(stTimer);
+        const secs=Math.round((Date.now()-stT0)/1000);
+        if(statusWrap.children.length){
+            const rows=Array.from(statusWrap.children).map(c=>c.outerHTML).join('');
+            statusWrap.innerHTML='<details class="tutor-st-details"><summary>▸ '+stIntent+' · '+stCalls+' call'+(stCalls===1?'':'s')+' · '+secs+'s</summary>'+rows+'</details>';
+        }
+    };
+
     // 旧"引导模式"开关优雅映射到 socratic-tutor 技能（未手动选技能时）
     const effSkillSel=tutorSkill||(tutorMode==='deep'?'socratic-tutor':undefined);
     const body={session_id:tutorActiveSession||undefined,message:message,skill:effSkillSel,
         history:tutorActiveSession?undefined:tutorChatHistory.slice(0,-1)};
-    let full='';let effSkill=effSkillSel||null;let gotText=false;let interrupted=false;
+    let full='';let effSkill=effSkillSel||null;let gotText=false;let interrupted=false;let actionsHtml='';
     tutorAbort=new AbortController();tutorStreaming=true;tutorSetSendBtn(true);
     const render=()=>{
         const badge=effSkill?tutorSkillBadgeFor(effSkill):'';
-        content.innerHTML=badge+mdToHtmlTutor(full)+(gotText?'':'<span style="opacity:.5;">▌</span>');
+        content.innerHTML=badge+mdToHtmlTutor(full)+(gotText?'':'<span style="opacity:.5;">▌</span>')+actionsHtml;
         chat.scrollTop=chat.scrollHeight;
     };
     try{
+        const headers={'Content-Type':'application/json'};
+        const tok=localStorage.getItem('cb_cn_token');
+        if(tok)headers['Authorization']='Bearer '+tok;   // FIX: agent chat must authenticate (workspaces/persist/tools)
         const r=await fetch(AI_BACKEND_URL+'/api/agent/chat',{method:'POST',
-            headers:{'Content-Type':'application/json'},body:JSON.stringify(body),
+            headers:headers,body:JSON.stringify(body),
             signal:tutorAbort.signal});
         if(!r.ok){const e=await r.json().catch(()=>({}));throw new Error(e.detail||('HTTP '+r.status));}
         const reader=r.body.getReader();const dec=new TextDecoder();let buf='';
+        let firstEvent=true;
         while(true){
             const{done,value}=await reader.read();if(done)break;
             buf+=dec.decode(value);
@@ -377,19 +401,26 @@ async function tutorSend(){
                 const data=line.slice(6);
                 if(data==='[DONE]')continue;
                 let ev;try{ev=JSON.parse(data);}catch(e){continue;}
+                if(firstEvent){firstEvent=false;try{stopOrb();}catch(_){}}   // orb stops at the FIRST signal
                 if(ev.type==='text'){gotText=true;full+=ev.delta||'';render();}
-                else if(ev.type==='status'){feed.insertAdjacentHTML('beforeend',tutorStatusLine('sparkles',ev.text||'','var(--iris-400,var(--accent))'));}
-                else if(ev.type==='tool_call'){feed.insertAdjacentHTML('beforeend',tutorStatusLine('settings','调用 '+ev.name+'…','#faad14'));}
-                else if(ev.type==='tool_result'){feed.insertAdjacentHTML('beforeend',tutorStatusLine('check-circle',(ev.summary||'').slice(0,80),'var(--green)'));}
                 else if(ev.type==='decision'){
-                    if(ev.skill&&!tutorSkill)effSkill=ev.skill;
-                    feed.insertAdjacentHTML('beforeend',tutorStatusLine('git-branch','意图 '+ev.intent+(ev.confidence?' ('+Math.round(ev.confidence*100)+'%)':''),'var(--text-muted)'));
+                    stIntent=ev.intent||'chat';
+                    if(ev.skill&&!effSkill)effSkill=ev.skill;
+                    let l='route → '+stIntent+(ev.confidence?' ('+Math.round(ev.confidence*100)+'%)':'');
+                    if(ev.skill)l+='  ·  skill: '+ev.skill;
+                    stLine(l);
                 }
+                else if(ev.type==='status'){
+                    if(!(ev.text||'').startsWith('已启用技能'))stLine(escapeHtmlTutor(ev.text||''));
+                }
+                else if(ev.type==='tool_call'){stCalls++;stLine('calling <b>'+escapeHtmlTutor(ev.name||'tool')+'</b>…');}
+                else if(ev.type==='tool_result'){stLine('✓ '+escapeHtmlTutor(ev.name||'tool')+' done');}
                 else if(ev.type==='actions'&&ev.items&&ev.items.length){
-                    feed.insertAdjacentHTML('beforeend','<div style="display:flex;gap:4px;flex-wrap:wrap;margin:4px 0;">'
-                        +ev.items.map(a=>'<span style="font-size:9px;padding:1px 7px;border-radius:999px;background:rgba(82,196,26,.1);color:var(--green);border:1px solid rgba(82,196,26,.25);">'+iconHtml('check',9)+' '+escapeHtmlTutor((a.text||'').slice(0,40))+'</span>').join('')+'</div>');
+                    actionsHtml='<div style="display:flex;gap:4px;flex-wrap:wrap;margin-top:6px;">'
+                        +ev.items.map(a=>'<span style="font-size:9px;padding:1px 7px;border-radius:999px;background:rgba(82,196,26,.1);color:var(--green);border:1px solid rgba(82,196,26,.25);">'+iconHtml('check',9)+' '+escapeHtmlTutor((a.text||'').slice(0,40))+'</span>').join('')+'</div>';
+                    render();
                 }
-                else if(ev.type==='error'){content.innerHTML='<span style="color:#ff6b6b;">'+escapeHtmlTutor(ev.text||'生成失败')+'</span>';}
+                else if(ev.type==='error'){content.innerHTML='<span style="color:#ff6b6b;">'+escapeHtmlTutor(ev.text||'generation failed')+'</span>';}
                 chat.scrollTop=chat.scrollHeight;
             }
         }
@@ -400,15 +431,16 @@ async function tutorSend(){
         if(e&&e.name==='AbortError'){
             interrupted=true;
             if(full){render();
-                content.insertAdjacentHTML('beforeend','<div style="font-size:10px;color:var(--text-muted);margin-top:4px;display:inline-flex;align-items:center;gap:4px;">'+iconHtml('square',9)+'已中断</div>');
+                content.insertAdjacentHTML('beforeend','<div style="font-size:10px;color:var(--text-muted);margin-top:4px;display:inline-flex;align-items:center;gap:4px;">'+iconHtml('square',9)+'interrupted</div>');
                 tutorChatHistory.push({role:'assistant',content:full});
             }else{
-                content.innerHTML='<span style="color:var(--text-muted);font-size:11px;">已中断</span>';
+                content.innerHTML='<span style="color:var(--text-muted);font-size:11px;">interrupted</span>';
             }
         }else{
             content.innerHTML='<span style="color:#ff6b6b;">'+escapeHtmlTutor(String(e.message||e))+'</span>';
         }
     }finally{
+        stCollapse();
         tutorStreaming=false;tutorAbort=null;tutorSetSendBtn(false);
         try{stopOrb();}catch(_){}
         if(typeof aiBusy==='function')aiBusy(false);

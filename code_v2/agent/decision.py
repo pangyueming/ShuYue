@@ -31,6 +31,7 @@ _intent_sys = (
     "- 概念/知识讲解类问题（'X是什么''什么是X''X怎么理解''为什么…'）属于 chat，绝不是 simple_query。"
     "例如：'极限的直观理解是什么'→chat；'supremum 是什么意思'→chat。\n"
     "- 要求出题/做题练习→quiz_request；上传/保存文件→file_op；明确解一道具体题→solve。\n"
+    "- 学习规划/方法求助（'帮我攻克X''怎么学X''如何复习X'）→chat（solve 仅限给出了具体题目）。\n"
     "输出: {\"intent\": \"...\", \"confidence\": 0.0-1.0}"
 )
 

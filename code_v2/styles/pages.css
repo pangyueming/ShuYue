@@ -410,6 +410,15 @@ body:not(.dark) .tutor-send-liquid{color:#fff}
 .ws-item .ws-act:hover{color:var(--red);background:rgba(229,72,77,.1)}
 .tutor-status-feed{margin-bottom:4px}
 .tutor-status-feed:empty{display:none}
+/* P2 status rows (outside bubble, English, collapsed after finish) */
+.tutor-st-line{display:flex;align-items:center;gap:8px;font-family:var(--font-mono);font-size:10px;color:var(--text-muted);padding:1px 0;animation:kgIn .18s ease both}
+.tutor-st-line b{color:#faad14;font-weight:600}
+.tutor-st-line .tutor-elapsed{min-width:32px;text-align:right;color:var(--text-muted);opacity:.8;flex-shrink:0}
+.tutor-st-details summary{font-family:var(--font-mono);font-size:10px;color:var(--text-muted);cursor:pointer;user-select:none;list-style:none;padding:1px 0}
+.tutor-st-details summary::before{content:'▸ ';color:var(--text-muted)}
+.tutor-st-details[open] summary::before{content:'▾ '}
+.tutor-st-details summary:hover{color:var(--text-secondary)}
+.tutor-st-details{padding:0}
 .btn-ai{
     flex-shrink:0;display:flex;align-items:center;gap:6px;
     padding:6px 14px;border-radius:var(--r-sm);

@@ -1213,7 +1213,9 @@ def agent_chat(req: AgentChatRequest,
                 "SELECT title, (SELECT COUNT(*) FROM chat_messages WHERE session_id=?) n"
                 " FROM chat_sessions WHERE id=?",
                 (req.session_id, req.session_id)).fetchone()
-            if row and (row["title"] == "新工作台" or not row["title"]) and row["n"] <= 2:
+            if row and (row["title"] == "新工作台" or not row["title"]):
+                # v1.4: fire on any first successful persist (count guard removed —
+                # an interrupted first turn no longer blocks auto-naming)
                 title = agent_decision.auto_title(message)
                 conn2.execute("UPDATE chat_sessions SET title=? WHERE id=?",
                               (title, req.session_id))
