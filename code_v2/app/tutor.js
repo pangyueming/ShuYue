@@ -1,11 +1,16 @@
 ﻿// ===== MATH TUTOR =====
 let tutorMode='general';
 let tutorChatHistory=[];
-let tutorMaterials=[];
+// per-workspace state: skill selection + materials never leak across rooms (v1.4.2)
+const tutorSkillBySession={};       // key -> skill name
+const tutorMaterialsBySession={};   // key -> [{name,size,file}]
+function tutorGetSkill(){return tutorSkillBySession[tutorActiveSession||'_temp']||null;}
+function tutorGetMaterials(){const k=tutorActiveSession||'_temp';if(!tutorMaterialsBySession[k])tutorMaterialsBySession[k]=[];return tutorMaterialsBySession[k];}
+function tutorRemoveMaterial(i){tutorGetMaterials().splice(i,1);tutorRenderMaterials();}
 
 // ===== P1.5 · Agent Skills UI（+ 菜单统一入口 / / 命令 / pill）=====
 // v1.3 决策：常驻 chips 移除；技能 = 全局能力池，+ 与 / 均可调全部技能。
-let tutorSkill=null;          // active skill name | null
+// v1.4.2：选中状态按工作台隔离（A 台开的技能不进 B 台）。
 let tutorSkills=[];           // [{name,label,description}] from /api/skills
 let tutorSlashIdx=0;          // highlighted row in the / popup
 let tutorSlashItems=[];       // filtered skills for the / popup
@@ -17,21 +22,24 @@ async function tutorSkillsInit(){
         tutorSkills=(data&&data.skills)||[];
     }catch(e){tutorSkills=[];}
     tutorRenderSkillPill();
+    tutorRenderMaterials();
 }
-// --- active skill pill above the composer ---
+// --- active skill pill above the composer (reads the CURRENT workspace's skill) ---
 function tutorRenderSkillPill(){
     const row=document.getElementById('tutor-skill-pill-row');
     if(!row)return;
-    if(!tutorSkill){row.style.display='none';row.innerHTML='';return;}
-    const s=tutorSkills.find(x=>x.name===tutorSkill);
+    const cur=tutorGetSkill();
+    if(!cur){row.style.display='none';row.innerHTML='';return;}
+    const s=tutorSkills.find(x=>x.name===cur);
     row.style.display='';
     row.innerHTML='<span style="display:inline-flex;align-items:center;gap:6px;padding:4px 12px;border-radius:999px;font-size:12px;font-weight:600;color:var(--iris-400,var(--accent));background:rgba(122,107,255,.12);border:1px solid rgba(122,107,255,.3);">'
-        +iconHtml('sparkles',12)+escapeHtml(s?s.label:tutorSkill)
+        +iconHtml('sparkles',12)+escapeHtml(s?s.label:cur)
         +'<span onclick="tutorPickSkill(null)" role="button" tabindex="0" aria-label="移除技能" style="display:inline-flex;align-items:center;justify-content:center;width:16px;height:16px;border-radius:50%;cursor:pointer;background:rgba(122,107,255,.2);font-size:10px;">✕</span></span>';
     refreshIcons();
 }
 function tutorPickSkill(name){
-    tutorSkill=name;
+    const k=tutorActiveSession||'_temp';
+    if(name)tutorSkillBySession[k]=name;else delete tutorSkillBySession[k];
     tutorRenderSkillPill();
     tutorClosePlusMenu();tutorCloseSlash();
     if(name){
@@ -43,10 +51,11 @@ function tutorPickSkill(name){
 }
 // AI 气泡顶部技能徽标（P1 保留）
 function tutorSkillBadge(){
-    if(!tutorSkill)return '';
-    const s=tutorSkills.find(x=>x.name===tutorSkill);
+    const cur=tutorGetSkill();
+    if(!cur)return '';
+    const s=tutorSkills.find(x=>x.name===cur);
     return '<div style="display:inline-flex;align-items:center;gap:5px;font-size:10px;font-weight:600;color:var(--iris-400,var(--accent));background:rgba(122,107,255,.1);border:1px solid rgba(122,107,255,.25);border-radius:999px;padding:1px 8px;margin-bottom:6px;">'
-        +iconHtml('sparkles',10)+' '+escapeHtml(s?s.label:tutorSkill)+'</div><br>';
+        +iconHtml('sparkles',10)+' '+escapeHtml(s?s.label:cur)+'</div><br>';
 }
 // --- + menu（技能 + 上传资料 统一入口）---
 function tutorTogglePlusMenu(ev){
@@ -57,8 +66,9 @@ function tutorTogglePlusMenu(ev){
     if(!m)return;
     const btn=document.getElementById('tutor-plus-btn');
     const r=btn?btn.getBoundingClientRect():{left:20,bottom:80};
+    const curSkill=tutorGetSkill();
     const skItems=tutorSkills.map(s=>{
-        const on=s.name===tutorSkill;
+        const on=s.name===curSkill;
         return `<div class="tutor-menu-item${on?' on':''}" onclick="tutorPickSkill('${on?'':escapeHtml(s.name)}')" role="button" tabindex="0">
             ${iconHtml(on?'check-circle':'sparkles',14)}
             <span style="flex:1;min-width:0;"><b style="font-size:12px;">${escapeHtml(s.label)}</b>
@@ -170,7 +180,7 @@ function tutorUploadMaterial(){
     inp.onchange=()=>{
         if(!inp.files[0])return;
         const file=inp.files[0];
-        tutorMaterials.push({name:file.name,size:(file.size/1024/1024).toFixed(1)+'MB',file:file});
+        tutorGetMaterials().push({name:file.name,size:(file.size/1024/1024).toFixed(1)+'MB',file:file});
         tutorRenderMaterials();
     };
     document.body.appendChild(inp);inp.click();inp.remove();
@@ -178,10 +188,11 @@ function tutorUploadMaterial(){
 
 function tutorRenderMaterials(){
     const c=document.getElementById('tutor-materials');if(!c)return;
-    c.innerHTML=tutorMaterials.map((m,i)=>
+    const mats=tutorGetMaterials();
+    c.innerHTML=mats.map((m,i)=>
         `<div style="display:flex;align-items:center;gap:8px;padding:6px 12px;border-radius:6px;background:var(--bg-input);margin-bottom:4px;font-size:12px;">
         <span style="color:var(--text-secondary);">${iconHtml('paperclip',13)}</span><span style="color:var(--text-primary);">${m.name}</span><span style="color:var(--text-muted);">${m.size}</span>
-        <button onclick="tutorMaterials.splice(${i},1);tutorRenderMaterials()" style="margin-left:auto;color:#ff6b6b;background:none;border:none;cursor:pointer;font-size:14px;">×</button></div>`
+        <button onclick="tutorRemoveMaterial(${i})" style="margin-left:auto;color:#ff6b6b;background:none;border:none;cursor:pointer;font-size:14px;">×</button></div>`
     ).join('');refreshIcons();
 }
 
@@ -217,8 +228,9 @@ function tutorRenderSessions(){
     }
     list.innerHTML=tutorSessions.map(s=>{
         const on=s.id===tutorActiveSession;
+        const live=tutorStreamActive(s.id);
         return `<div class="ws-item${on?' on':''}" data-id="${s.id}">
-            <span class="ws-dot" onclick="tutorSwitchSession('${s.id}')" style="flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${on?'● ':'短'}${escapeHtml(s.title)}</span>
+            <span class="ws-dot" onclick="tutorSwitchSession('${s.id}')" style="flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${on?'● ':''}${escapeHtml(s.title)}${live?'<span class="ws-live" title="正在生成"></span>':''}</span>
             <span class="ws-act" title="重命名" onclick="tutorRenameSession('${s.id}')">${iconHtml('pencil',10)}</span>
             <span class="ws-act" title="删除" onclick="tutorDeleteSession('${s.id}')">${iconHtml('trash-2',10)}</span>
         </div>`;
@@ -241,16 +253,21 @@ async function tutorNewSession(){
     }catch(e){showNotification('创建失败：'+e.message,'error');}
 }
 async function tutorSwitchSession(id){
-    if(!id||id===tutorActiveSession&&document.getElementById('tutor-chat').children.length>1)return;
+    if(!id)return;
+    if(id===tutorActiveSession&&document.getElementById('tutor-chat').children.length>1)return;
     tutorActiveSession=id;
-    document.getElementById('tutor-chat').innerHTML='';
+    const chat=document.getElementById('tutor-chat');
+    chat.innerHTML='';          // detaches live-stream nodes; registry keeps refs so they keep running
     tutorChatHistory=[];
+    let live=tutorStreams.get(id);
     try{
         const res=await apiFetch('/api/agent/sessions/'+id+'/messages');
         if(res.ok){
             const msgs=await res.json();
-            const chat=document.getElementById('tutor-chat');
-            if(!msgs.length){
+            if(live&&!live.done&&msgs.length&&msgs[msgs.length-1].role==='user'){
+                msgs.pop();     // in-flight user turn re-attaches live below — skip its DB copy
+            }
+            if(!msgs.length&&!(live&&!live.done)){
                 chat.innerHTML='<div class="empty-hero" style="min-height:200px;"><div class="empty-disc"><i data-lucide="message-square"></i></div><div class="empty-title">这个工作台还没有对话</div><div class="empty-sub">在下方输入第一个问题</div></div>';
             }
             msgs.forEach(m=>{
@@ -266,9 +283,20 @@ async function tutorSwitchSession(id){
             });
             tutorChatHistory=msgs.filter(m=>m.role==='user'||m.role==='assistant')
                 .map(m=>({role:m.role,content:m.content}));
+            if(live&&!live.done){
+                // re-attach the background stream: question + status + live AI bubble
+                chat.appendChild(live.userDiv);
+                chat.appendChild(live.statusWrap);
+                chat.appendChild(live.aiDiv);
+            }
+            refreshIcons();
             chat.scrollTop=chat.scrollHeight;
         }
     }catch(e){/* restore failed → empty session */}
+    // per-workspace UI state follows the room (skill pill / materials)
+    tutorRenderSkillPill();
+    tutorRenderMaterials();
+    tutorSetSendBtn(tutorStreamActive());
     tutorRenderSessions();
 }
 async function tutorRenameSession(id){
@@ -284,17 +312,27 @@ async function tutorRenameSession(id){
 async function tutorDeleteSession(id){
     const s=tutorSessions.find(x=>x.id===id);if(!s)return;
     if(!confirm('删除工作台「'+s.title+'」？对话记录将一并删除。'))return;
+    const st=tutorStreams.get(id);                        // kill any background stream first
+    if(st&&!st.done){try{st.abort.abort();}catch(e){}}
     try{
         const res=await apiFetch('/api/agent/sessions/'+id,{method:'DELETE'});
         if(!res.ok)throw new Error('HTTP '+res.status);
-        if(tutorActiveSession===id){tutorActiveSession=null;document.getElementById('tutor-chat').innerHTML='';tutorChatHistory=[];}
+        tutorStreams.delete(id);
+        delete tutorSkillBySession[id];          // per-workspace state cleanup
+        delete tutorMaterialsBySession[id];
+        if(tutorActiveSession===id){tutorActiveSession=null;document.getElementById('tutor-chat').innerHTML='';tutorChatHistory=[];tutorSetSendBtn(false);tutorRenderSkillPill();tutorRenderMaterials();}
         await tutorSessionsInit();
     }catch(e){showNotification('删除失败：'+e.message,'error');}
 }
 
-// ===== P2 · 强制中断（opencode 式：Esc / 停止按钮随时中止生成）=====
-let tutorAbort=null;
-let tutorStreaming=false;
+// ===== P2 · 强制中断 + 后台流注册表（每个工作台一条可后台续跑的流）=====
+const tutorStreams=new Map();      // sessionKey -> {session,message,statusWrap,aiDiv,abort,done}
+function tutorSessionKey(){return tutorActiveSession||'_temp';}
+function tutorStreamActive(key){
+    key=(key===undefined)?tutorSessionKey():key;
+    const s=tutorStreams.get(key);
+    return !!(s&&!s.done);
+}
 function tutorSetSendBtn(streaming){
     const b=document.getElementById('tutor-send-btn');
     if(!b)return;
@@ -304,23 +342,27 @@ function tutorSetSendBtn(streaming){
     b.style.background=streaming?'#ff6b6b':'';
     refreshIcons();
 }
-function tutorSendOrStop(){ if(tutorStreaming){tutorStopStreaming();}else{tutorSend();} }
+function tutorSendOrStop(){ if(tutorStreamActive()){tutorStopStreaming();}else{tutorSend();} }
 function tutorStopStreaming(){
-    if(tutorAbort){try{tutorAbort.abort();}catch(e){}}
+    const s=tutorStreams.get(tutorSessionKey());
+    if(s&&!s.done){try{s.abort.abort();}catch(e){}}
 }
 function tutorEscapeKey(e){
-    if(e.key==='Escape'&&tutorStreaming){tutorStopStreaming();return true;}
+    if(e.key==='Escape'&&tutorStreamActive()){tutorStopStreaming();return true;}
     return false;
 }
 async function tutorSend(){
     const inp=document.getElementById('tutor-input');
     const q=inp.value.trim();if(!q)return;
+    if(tutorStreamActive()){showNotification('本工作台正在生成中，请等待完成或按 Esc 中断','warning');return;}
     inp.value='';
+    const sendSession=tutorActiveSession;          // scope: this stream belongs to THIS workspace
+    const sendKey=sendSession||'_temp';
     const chat=document.getElementById('tutor-chat');
     const empty=chat.querySelector('.empty-hero');if(empty)empty.remove();
     let message=q;
-    if(tutorMaterials.length>0)message+='\n（学生附带了资料：'+tutorMaterials.map(m=>m.name).join(', ')+'）';
-    tutorChatHistory.push({role:'user',content:q});
+    if(tutorGetMaterials().length>0)message+='\n（学生附带了资料：'+tutorGetMaterials().map(m=>m.name).join(', ')+'）';
+    if(!sendSession)tutorChatHistory.push({role:'user',content:q});
 
     // user bubble
     const userDiv=document.createElement('div');
@@ -370,11 +412,16 @@ async function tutorSend(){
     };
 
     // 旧"引导模式"开关优雅映射到 socratic-tutor 技能（未手动选技能时）
-    const effSkillSel=tutorSkill||(tutorMode==='deep'?'socratic-tutor':undefined);
+    const curSel=tutorGetSkill();
+    const effSkillSel=curSel||(tutorMode==='deep'?'socratic-tutor':undefined);
     const body={session_id:tutorActiveSession||undefined,message:message,skill:effSkillSel,
         history:tutorActiveSession?undefined:tutorChatHistory.slice(0,-1)};
     let full='';let effSkill=effSkillSel||null;let gotText=false;let interrupted=false;let actionsHtml='';
-    tutorAbort=new AbortController();tutorStreaming=true;tutorSetSendBtn(true);
+    // register the stream (survives workspace switches — background continuation)
+    const stream={key:sendKey,session:sendSession,message:message,
+                  userDiv:userDiv,statusWrap:statusWrap,aiDiv:aiDiv,abort:new AbortController(),done:false};
+    tutorStreams.set(sendKey,stream);
+    tutorSetSendBtn(true);
     const render=()=>{
         const badge=effSkill?tutorSkillBadgeFor(effSkill):'';
         content.innerHTML=badge+mdToHtmlTutor(full)+(gotText?'':'<span style="opacity:.5;">▌</span>')+actionsHtml;
@@ -386,7 +433,7 @@ async function tutorSend(){
         if(tok)headers['Authorization']='Bearer '+tok;   // FIX: agent chat must authenticate (workspaces/persist/tools)
         const r=await fetch(AI_BACKEND_URL+'/api/agent/chat',{method:'POST',
             headers:headers,body:JSON.stringify(body),
-            signal:tutorAbort.signal});
+            signal:stream.abort.signal});
         if(!r.ok){const e=await r.json().catch(()=>({}));throw new Error(e.detail||('HTTP '+r.status));}
         const reader=r.body.getReader();const dec=new TextDecoder();let buf='';
         let firstEvent=true;
@@ -426,13 +473,13 @@ async function tutorSend(){
         }
         if(!full&&!content.textContent.trim())content.innerHTML='<span style="color:var(--yellow);">未收到回复，请重试</span>';
         else render();
-        tutorChatHistory.push({role:'assistant',content:full});
+        if(!sendSession)tutorChatHistory.push({role:'assistant',content:full});
     }catch(e){
         if(e&&e.name==='AbortError'){
             interrupted=true;
             if(full){render();
                 content.insertAdjacentHTML('beforeend','<div style="font-size:10px;color:var(--text-muted);margin-top:4px;display:inline-flex;align-items:center;gap:4px;">'+iconHtml('square',9)+'interrupted</div>');
-                tutorChatHistory.push({role:'assistant',content:full});
+                if(!sendSession)tutorChatHistory.push({role:'assistant',content:full});
             }else{
                 content.innerHTML='<span style="color:var(--text-muted);font-size:11px;">interrupted</span>';
             }
@@ -441,10 +488,13 @@ async function tutorSend(){
         }
     }finally{
         stCollapse();
-        tutorStreaming=false;tutorAbort=null;tutorSetSendBtn(false);
+        stream.done=true;
+        tutorStreams.delete(sendKey);      // live registry holds in-flight streams only
+        tutorSetSendBtn(tutorStreamActive());
         try{stopOrb();}catch(_){}
         if(typeof aiBusy==='function')aiBusy(false);
-        if(tutorActiveSession&&!interrupted)tutorSessionsInit();   // refresh title/updated_at
+        // sidebar refresh: clears this stream's pulse; background completion also lands here
+        if(sendSession)tutorSessionsInit();
         else tutorRenderSessions();
     }
 }

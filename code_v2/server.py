@@ -1235,6 +1235,9 @@ def agent_chat(req: AgentChatRequest,
                             full_text += ev["delta"]
                     except Exception:
                         pass
+            # persist BEFORE [DONE]: when the client sees DONE, the answer is
+            # guaranteed to be in the DB (background-completion race fix).
+            _persist(full_text)
             yield "data: [DONE]\n\n"
         except GeneratorExit:
             # client aborted (Esc/stop) — keep the partial answer for the workspace
@@ -1244,7 +1247,6 @@ def agent_chat(req: AgentChatRequest,
             yield f"data: {json.dumps({'type': 'error', 'text': str(e)[:200]}, ensure_ascii=False)}\n\n"
             yield "data: [DONE]\n\n"
             return
-        _persist(full_text)
 
     return StreamingResponse(stream(), media_type="text/event-stream")
 

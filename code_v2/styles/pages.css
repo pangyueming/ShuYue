@@ -408,6 +408,8 @@ body:not(.dark) .tutor-send-liquid{color:#fff}
 .ws-item .ws-act{display:none;align-items:center;justify-content:center;width:18px;height:18px;border-radius:4px;color:var(--text-muted);flex-shrink:0}
 .ws-item:hover .ws-act{display:inline-flex}
 .ws-item .ws-act:hover{color:var(--red);background:rgba(229,72,77,.1)}
+.ws-live{display:inline-block;width:7px;height:7px;border-radius:50%;background:var(--iris-400,var(--accent));margin-left:6px;vertical-align:middle;animation:wsPulse 1.2s ease-in-out infinite}
+@keyframes wsPulse{0%,100%{opacity:.25;transform:scale(.85)}50%{opacity:1;transform:scale(1.15)}}
 .tutor-status-feed{margin-bottom:4px}
 .tutor-status-feed:empty{display:none}
 /* P2 status rows (outside bubble, English, collapsed after finish) */
