@@ -2,7 +2,7 @@
 数跃 Harness V3 — Improved Math Solving Engine
 
 This package provides an enhanced harness for solving UK university
-mathematics problems using Qwen3.6-35B-A3B with:
+mathematics problems using the configured Qwen model (currently qwen3.8-27b) with:
 - Smart routing (Lane A/B)
 - Tool-integrated reasoning (ToRA mode)
 - Proof structure verification

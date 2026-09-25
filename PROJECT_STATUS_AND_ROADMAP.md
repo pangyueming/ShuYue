@@ -180,7 +180,7 @@ D:\study\智学桥\
 | **后端框架** | FastAPI + uvicorn | Python 3.13 |
 | **数据库** | SQLite | 内置 |
 | **认证授权** | JWT (python-jose) + bcrypt (passlib) | Token有效期7天 |
-| **AI模型(主力)** | Qwen3.6-35B-A3B | 阿里云百炼 |
+| **AI模型(主力)** | Qwen3.8-27B | 阿里云百炼 |
 | **AI模型(翻译)** | Qwen-Turbo | 阿里云百炼（成本更低） |
 
 ### 4.2 后端服务（server.py）
@@ -721,7 +721,7 @@ PPT文件：    D:\study\智学桥\智学桥_*.pptx
 
 ### 5. 模型配置
 ```
-主力模型：Qwen3.6-35B-A3B（阿里云百炼）
+主力模型：Qwen3.8-27B（阿里云百炼）
 翻译模型：Qwen-Turbo（成本更低）
 思考模式：enable_thinking=True（已开启）
 Harness版本：V3（默认）/ V2（回退）

@@ -401,7 +401,7 @@ SYSTEM_PROMPT_UK = (
 
 def call_model(session, base_url, api_key, model, content, temperature,
                timeout=180, max_tokens=4096, stream=False, request_deadline=None):
-    """Call Qwen3.6-35B-A3B via OpenAI-compatible API."""
+    """Call the configured Qwen model via OpenAI-compatible API."""
     url = base_url.rstrip("/") + "/chat/completions"
     payload = {
         "model": model,
