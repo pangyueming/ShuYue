@@ -315,6 +315,20 @@ async function tutorHandleFile(file){
         if(!r.ok){const e=await r.json().catch(()=>({}));throw new Error(e.detail||'HTTP '+r.status);}
         const doc=await r.json();
         showNotification('已上传「'+doc.title+'」——正在分析…','success');
+        // sync bookshelf data so the new doc is immediately visible (no page refresh needed)
+        try{
+            if(typeof bsData!=='undefined'){
+                if(!bsData['slides'])bsData['slides']=[];
+                bsData['slides'].push({
+                    id:doc.id,icon:doc.icon||'file-text',title:doc.title,
+                    desc:doc.sizeText||'',category:'slides',source:'upload',
+                    fileType:doc.fileType,fileSize:doc.fileSize,
+                    parseStatus:doc.parseStatus||'none',needsOcr:doc.needsOcr||false,
+                    aiDeclined:false,isDeleted:false,deletedAt:null
+                });
+                if(typeof bsRenderDashboard==='function')bsRenderDashboard('slides');
+            }
+        }catch(e){/* best-effort */}
         // auto-send analysis message
         window.__tutorDirectSend='我上传了《'+doc.title+'》，请帮我分析：读取内容摘要、提取数学术语、并将摘要保存为笔记。';
         tutorSend();

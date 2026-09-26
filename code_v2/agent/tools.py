@@ -110,6 +110,7 @@ TOOL_SPECS = [
                 "properties": {
                     "title": {"type": "string", "description": "笔记标题"},
                     "content": {"type": "string", "description": "笔记内容（Markdown）"},
+                    "tag": {"type": "string", "description": "标签（来源文档名，如分析某PDF时传该文档标题）"},
                 },
                 "required": ["content"],
             },
@@ -294,7 +295,8 @@ def execute_tool(name: str, args: dict, user_id) -> dict:
                               str(args.get("definition", ""))[:200] or "", user_id)
         if name == "create_note":
             return _create_note(str(args.get("title", ""))[:80],
-                                str(args.get("content", ""))[:4000], user_id)
+                                str(args.get("content", ""))[:4000], user_id,
+                                str(args.get("tag", ""))[:60])
         if name == "generate_quiz":
             return _gen_quiz(str(args.get("topic", ""))[:60],
                              args.get("count"), args.get("difficulty"), user_id)
@@ -413,7 +415,7 @@ def _add_vocab(term_en: str, term_zh: str, definition: str, user_id) -> dict:
 
 
 # ---- B9: create a note ----
-def _create_note(title: str, content: str, user_id) -> dict:
+def _create_note(title: str, content: str, user_id, tag: str = "") -> dict:
     if not user_id:
         return _no_login()
     if not content.strip():
@@ -431,13 +433,13 @@ def _create_note(title: str, content: str, user_id) -> dict:
     try:
         nid = f"note_{int(_time.time()*1000)}"
         conn.execute(
-            "INSERT INTO notes (id,user_id,title,content,source) VALUES (?,?,?,?,?)",
-            (nid, user_id, title, content, "agent"))
+            "INSERT INTO notes (id,user_id,title,content,tag,source) VALUES (?,?,?,?,?,?)",
+            (nid, user_id, title, content, (tag or "").strip()[:60], "agent"))
         conn.commit()
     finally:
         conn.close()
     return {"summary": f"已存笔记「{title}」",
-            "data": {"note_id": nid, "title": title, "link": "notes"}}
+            "data": {"note_id": nid, "title": title, "tag": tag, "link": "notes"}}
 
 
 # ---- B10 (A方案): prefill quiz config → frontend jumps to quiz page ----
