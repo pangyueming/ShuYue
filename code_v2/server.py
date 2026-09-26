@@ -2721,8 +2721,10 @@ QUIZ_LANG_POLICIES = {
 
 
 def _quiz_generate_batch(topic: str, count: int, difficulty: str, qtype: str,
-                         weak_context: str, quiz_lang: str = "en") -> list:
-    """One model call that returns up to `count` parsed question dicts."""
+                         weak_context: str, quiz_lang: str = "en",
+                         no_repeat: str = "", _retry: int = 0) -> list:
+    """One model call that returns up to `count` parsed question dicts.
+    Retries with exponential backoff (up to 2 retries) on transient API failures."""
     qtype_desc = {
         "MCQ": "multiple-choice only",
         "short": "short-answer (fill-in-the-blank) only",
@@ -2732,6 +2734,7 @@ def _quiz_generate_batch(topic: str, count: int, difficulty: str, qtype: str,
         topic=topic, count=count, difficulty=difficulty,
         qtype_desc=qtype_desc, weak_context=weak_context,
         lang_policy=QUIZ_LANG_POLICIES.get(quiz_lang, QUIZ_LANG_POLICIES["en"]),
+        no_repeat=no_repeat,
     )
     try:
         resp = requests.post(BASE_URL, headers={
@@ -2780,7 +2783,14 @@ def _quiz_generate_batch(topic: str, count: int, difficulty: str, qtype: str,
             out.append(qd)
         return out
     except Exception as e:
-        print(f"[quiz] generation error: {e}")
+        # P5 fix: exponential backoff retry on transient failures (DashScope rate-limit/timeout)
+        if _retry < 2:
+            wait = 2 ** _retry  # 1s, 2s
+            print(f"[quiz] batch failed (attempt {_retry + 1}), retrying in {wait}s: {str(e)[:60]}")
+            time.sleep(wait)
+            return _quiz_generate_batch(topic, count, difficulty, qtype,
+                                       weak_context, quiz_lang, no_repeat, _retry + 1)
+        print(f"[quiz] generation error after 3 attempts: {e}")
         return []
 
 def _quiz_verify_question(qd: dict) -> bool:

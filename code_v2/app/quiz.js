@@ -117,8 +117,14 @@ async function quizGenerate(){
     }catch(e){
         clearInterval(tick);
         quizGenOrb(false);
-        showNotification(e.message,'error');
-        quizShow('quiz-config');
+        bar.style.width='100%';
+        // P5 fix: stay on generating page with inline error + retry (not back to config)
+        st.innerHTML='<span style="color:#ff6b6b;font-size:14px;">✗ '+(e.message||'生成失败')+'</span>'+
+            '<br><span style="font-size:11px;color:var(--text-muted);margin-top:6px;display:inline-block;">可能是 AI 服务暂时限流（连续调用后常见），稍等片刻后点击重试</span>'+
+            '<div style="display:flex;gap:8px;justify-content:center;margin-top:16px;">'+
+            '<button class="btn-primary" style="padding:8px 24px;font-size:13px;" onclick="quizGenerate()">重试</button>'+
+            '<button class="btn-secondary" style="padding:8px 20px;font-size:13px;" onclick="quizShow(\'quiz-config\')">返回设置</button>'+
+            '</div>';
     }
 }
 
