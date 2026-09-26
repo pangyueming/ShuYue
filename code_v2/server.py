@@ -309,6 +309,18 @@ def init_db():
         created_at TEXT DEFAULT (datetime('now'))
     );
     CREATE INDEX IF NOT EXISTS idx_memory_user ON memory_entries(user_id, id DESC);
+
+    -- P4 E5: tool call audit log
+    CREATE TABLE IF NOT EXISTS tool_audit_log (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        user_id TEXT NOT NULL REFERENCES users(id),
+        session_id TEXT DEFAULT '',
+        tool_name TEXT NOT NULL,
+        args_summary TEXT DEFAULT '',
+        result_summary TEXT DEFAULT '',
+        created_at TEXT DEFAULT (datetime('now'))
+    );
+    CREATE INDEX IF NOT EXISTS idx_tool_audit_user ON tool_audit_log(user_id, id DESC);
     """)
 
     # === Migration: add user_id to legacy tables (notes/documents) ===
@@ -1303,6 +1315,22 @@ def clear_memory(current_user: dict = Depends(get_current_user)):
     finally:
         conn.close()
     return {"cleared": True}
+
+@app.get("/api/agent/audit")
+def get_audit_log(limit: int = 50, current_user: dict = Depends(get_current_user)):
+    """P4 E5: recent tool calls for the user."""
+    if not current_user:
+        raise HTTPException(401, "Please log in")
+    conn = get_db()
+    try:
+        rows = conn.execute(
+            "SELECT tool_name, args_summary, result_summary, created_at "
+            "FROM tool_audit_log WHERE user_id=? ORDER BY id DESC LIMIT ?",
+            (current_user["id"], max(1, min(200, limit)))).fetchall()
+    finally:
+        conn.close()
+    return [{"tool": r["tool_name"], "args": r["args_summary"],
+             "result": r["result_summary"], "time": r["created_at"]} for r in rows]
 
 def _memory_injection(user_id: str) -> str:
     """G5: build the ≤300tk memory block for the system prompt."""

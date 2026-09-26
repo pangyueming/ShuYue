@@ -42,6 +42,12 @@ _SYSTEM_BASE = (
     "- 学生要求标记计划任务完成 → 调 update_plan_task\n"
     "- 学生要求做测试/诊断 → 调 start_assessment\n"
     "\n"
+    "**文档上传自动分析**（学生说'我上传了《X》，请分析'时）：\n"
+    "1. 先调 read_document(X) 读取内容\n"
+    "2. 再调 extract_vocab(X) 提取术语\n"
+    "3. 最后调 create_note(标题从内容提炼, 内容=摘要+关键概念) 保存笔记\n"
+    "完成后汇报做了哪几件事，附跳转链接。\n"
+    "\n"
     "**数学题求解——按难度分级**：\n"
     "- 简单题（标准极限、基本求导、已知公式、直接计算）→ **直接流式回答**，附简要过程，不需要调工具\n"
     "- 复杂题（证明题、多步推理、需要验证的题目、学生要求验证）→ 调用 solve_problem\n"
@@ -227,6 +233,7 @@ def run_agent(message: str, history: list, user_skill, user_id, approved_tools=N
     messages = [{"role": "system", "content": system_prompt}] + _hist + \
                [{"role": "user", "content": message}]
     final_text = ""
+    tool_history = []   # P4 H2: track tools for the plan card
     for step in range(MAX_STEPS):   # E4 step cap
         try:
             if used_tokens > MAX_LOOP_TOKENS:   # E4 token budget
@@ -329,6 +336,27 @@ def run_agent(message: str, history: list, user_skill, user_id, approved_tools=N
                                  if k in ("topic", "count", "difficulty", "expression", "title")}})
             messages.append({"role": "tool", "tool_call_id": tc.get("id", ""),
                              "content": json.dumps(tr["data"], ensure_ascii=False)[:4000]})
+            # P4 H2: plan card — emit step progress
+            tool_history.append({"name": name, "summary": tr["summary"],
+                                 "link": tr["data"].get("link")})
+            yield _sse({"type": "plan_step", "index": len(tool_history) - 1,
+                        "total_planned": None,   # unknown until done; frontend uses count
+                        "name": name, "summary": tr["summary"],
+                        "link": tr["data"].get("link")})
+            # P4 E5: audit log
+            if user_id:
+                try:
+                    from server import get_db as _gdb
+                    _c = _gdb()
+                    _c.execute(
+                        "INSERT INTO tool_audit_log (user_id,session_id,tool_name,args_summary,result_summary) "
+                        "VALUES (?,?,?,?,?)",
+                        (user_id, "", name,
+                         json.dumps(_brief(args), ensure_ascii=False)[:200],
+                         tr["summary"][:200]))
+                    _c.commit(); _c.close()
+                except Exception:
+                    pass
     else:
         # loop exhausted without a final answer — force one plain turn (A5)
         messages.append({"role": "user", "content": "（请直接给出最终回答，不要再调用工具）"})

@@ -291,12 +291,64 @@ function tutorUploadMaterial(){
     inp.type='file';inp.accept='.pdf,.pptx';inp.style.display='none';
     inp.onchange=()=>{
         if(!inp.files[0])return;
-        const file=inp.files[0];
-        tutorGetMaterials().push({name:file.name,size:(file.size/1024/1024).toFixed(1)+'MB',file:file});
-        tutorRenderMaterials();
+        tutorHandleFile(inp.files[0]);
     };
     document.body.appendChild(inp);inp.click();inp.remove();
 }
+
+// P4.1: upload file to server + auto-trigger agent analysis
+async function tutorHandleFile(file){
+    if(!file)return;
+    const ext=file.name.split('.').pop().toLowerCase();
+    if(!['pdf','pptx'].includes(ext)){
+        showNotification('仅支持 PDF/PPTX 文件','warning');return;
+    }
+    showNotification('正在上传「'+file.name+'」…','info');
+    try{
+        const fd=new FormData();
+        fd.append('file',file);
+        fd.append('category','slides');   // default; agent can re-categorize later
+        const headers={};
+        const tok=localStorage.getItem('cb_cn_token');
+        if(tok)headers['Authorization']='Bearer '+tok;
+        const r=await fetch(AI_BACKEND_URL+'/api/documents/upload',{method:'POST',headers:headers,body:fd});
+        if(!r.ok){const e=await r.json().catch(()=>({}));throw new Error(e.detail||'HTTP '+r.status);}
+        const doc=await r.json();
+        showNotification('已上传「'+doc.title+'」——正在分析…','success');
+        // auto-send analysis message
+        window.__tutorDirectSend='我上传了《'+doc.title+'》，请帮我分析：读取内容摘要、提取数学术语、并将摘要保存为笔记。';
+        tutorSend();
+    }catch(e){
+        showNotification('上传失败：'+e.message,'error');
+    }
+}
+
+// P4.1: drag-and-drop on chat area
+(function(){
+    const chat=document.getElementById('tutor-chat');
+    if(!chat)return;
+    let dragCount=0;
+    chat.addEventListener('dragenter',e=>{
+        e.preventDefault();
+        dragCount++;
+        chat.style.outline='2px dashed var(--accent)';
+        chat.style.outlineOffset='-4px';
+        chat.style.borderRadius='14px';
+    });
+    chat.addEventListener('dragleave',e=>{
+        e.preventDefault();
+        dragCount--;
+        if(dragCount<=0){dragCount=0;chat.style.outline='';}
+    });
+    chat.addEventListener('dragover',e=>e.preventDefault());
+    chat.addEventListener('drop',e=>{
+        e.preventDefault();
+        dragCount=0;
+        chat.style.outline='';
+        const files=e.dataTransfer&&e.dataTransfer.files;
+        if(files&&files[0])tutorHandleFile(files[0]);
+    });
+})();
 
 function tutorRenderMaterials(){
     const c=document.getElementById('tutor-materials');if(!c)return;
@@ -638,6 +690,7 @@ async function tutorSend(){
 
     // status feed: english technical labels, live elapsed timer, collapse on finish
     const stLines=[];let stCalls=0;let stIntent='chat';const stT0=Date.now();
+    let planSteps=null;   // P4 H2: plan card steps
     let stTimer=setInterval(()=>{
         const el=statusWrap.querySelector('.tutor-elapsed');
         if(el)el.textContent=Math.round((Date.now()-stT0)/1000)+'s';
@@ -710,6 +763,25 @@ async function tutorSend(){
                 }
                 else if(ev.type==='tool_call'){stCalls++;stLine('calling <b>'+escapeHtmlTutor(ev.name||'tool')+'</b>…');}
                 else if(ev.type==='tool_result'){stLine('✓ '+escapeHtmlTutor(ev.name||'tool')+' done');}
+                else if(ev.type==='plan_step'){
+                    // P4 H2: plan progress — accumulate and re-render checklist
+                    if(!planSteps)planSteps=[];
+                    planSteps.push({name:ev.name,summary:ev.summary,link:ev.link});
+                    const planEl=statusWrap.querySelector('.plan-card');
+                    if(planEl)planEl.remove();
+                    const pc=document.createElement('div');
+                    pc.className='plan-card';
+                    pc.style.cssText='border:1px solid rgba(122,107,255,.25);background:rgba(122,107,255,.05);border-radius:10px;padding:8px 12px;margin:4px 0;';
+                    pc.innerHTML='<div style="font-size:10px;font-weight:600;color:var(--iris-400,var(--accent));margin-bottom:4px;">'+iconHtml('list-checks',11)+' 执行计划</div>'
+                        +planSteps.map((s,i)=>'<div style="display:flex;align-items:center;gap:6px;font-size:11px;color:var(--text-secondary);padding:2px 0;">'
+                            +'<span style="color:var(--green);display:flex;">'+iconHtml('check-circle',11)+'</span>'
+                            +'<span>'+escapeHtmlTutor(s.name)+'</span>'
+                            +'<span style="color:var(--text-muted);font-size:10px;margin-left:auto;">'+escapeHtmlTutor((s.summary||'').slice(0,30))+'</span>'
+                            +'</div>').join('');
+                    statusWrap.appendChild(pc);
+                    refreshIcons();
+                    chat.scrollTop=chat.scrollHeight;
+                }
                 else if(ev.type==='permission_request'){
                     // P3 E1: modal dialog confirm (opencode style) — not an inline card
                     stLine('🔒 <b>'+escapeHtmlTutor(ev.name)+'</b> awaiting approval');

@@ -241,12 +241,48 @@ async function quizFinish(){
     const retryBtn=document.getElementById('quiz-retry-btn');
     retryBtn.style.display=quizState.detail.some(d=>!d.correct)?'':'none';
     quizShow('quiz-results');
+    // P4.2 C6: suggest error-analysis if there are wrong answers
+    const wrongCount=total-quizState.score;
+    if(wrongCount>0){
+        setTimeout(()=>{
+            const existing=document.getElementById('quiz-suggest-bar');
+            if(existing)existing.remove();
+            const topicEl=document.getElementById('quiz-topic');
+            const topic=topicEl?topicEl.value:'Mixed';
+            const topicZh=(typeof TOPIC_ZH!=='undefined'&&TOPIC_ZH[topic])||topic;
+            const bar=document.createElement('div');
+            bar.id='quiz-suggest-bar';
+            bar.style.cssText='display:flex;align-items:center;gap:10px;margin-top:16px;padding:10px 16px;border-radius:12px;border:1px solid rgba(122,107,255,.3);background:rgba(122,107,255,.08);font-size:13px;color:var(--text-secondary);';
+            bar.innerHTML='<span style="color:var(--iris-400,var(--accent));display:flex;">'+iconHtml('lightbulb',16)+'</span>'
+                +'<span style="flex:1;">做错了 '+wrongCount+' 题——要用 Agent 助手做<span style="font-weight:600;color:var(--iris-400,var(--accent));">错因分析</span>吗？</span>'
+                +'<button class="btn-primary" style="font-size:11px;padding:5px 14px;flex-shrink:0;" onclick="quizSuggestAnalysis(\''+topicZh+'\')">去做</button>'
+                +'<button style="background:none;border:none;color:var(--text-muted);cursor:pointer;font-size:16px;padding:4px;" onclick="this.parentElement.remove()" aria-label="关闭">×</button>';
+            const results=document.getElementById('quiz-results');
+            if(results)results.appendChild(bar);
+            refreshIcons();
+        },600);
+    }
     // Persist attempt (feeds Problems Solved on Dashboard)
     try{
         await apiFetch('/api/quiz/submit',{method:'POST',body:JSON.stringify({
             quiz_id:quizState.quizId,score:quizState.score,total,
             detail_json:JSON.stringify(quizState.detail.map(d=>({q:d.q,ok:d.correct})))})});
     }catch(e){/* guests: ignore */}
+}
+
+// P4.2: jump to agent with error-analysis request
+function quizSuggestAnalysis(topicZh){
+    const bar=document.getElementById('quiz-suggest-bar');
+    if(bar)bar.remove();
+    showPage('tutor');
+    setTimeout(()=>{
+        const inp=document.getElementById('tutor-input');
+        if(inp){
+            inp.value='我在「'+topicZh+'」的测验中做错了题，请帮我做错因分析：告诉我常见的错误模式、我可能卡在哪里、以及针对性的变式练习建议。';
+            tutorAutoGrow(inp);
+            inp.focus();
+        }
+    },200);
 }
 
 function quizRetryWrong(){
