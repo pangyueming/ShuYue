@@ -127,7 +127,9 @@ def run_agent(message: str, history: list, user_skill, user_id, approved_tools=N
     intent, conf = dec["intent"], dec["confidence"]
     skill = user_skill
     skill_src = "user" if user_skill else None
-    if not skill and intent in ("chat", "solve"):
+    if not skill:
+        # P5: auto-match skills for ALL intents (was chat/solve only —
+        # weekly-review was missed when intent=simple_query)
         m = D.match_skill(message, skill_loader.list_skills())
         if m["skill"] and m["confidence"] >= 0.75:
             skill = m["skill"]

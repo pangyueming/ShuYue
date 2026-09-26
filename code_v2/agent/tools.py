@@ -168,6 +168,19 @@ TOOL_SPECS = [
             },
         },
     },
+    {
+        "type": "function",
+        "function": {
+            "name": "get_quiz_mistakes",
+            "description": "获取学生最近的测验错题详情（题目、对错、所属主题）。当学生要求'整理错题/错题本/分析错题'时使用。",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "limit": {"type": "integer", "description": "最多返回几条错题（默认10）"},
+                },
+            },
+        },
+    },
 ]
 
 VALID_TOOLS = {t["function"]["name"] for t in TOOL_SPECS}
@@ -318,6 +331,8 @@ def execute_tool(name: str, args: dict, user_id) -> dict:
                     "data": {"link": "pretest"}}
         if name == "generate_study_guide":
             return _gen_guide(str(args.get("title", ""))[:200], user_id)
+        if name == "get_quiz_mistakes":
+            return _quiz_mistakes(user_id, args.get("limit"))
     except Exception as e:
         return {"summary": f"工具执行异常：{str(e)[:80]}", "data": {"error": str(e)[:200]}}
     return {"summary": f"工具 {name} 暂不可用", "data": {}}
@@ -611,12 +626,45 @@ def _gen_guide(title_query: str, user_id) -> dict:
                          "glossary": g.get("glossary", 0),
                          "patterns": g.get("patterns", 0)}}
     except Exception as e:
-        err_msg = str(e)
-        # FastAPI HTTPException detail extraction
-        if "detail" in err_msg:
-            import json as _j
-            try:
-                err_msg = str(e.detail) if hasattr(e, "detail") else err_msg
-            except Exception:
-                pass
         return {"summary": f"生成失败：{err_msg[:80]}", "data": {}}
+
+
+# ---- P5 C15: get student's quiz mistakes with detail ----
+def _quiz_mistakes(user_id, limit) -> dict:
+    if not user_id:
+        return _no_login()
+    import json as _json
+    try:
+        n = int(limit) if limit else 10
+    except (TypeError, ValueError):
+        n = 10
+    n = max(1, min(30, n))
+    from server import get_db
+    conn = get_db()
+    try:
+        rows = conn.execute(
+            "SELECT topic, score, total, detail_json, created_at FROM quiz_results "
+            "WHERE user_id=? ORDER BY created_at DESC LIMIT 20",
+            (user_id,)).fetchall()
+    finally:
+        conn.close()
+    if not rows:
+        return {"summary": "尚无测验记录——先做一套练习", "data": {"link": "quiz"}}
+    mistakes = []
+    for r in rows:
+        try:
+            detail = _json.loads(r["detail_json"] or "[]")
+            for d in detail:
+                if d.get("ok") is False:
+                    mistakes.append({
+                        "question": (d.get("q") or "")[:200],
+                        "topic": r["topic"],
+                        "date": r["created_at"],
+                    })
+        except Exception:
+            pass
+    if not mistakes:
+        return {"summary": f"最近 {len(rows)} 次测验全对，没有错题 🎉", "data": {"total_quizzes": len(rows)}}
+    return {"summary": f"最近 {len(rows)} 次测验中有 {len(mistakes)} 道错题",
+            "data": {"mistakes": mistakes[:n], "total": len(mistakes),
+                     "topics": list(set(m["topic"] for m in mistakes))}}
