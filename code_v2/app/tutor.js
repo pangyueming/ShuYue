@@ -879,7 +879,10 @@ function tutorActionJump(link){
                     if(opt)sel.value=opt.value;
                 }
                 const cnt=document.getElementById('quiz-count-input');
-                if(cnt&&d.count)cnt.value=d.count;
+                if(cnt&&d.count){
+                    cnt.value=d.count;
+                    if(typeof quizState!=='undefined')quizState.count=parseInt(d.count)||5;
+                }
                 // difficulty chips
                 if(d.difficulty&&typeof quizState!=='undefined'){
                     quizState.diff=d.difficulty;
