@@ -157,9 +157,15 @@ TOOL_SPECS = [
     {
         "type": "function",
         "function": {
-            "name": "start_assessment",
-            "description": "引导学生去做学前诊断（3分钟快测，生成个人学习路径）。当学生说'帮我做个测试/诊断'时使用。",
-            "parameters": {"type": "object", "properties": {}},
+            "name": "generate_study_guide",
+            "description": "为指定文档按需生成知识指南（章节+术语表+模式库）。当学生选中了文档导航技能并@引用一份未蒸馏的文档时使用。首次生成约30秒。",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "title": {"type": "string", "description": "文档标题（模糊匹配）"},
+                },
+                "required": ["title"],
+            },
         },
     },
 ]
@@ -167,7 +173,7 @@ TOOL_SPECS = [
 VALID_TOOLS = {t["function"]["name"] for t in TOOL_SPECS}
 
 # P3: tools that write user data — require per-session approval (E1)
-WRITE_TOOLS = {"extract_vocab", "add_vocab_term", "create_note", "generate_quiz", "update_plan_task"}
+WRITE_TOOLS = {"extract_vocab", "add_vocab_term", "create_note", "generate_quiz", "update_plan_task", "generate_study_guide"}
 
 
 def _no_login():
@@ -310,6 +316,8 @@ def execute_tool(name: str, args: dict, user_id) -> dict:
         if name == "start_assessment":
             return {"summary": "已准备好学前诊断（3分钟）——点击跳转开始",
                     "data": {"link": "pretest"}}
+        if name == "generate_study_guide":
+            return _gen_guide(str(args.get("title", ""))[:200], user_id)
     except Exception as e:
         return {"summary": f"工具执行异常：{str(e)[:80]}", "data": {"error": str(e)[:200]}}
     return {"summary": f"工具 {name} 暂不可用", "data": {}}
@@ -336,7 +344,7 @@ def _list_docs(user_id) -> dict:
     return {"summary": f"书架 {len(docs)} 份文档", "data": {"docs": docs}}
 
 
-# ---- B4: read a document's text (pages.json, capped) ----
+# ---- B4: read a document's text (pages.json, capped) — C13: uses study_guide when available ----
 def _read_doc(title_query: str, user_id) -> dict:
     if not user_id:
         return _no_login()
@@ -344,22 +352,53 @@ def _read_doc(title_query: str, user_id) -> dict:
         return {"summary": "缺少文档标题", "data": {}}
     from server import get_db, MINERU_DATA_DIR
     import os as _os
+    import json as _json
     conn = get_db()
     try:
         rows = conn.execute(
-            "SELECT id, title FROM documents WHERE user_id=? AND title LIKE ? "
+            "SELECT id, title, study_guide FROM documents WHERE user_id=? AND title LIKE ? "
             "ORDER BY created_at DESC LIMIT 1", (user_id, f"%{title_query}%")).fetchall()
         if not rows:
             return {"summary": f"未找到「{title_query}」", "data": {}}
         doc_id, title = rows[0]["id"], rows[0]["title"]
+        study_guide_raw = rows[0]["study_guide"]
     finally:
         conn.close()
+
+    # C13: if study_guide exists, return structured chapter navigation instead of raw text
+    if study_guide_raw:
+        try:
+            guide = _json.loads(study_guide_raw)
+            chapters = guide.get("chapters", [])
+            glossary = guide.get("glossary", [])
+            patterns = guide.get("patterns", [])
+            chapter_list = "\n".join(
+                f"  {c['id']}: {c['title']} — {c.get('summary', '')[:60]}"
+                for c in chapters)
+            glossary_sample = ", ".join(
+                f"{g.get('term_en','?')}({g.get('term_zh','?')})"
+                for g in glossary[:10])
+            data = {
+                "title": title, "doc_id": doc_id,
+                "mode": "study_guide",
+                "chapters": [{"id": c["id"], "title": c["title"],
+                              "summary": c.get("summary", "")} for c in chapters],
+                "glossary": glossary[:20],
+                "patterns": patterns,
+            }
+            return {
+                "summary": f"《{title}》知识指南：{len(chapters)}章 · {len(glossary)}术语 · {len(patterns)}模式",
+                "data": data,
+            }
+        except Exception:
+            pass  # guide parse failed — fall through to raw text
+
+    # Fallback: raw text
     pages_path = _os.path.join(MINERU_DATA_DIR, doc_id, "pages.json")
     if not _os.path.exists(pages_path):
         from server import ensure_pages_json
         if not ensure_pages_json(doc_id):
             return {"summary": f"「{title}」无可提取文本", "data": {}}
-    import json as _json
     try:
         pages = _json.load(open(pages_path, encoding="utf-8"))
     except Exception:
@@ -540,3 +579,44 @@ def _plot(expr: str) -> dict:
         return {"summary": "缺少函数表达式", "data": {}}
     return {"summary": f"已预填函数 y = {expr}（点击跳转画板）",
             "data": {"expression": expr, "link": "plotter"}}
+
+
+# ---- P5 C13: on-demand study guide generation (for any document) ----
+def _gen_guide(title_query: str, user_id) -> dict:
+    if not user_id:
+        return _no_login()
+    if not title_query.strip():
+        return {"summary": "缺少文档标题", "data": {}}
+    from server import get_db
+    conn = get_db()
+    try:
+        row = conn.execute(
+            "SELECT id, title, study_guide FROM documents WHERE user_id=? AND title LIKE ? "
+            "ORDER BY created_at DESC LIMIT 1", (user_id, f"%{title_query}%")).fetchone()
+        if not row:
+            return {"summary": f"未找到「{title_query}」", "data": {}}
+        if row["study_guide"]:
+            return {"summary": f"《{row['title']}》已有知识指南（无需重新生成）",
+                    "data": {"title": row["title"]}}
+        doc_id, title = row["id"], row["title"]
+    finally:
+        conn.close()
+    # Direct call to the shared generation function (no HTTP round-trip)
+    try:
+        from server import _generate_guide_core
+        g = _generate_guide_core(doc_id, title)
+        return {"summary": f"已为《{title}》生成知识指南：{g.get('chapters',0)}章 · {g.get('glossary',0)}术语 · {g.get('patterns',0)}模式",
+                "data": {"title": title, "doc_id": doc_id,
+                         "chapters": g.get("chapters", 0),
+                         "glossary": g.get("glossary", 0),
+                         "patterns": g.get("patterns", 0)}}
+    except Exception as e:
+        err_msg = str(e)
+        # FastAPI HTTPException detail extraction
+        if "detail" in err_msg:
+            import json as _j
+            try:
+                err_msg = str(e.detail) if hasattr(e, "detail") else err_msg
+            except Exception:
+                pass
+        return {"summary": f"生成失败：{err_msg[:80]}", "data": {}}

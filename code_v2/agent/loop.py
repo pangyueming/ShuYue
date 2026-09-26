@@ -36,11 +36,12 @@ _SYSTEM_BASE = (
     "- 学生要求收录术语到单词本 → 必须调 add_vocab_term\n"
     "- 学生要求存笔记/保存解法 → 必须调 create_note（title 从内容提炼，给描述性标题如'ε-δ 极限证明方法'，不要写'AI笔记'）\n"
     "- 学生问掌握度/哪里弱/图谱状态 → 调 get_knowledge_map\n"
-    "- 学生要求查教材内容 → 调 search_textbook\n"
-    "- 学生要求看文档内容 → 调 read_document\n"
+    "- 学生要求查教材内容/章节结构 → 调 read_document（有知识指南时返回结构化章节导航）\n"
+    "- 学生问教材中某术语定义 → 先调 read_document 查 glossary，没找到再调 search_textbook\n"
     "- 学生要求列书架文件 → 调 list_documents\n"
     "- 学生要求标记计划任务完成 → 调 update_plan_task\n"
     "- 学生要求做测试/诊断 → 调 start_assessment\n"
+    "- 学生选了文档导航技能并@引用文档 → 先调 generate_study_guide（如无指南）→ 再调 read_document\n"
     "\n"
     "**文档上传自动分析**（学生说'我上传了《X》，请分析'时）：\n"
     "1. 先调 read_document(X) 读取内容\n"
@@ -389,4 +390,5 @@ def _perm_hint(name: str) -> str:
         "create_note": "AI 将保存一条笔记",
         "generate_quiz": "AI 将预填出题配置并跳转出题页",
         "update_plan_task": "AI 将标记你的学习计划任务为已完成",
+        "generate_study_guide": "AI 将为此文档生成知识指南（约30秒，只需一次）",
     }.get(name, f"AI 请求执行写操作 {name}")

@@ -353,6 +353,8 @@ def init_db():
     _ensure_column("documents", "parse_status", "TEXT DEFAULT 'none'")
     _ensure_column("documents", "parse_error", "TEXT DEFAULT ''")
     _ensure_column("users", "mineru_token_enc", "TEXT DEFAULT ''")
+    # P5 C13: structured knowledge guide for textbooks (AI-distilled)
+    _ensure_column("documents", "study_guide", "TEXT DEFAULT ''")
 
     # vocab_entries: add tag column (idempotent)
     try:
@@ -1332,6 +1334,84 @@ def get_audit_log(limit: int = 50, current_user: dict = Depends(get_current_user
     return [{"tool": r["tool_name"], "args": r["args_summary"],
              "result": r["result_summary"], "time": r["created_at"]} for r in rows]
 
+
+# ============================================================================
+# P5 C13: Document Study Guide (textbook → structured knowledge, book-to-skill inspired)
+# ============================================================================
+
+_STUDY_GUIDE_SYSTEM = (
+    "你是教材知识蒸馏器。将教材文本蒸馏为结构化学习指南（JSON格式）。"
+    "只输出 JSON，不要其他文字。格式：\n"
+    '{"chapters": [{"id": "ch01", "title": "章节名", "summary": "核心内容摘要(200字内)"}],'
+    ' "glossary": [{"term_en": "supremum", "term_zh": "上确界", "chapter": "ch03", "def": "定义(50字内)"}],'
+    ' "patterns": [{"name": "证明极限三步法", "desc": "猜值→找N→正向书写(100字内)"}]}\n'
+    "规则：章节按教材实际结构划分（通常4-10章）；术语选大学级数学术语（10-20个）；"
+    "模式是解题方法论（3-8个）；全部用中英双语。"
+)
+
+@app.post("/api/documents/{doc_id}/study-guide")
+def generate_study_guide(doc_id: str, current_user: dict = Depends(get_current_user)):
+    """C13: AI-distill a document into a structured study guide (chapters+glossary+patterns).
+    Auto-triggered on textbook upload; manually triggerable for any document via the agent tool."""
+    if not current_user:
+        raise HTTPException(401, "Please log in")
+    conn = get_db()
+    row = conn.execute(
+        "SELECT user_id, title FROM documents WHERE id=?", (doc_id,)).fetchone()
+    if not row:
+        conn.close(); raise HTTPException(404, "Not found")
+    if row["user_id"] != current_user["id"]:
+        conn.close(); raise HTTPException(403, "Access denied")
+    conn.close()
+    return _generate_guide_core(doc_id, row["title"])
+
+
+def _generate_guide_core(doc_id: str, title: str) -> dict:
+    """Shared study-guide generation logic — called by the REST endpoint AND the agent tool directly.
+    No category restriction: textbooks auto-trigger, any doc can be manually distilled."""
+    # Get text (ensure extraction first)
+    if not ensure_pages_json(doc_id):
+        raise HTTPException(400, "Document has no extractable text")
+    pages_path = os.path.join(MINERU_DATA_DIR, doc_id, "pages.json")
+    try:
+        pages = json.load(open(pages_path, encoding="utf-8"))
+    except Exception:
+        raise HTTPException(500, "Failed to read extracted pages")
+    full_text = "\n".join((p.get("text") or "") for p in pages)[:12000]  # cap for prompt
+
+    # AI distillation
+    try:
+        resp = requests.post(BASE_URL, headers={
+            "Authorization": f"Bearer {DASHSCOPE_API_KEY}",
+            "Content-Type": "application/json",
+        }, json={
+            "model": MODEL,
+            "messages": [
+                {"role": "system", "content": _STUDY_GUIDE_SYSTEM},
+                {"role": "user", "content": f"文档标题：{title}\n\n{full_text}"[:15000]},
+            ],
+            "temperature": 0.2, "max_tokens": 3000, "enable_thinking": False,
+            "response_format": {"type": "json_object"},
+        }, timeout=120)
+        resp.raise_for_status()
+        guide_text = resp.json()["choices"][0]["message"].get("content", "{}")
+        guide = json.loads(guide_text)
+    except json.JSONDecodeError:
+        raise HTTPException(502, "AI returned invalid JSON for study guide")
+    except Exception as e:
+        raise HTTPException(502, f"Study guide generation failed: {e}")
+
+    # Save to DB
+    conn = get_db()
+    conn.execute("UPDATE documents SET study_guide=? WHERE id=?",
+                 (json.dumps(guide, ensure_ascii=False), doc_id))
+    conn.commit(); conn.close()
+    chapter_count = len(guide.get("chapters", []))
+    glossary_count = len(guide.get("glossary", []))
+    pattern_count = len(guide.get("patterns", []))
+    return {"ok": True, "chapters": chapter_count, "glossary": glossary_count,
+            "patterns": pattern_count}
+
 def _memory_injection(user_id: str) -> str:
     """G5: build the ≤300tk memory block for the system prompt."""
     if not user_id:
@@ -1858,15 +1938,31 @@ async def upload_document(
     )
     conn.commit(); conn.close()
     icons = {"pdf": "file-text", "pptx": "presentation"}
+
+    # P5 C13: auto-generate study guide for textbooks (background, ~30s one-time cost)
+    if category == "textbooks":
+        import threading
+        def _bg_guide():
+            try:
+                if ensure_pages_json(doc_id):
+                    _r = requests.post(
+                        f"http://127.0.0.1:{PORT}/api/documents/{doc_id}/study-guide",
+                        headers={"Authorization": "Bearer " + create_access_token(data={"sub": current_user["id"]})},
+                        timeout=180)
+                    if _r.status_code == 200:
+                        _g = _r.json()
+                        print(f"[guide] {doc_id}: {_g.get('chapters',0)} chapters, {_g.get('glossary',0)} terms, {_g.get('patterns',0)} patterns")
+                    else:
+                        print(f"[guide] auto-guide for {doc_id} returned {_r.status_code}")
+            except Exception as e:
+                print(f"[guide] auto-guide failed for {doc_id}: {e}")
+        threading.Thread(target=_bg_guide, daemon=True).start()
+
     return {"id": doc_id, "title": title, "filename": file.filename,
             "category": category, "icon": icons.get(ext, "file-text"),
             "fileType": ext, "fileSize": file_size,
             "sizeText": f"{file_size/1024/1024:.1f} MB", "source": "upload",
             "needsOcr": bool(needs_ocr), "parseStatus": "none", "aiDeclined": False}
-    # NOTE: vocab extraction stays an explicit frontend-triggered action
-    # (bookshelf card 单词本 button / vocab-upload flow → POST /api/vocab/auto).
-    # A server-side post-upload auto-extract hook was drafted here once but sat
-    # after this return (unreachable). Removed — one trigger path only.
 
 
 @app.get("/api/documents")
