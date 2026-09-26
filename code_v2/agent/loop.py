@@ -30,14 +30,24 @@ _DAILY_WRITE_OPS = {}   # (kind,user_id) → date / count  (E2, process-lifetime
 _SYSTEM_BASE = (
     "你是数跃 (ShuYue)，中外合办大学（北邮-QMUL式）一年级 AI 学习助手，"
     "学生来自高考体系、学习英文授课的大学数学。中文回答为主，关键术语首次出现附英文对照。"
-    "你拥有以下工具能力，根据学生需求自主判断是否调用：\n"
-    "- solve_problem：精确解数学题（优先使用）\n"
-    "- search_textbook / read_document / list_documents：查教材、读文档、列书架\n"
-    "- get_study_state / get_knowledge_map：查学习状态和知识图谱掌握度\n"
-    "- add_vocab_term / extract_vocab / create_note / generate_quiz / update_plan_task："
-    "收词、提取术语、存笔记、预填出题、勾选计划（写操作需用户首次确认）\n"
-    "- plot_function / start_assessment：预填画板函数、引导做前测\n"
-    "学生只是闲聊或概念讲解时直接回答，不需要调用工具。"
+    "你拥有工具能力。以下情况**必须调用对应工具**，不要只文字回答：\n"
+    "- 学生要求出题/做题练习 → 必须调 generate_quiz（传 topic/count/difficulty）\n"
+    "- 学生要求画图/可视化/绘图 → 必须调 plot_function（传 expression）\n"
+    "- 学生要求收录术语到单词本 → 必须调 add_vocab_term\n"
+    "- 学生要求存笔记/保存解法 → 必须调 create_note\n"
+    "- 学生问掌握度/哪里弱/图谱状态 → 调 get_knowledge_map\n"
+    "- 学生要求查教材内容 → 调 search_textbook\n"
+    "- 学生要求看文档内容 → 调 read_document\n"
+    "- 学生要求列书架文件 → 调 list_documents\n"
+    "- 学生要求标记计划任务完成 → 调 update_plan_task\n"
+    "- 学生要求做测试/诊断 → 调 start_assessment\n"
+    "\n"
+    "**数学题求解——按难度分级**：\n"
+    "- 简单题（标准极限、基本求导、已知公式、直接计算）→ **直接流式回答**，附简要过程，不需要调工具\n"
+    "- 复杂题（证明题、多步推理、需要验证的题目、学生要求验证）→ 调用 solve_problem\n"
+    "\n"
+    "只有纯闲聊、概念讲解、学习建议、或以上工具都不匹配时，才直接文字回答。\n"
+    "调用工具后，用工具返回的数据回答学生，并提及可跳转的入口。"
 )
 
 _SIMPLE_QA_SYS = (
@@ -118,6 +128,16 @@ def run_agent(message: str, history: list, user_skill, user_id, approved_tools=N
                 "skill": skill, "skill_source": skill_src})
     if skill:
         yield _sse({"type": "status", "text": f"已启用技能：{skill_loader.skill_label(skill)}"})
+
+    # Intent-based tool hint: decision layer already classified the message;
+    # inject a direct instruction so the model reliably calls the right tool
+    _TOOL_HINTS = {
+        "quiz_request": "\n（系统提示：学生要求出题，必须调用 generate_quiz 工具，传入 topic、count、difficulty 参数）",
+        "vocab_add": "\n（系统提示：学生要求收录术语，必须调用 add_vocab_term 工具）",
+        "file_op": "\n（系统提示：学生要求文件操作，检查是否有匹配工具）",
+    }
+    if intent in _TOOL_HINTS:
+        message = message + _TOOL_HINTS[intent]
 
     # ---------- 2a. simple_query: tool direct + flash answer (zero 27b) ----------
     if intent == "simple_query" and conf >= 0.85:
@@ -212,6 +232,11 @@ def run_agent(message: str, history: list, user_skill, user_id, approved_tools=N
             if used_tokens > MAX_LOOP_TOKENS:   # E4 token budget
                 yield _sse({"type": "status", "text": "已达本次对话工具预算上限，直接作答"})
                 messages.append({"role": "user", "content": "（预算提示：不要再调用工具，直接给出最终回答）"})
+            # emit feedback so the user never sees a silent gap
+            if step == 0:
+                yield _sse({"type": "status", "text": "AI 正在分析..."})
+            else:
+                yield _sse({"type": "status", "text": f"正在组织回答... (step {step + 1})"})
             msg, usage = _upstream(messages, tools=tool_specs, stream=False)
             used_tokens += usage
         except Exception as e:
@@ -227,7 +252,32 @@ def run_agent(message: str, history: list, user_skill, user_id, approved_tools=N
                                  "content": "（请直接给出最终回答，不要再调用工具）"})
                 continue
             final_text = content
-            yield _sse({"type": "text", "delta": final_text})
+            # STREAM the final answer: re-issue without tools for word-by-word output
+            yield _sse({"type": "status", "text": "streaming answer..."})
+            try:
+                resp = _upstream(messages, tools=None, stream=True)
+                streamed = ""
+                for line in resp.iter_lines(decode_unicode=True):
+                    if not line or not line.startswith("data:"):
+                        continue
+                    payload = line[5:].strip()
+                    if payload == "[DONE]":
+                        break
+                    try:
+                        ev = json.loads(payload)
+                        delta = (ev.get("choices") or [{}])[0].get("delta", {}).get("content", "")
+                    except Exception:
+                        continue
+                    if delta:
+                        streamed += delta
+                        yield _sse({"type": "text", "delta": delta})
+                if streamed:
+                    final_text = streamed
+                else:
+                    yield _sse({"type": "text", "delta": final_text})
+            except Exception:
+                # streaming failed — fall back to the non-streaming result we already have
+                yield _sse({"type": "text", "delta": final_text})
             break
 
         messages.append({"role": "assistant", "content": msg.get("content") or "",
