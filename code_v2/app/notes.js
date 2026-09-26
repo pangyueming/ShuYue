@@ -150,7 +150,7 @@ function notesRender(){
                 ${n.tag?'<span style="font-size:10px;padding:1px 6px;border-radius:4px;background:var(--bg-input);color:var(--text-muted);">'+escapeHtml(n.tag)+'</span>':''}
                 <span style="margin-left:auto;font-size:11px;color:var(--text-muted);">${dateStr}</span>
             </div>
-            <p style="font-size:13px;color:var(--text-secondary);white-space:pre-wrap;">${escapeHtml(preview)}</p></div>
+            <div class="note-md-preview" style="font-size:13px;color:var(--text-secondary);max-height:120px;overflow:hidden;">${notesRenderMarkdown(preview)}</div></div>
         </div>`;
     }).join('');
 }
@@ -164,6 +164,71 @@ function notesOpenPdf(id){
     if(idx===-1){showNotification('书架中未找到该 PDF，正在重新加载…','warning');bsPageInit();return;}
     showPage('reader');
     setTimeout(()=>readerOpenDoc('notes',idx),100);
+}
+
+// ===== Markdown + LaTeX rendering for notes (restored from P1) =====
+// Uses mdToHtmlTutor (tutor.js) which handles markdown + KaTeX LaTeX.
+const WIKILINK_RE=/\[\[([^\[\]\n]+?)\]\]/g;
+function notesExtractWikilinks(text){
+    if(!text)return [];
+    const out=new Set();
+    for(const m of String(text).matchAll(WIKILINK_RE))out.add(m[1].trim());
+    return [...out];
+}
+function notesRenderMarkdown(text){
+    if(!text)return '';
+    const links=[];
+    let t=String(text).replace(WIKILINK_RE,(m,term)=>{links.push(term.trim());return '\x03W'+(links.length-1)+'\x03';});
+    let html;
+    if(typeof mdToHtmlTutor==='function'){
+        try{html=mdToHtmlTutor(t);}catch(e){html=escapeHtml(t).replace(/\n/g,'<br>');}
+    }else html=escapeHtml(t).replace(/\n/g,'<br>');
+    html=html.replace(/\x03W(\d+)\x03/g,(m,i)=>{
+        const term=links[+i];if(!term)return '';
+        return '<span class="wikilink" data-term="'+escapeHtml(term)+'" onclick="notesOpenWikilink(this.dataset.term)" role="link" tabindex="0" onkeydown="if(event.key===\'Enter\'){event.preventDefault();notesOpenWikilink(this.dataset.term)}">'+(typeof iconHtml==='function'?iconHtml('link',10):'')+escapeHtml(term)+'</span>';
+    });
+    return html;
+}
+
+// Editor preview toggle: swap textarea for rendered view
+let notesPreviewOn=false;
+function notesTogglePreview(force){
+    const ta=document.getElementById('notes-editor-content');
+    const pv=document.getElementById('notes-editor-preview');
+    const btn=document.getElementById('notes-preview-btn');
+    if(!ta||!pv)return;
+    notesPreviewOn=(typeof force==='boolean')?force:!notesPreviewOn;
+    if(notesPreviewOn){
+        pv.innerHTML=notesRenderMarkdown(ta.value)||'<span style="color:var(--text-muted);font-size:13px;">（空）</span>';
+        pv.style.display='';ta.style.display='none';
+        if(btn){btn.innerHTML=(typeof iconHtml==='function'?iconHtml('pencil',13):'')+' 编辑';}
+    }else{
+        pv.style.display='none';ta.style.display='';
+        if(btn){btn.innerHTML=(typeof iconHtml==='function'?iconHtml('eye',13):'')+' 预览';}
+        ta.focus();
+    }
+}
+
+// Wikilink resolution: note title → vocab term → graph node → AI tutor
+async function notesOpenWikilink(term){
+    if(!term)return;
+    const q=term.trim();
+    if(typeof notesData!=='undefined'){
+        const note=notesData.find(n=>!n.isDeleted&&(n.title||'').trim().toLowerCase()===q.toLowerCase());
+        if(note){if(typeof vocabTabSwitch==='function')vocabTabSwitch('notes');showPage('notes');notesEdit(note.id);showNotification('打开笔记：'+(note.title||'未命名'),'success');return;}
+    }
+    if(localStorage.getItem('cb_cn_token')&&typeof vocabInit==='function'){
+        if(!vocabLoaded){try{await vocabInit();}catch(e){}}
+        const v=(vocabData||[]).find(x=>(x.term_en||'').toLowerCase()===q.toLowerCase()||(x.term_zh||'')===q);
+        if(v){vocabTabSwitch('vocab');showPage('notes');if(typeof vocabJumpTermById==='function')vocabJumpTermById(v.id);return;}
+    }
+    if(window.pretestResult&&typeof kgModel!=='undefined'&&kgModel){
+        const gn=kgModel.nodes.find(n=>n.name===q);
+        if(gn){showPage('graph');setTimeout(()=>kgOpenPanel(gn),120);return;}
+    }
+    showPage('tutor');
+    const inp=document.getElementById('tutor-input');
+    if(inp){inp.value='请讲解「'+q+'」这个概念：定义、直观意义、与高考内容的衔接，并给一个例子。';inp.focus();}
 }
 
 function notesDeletePdfNote(id){
@@ -210,6 +275,7 @@ function notesEdit(id){
     document.getElementById('notes-editor-meta').textContent='Editing · Created '+new Date(n.createdAt).toLocaleDateString();
     document.getElementById('notes-list-view').style.display='none';
     document.getElementById('notes-editor-view').style.display='';
+    notesTogglePreview(true);   // default to PREVIEW (rendered markdown), edit on click
     document.getElementById('notes-editor-content').focus();
 }
 

@@ -418,6 +418,13 @@ def _create_note(title: str, content: str, user_id) -> dict:
         return _no_login()
     if not content.strip():
         return {"summary": "笔记内容为空", "data": {}}
+    # auto-extract title from content if not provided or too generic
+    if not title.strip() or title.strip() in ("AI 助手笔记", "AI Agent 笔记", "笔记"):
+        first_line = content.strip().split("\n")[0]
+        # strip markdown/LaTeX markers for a clean title
+        import re as _re
+        clean = _re.sub(r'[#*$`\\{}\[\]]', '', first_line).strip()
+        title = clean[:40] if clean else "学习笔记"
     from server import get_db
     import time as _time
     conn = get_db()
@@ -425,11 +432,11 @@ def _create_note(title: str, content: str, user_id) -> dict:
         nid = f"note_{int(_time.time()*1000)}"
         conn.execute(
             "INSERT INTO notes (id,user_id,title,content,source) VALUES (?,?,?,?,?)",
-            (nid, user_id, title or "AI 助手笔记", content, "agent"))
+            (nid, user_id, title, content, "agent"))
         conn.commit()
     finally:
         conn.close()
-    return {"summary": f"已存笔记「{title or 'AI 助手笔记'}」",
+    return {"summary": f"已存笔记「{title}」",
             "data": {"note_id": nid, "title": title, "link": "notes"}}
 
 

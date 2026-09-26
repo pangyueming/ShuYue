@@ -538,6 +538,10 @@ body.sb-collapsed #page-tutor.page-chat{max-width:1400px}
 /* vocab term chip flash (jump-to-term highlight) */
 @keyframes vocabFlash{0%,100%{box-shadow:0 0 0 0 transparent}30%{box-shadow:0 0 0 4px color-mix(in srgb,var(--accent) 35%,transparent)}}
 .vocab-flash{animation:vocabFlash 1.1s ease-in-out 2;border-color:var(--accent)!important}
+/* wikilinks in notes */
+.wikilink{display:inline-flex;align-items:center;gap:3px;color:var(--accent);cursor:pointer;border-bottom:1px dashed color-mix(in srgb,var(--accent) 55%,transparent);border-radius:2px;padding:0 2px;transition:background var(--t-fast),border-color var(--t-fast)}
+.wikilink:hover,.wikilink:focus-visible{background:color-mix(in srgb,var(--accent) 12%,transparent);border-bottom-style:solid;outline:none}
+.wikilink svg{flex-shrink:0;opacity:.75}
 .modal-head{display:flex;align-items:center;justify-content:space-between;gap:12px;padding-bottom:12px;border-bottom:1px solid var(--border-light);margin-bottom:12px}
 .modal-title{font-size:16px;font-weight:650;letter-spacing:-.01em;color:var(--text-primary)}
 .modal-sub{font-size:12px;color:var(--text-muted);margin-top:2px}

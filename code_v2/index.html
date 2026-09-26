@@ -35,7 +35,7 @@
             <div class="nav-section-label">工作区</div>
             <div class="nav-item active" onclick="showPage('dashboard')"><i data-lucide="layout-dashboard"></i>仪表板</div>
             <div class="nav-item" onclick="showPage('pretest')"><i data-lucide="clipboard-check"></i>学前诊断</div>
-            <div class="nav-item" onclick="showPage('tutor')"><i data-lucide="sigma"></i>AI 助手</div>
+            <div class="nav-item" onclick="showPage('tutor')"><i data-lucide="sigma"></i>Agent 助手</div>
             <div class="nav-item" onclick="showPage('quiz')"><i data-lucide="target"></i>AI 出题</div>
             <div class="nav-item" onclick="showPage('plotter')"><i data-lucide="chart-line"></i>函数画板</div>
             <div class="nav-item" onclick="showPage('reader')"><i data-lucide="book-open"></i>阅读器</div>
@@ -301,7 +301,7 @@
             <!-- P2.7 · 右列：阅读宽度护栏（≤920px 居中），随主导航折叠自适应放宽 -->
             <div class="tutor-column">
             <div class="page-head">
-                <div class="page-eyebrow">AI 助手</div>
+                <div class="page-eyebrow">Agent 助手</div>
                 <h1 class="page-title" id="tutor-ws-title">学习助手</h1>
             </div>
             <!-- P2.6 · B 方案：模式并入技能系统——单一快捷 chip 切换 socratic-tutor（按工作台隔离） -->
@@ -361,9 +361,11 @@
                     <input id="notes-editor-tag" class="input" style="flex:1;font-size:13px;" placeholder="标签（如：微积分、代数、读书笔记）">
                     <span class="editor-meta" id="notes-editor-meta"></span>
                 </div>
-                <textarea id="notes-editor-content" class="editor-body" placeholder="在这里写下笔记…"></textarea>
+                <textarea id="notes-editor-content" class="editor-body" placeholder="在这里写下笔记…&#10;&#10;支持 Markdown：**加粗** *斜体* # 标题 - 列表&#10;支持 LaTeX：行内 $E=mc^2$，独立 $$\int_0^1 x^2 dx$$"></textarea>
+                <div id="notes-editor-preview" class="editor-body" style="display:none;white-space:normal;overflow-y:auto;"></div>
                 <div class="step-nav" style="margin-top:16px;">
                     <button class="btn-primary" style="flex:1;padding:10px;" onclick="notesSaveFromEditor()">保存笔记</button>
+                    <button id="notes-preview-btn" class="btn-secondary" style="padding:10px;display:inline-flex;align-items:center;gap:5px;" onclick="notesTogglePreview()"><i data-lucide="eye" style="width:13px;height:13px;"></i> 预览</button>
                     <button class="btn-secondary" style="padding:10px;" onclick="notesCloseEditor()">取消</button>
                 </div>
             </div>

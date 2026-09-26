@@ -34,7 +34,7 @@ _SYSTEM_BASE = (
     "- 学生要求出题/做题练习 → 必须调 generate_quiz（传 topic/count/difficulty）\n"
     "- 学生要求画图/可视化/绘图 → 必须调 plot_function（传 expression）\n"
     "- 学生要求收录术语到单词本 → 必须调 add_vocab_term\n"
-    "- 学生要求存笔记/保存解法 → 必须调 create_note\n"
+    "- 学生要求存笔记/保存解法 → 必须调 create_note（title 从内容提炼，给描述性标题如'ε-δ 极限证明方法'，不要写'AI笔记'）\n"
     "- 学生问掌握度/哪里弱/图谱状态 → 调 get_knowledge_map\n"
     "- 学生要求查教材内容 → 调 search_textbook\n"
     "- 学生要求看文档内容 → 调 read_document\n"

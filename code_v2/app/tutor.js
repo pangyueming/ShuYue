@@ -813,6 +813,10 @@ function tutorActionJump(link){
                     quizState.diff=d.difficulty;
                     if(typeof quizRenderChips==='function')quizRenderChips();
                 }
+                // auto-start generation — user lands on the "generating" page directly
+                if(typeof quizGenerate==='function'){
+                    setTimeout(()=>quizGenerate(),300);
+                }
             },150);
         }
     }
