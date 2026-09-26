@@ -270,15 +270,28 @@ async function quizFinish(){
     }catch(e){/* guests: ignore */}
 }
 
-// P4.2: jump to agent with error-analysis request
+// P4.2: jump to agent with error-analysis request (includes actual wrong answers)
 function quizSuggestAnalysis(topicZh){
     const bar=document.getElementById('quiz-suggest-bar');
     if(bar)bar.remove();
+    // Build detailed wrong-answer context from quizState
+    const allWrong=quizState.detail.filter(d=>!d.correct);
+    const wrong=allWrong.slice(0,5);
+    let msg='我在「'+topicZh+'」测验中做错了 '+allWrong.length+' 题，请做错因分析。\n\n';
+    wrong.forEach((d,i)=>{
+        const qText=(d.q||'').substring(0,150);
+        msg+='❌ 第'+(i+1)+'题：'+qText+'\n';
+        msg+='   我的答案：'+(d.student_answer||'?')+'，正确答案：'+(d.correct_answer||'?')+'\n\n';
+    });
+    if(allWrong.length>5){
+        msg+='（还有 '+(allWrong.length-5)+' 题错题，可后续分析）\n\n';
+    }
+    msg+='请逐题告诉我：错在哪一步、是什么类型的错误（概念/程序/符号/策略/语言/迁移）、怎么避免。';
     showPage('tutor');
     setTimeout(()=>{
         const inp=document.getElementById('tutor-input');
         if(inp){
-            inp.value='我在「'+topicZh+'」的测验中做错了题，请帮我做错因分析：告诉我常见的错误模式、我可能卡在哪里、以及针对性的变式练习建议。';
+            inp.value=msg;
             tutorAutoGrow(inp);
             inp.focus();
         }
