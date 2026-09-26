@@ -317,16 +317,8 @@ async function tutorHandleFile(file){
         showNotification('已上传「'+doc.title+'」——正在分析…','success');
         // sync bookshelf data so the new doc is immediately visible (no page refresh needed)
         try{
-            if(typeof bsData!=='undefined'){
-                if(!bsData['slides'])bsData['slides']=[];
-                bsData['slides'].push({
-                    id:doc.id,icon:doc.icon||'file-text',title:doc.title,
-                    desc:doc.sizeText||'',category:'slides',source:'upload',
-                    fileType:doc.fileType,fileSize:doc.fileSize,
-                    parseStatus:doc.parseStatus||'none',needsOcr:doc.needsOcr||false,
-                    aiDeclined:false,isDeleted:false,deletedAt:null
-                });
-                if(typeof bsRenderDashboard==='function')bsRenderDashboard('slides');
+            if(typeof bsPageInit==='function'){
+                bsPageInit();   // full re-fetch from server → Dashboard + Bookshelf both update
             }
         }catch(e){/* best-effort */}
         // auto-send analysis message

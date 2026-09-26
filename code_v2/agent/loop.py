@@ -344,11 +344,12 @@ def run_agent(message: str, history: list, user_skill, user_id, approved_tools=N
                         "total_planned": None,   # unknown until done; frontend uses count
                         "name": name, "summary": tr["summary"],
                         "link": tr["data"].get("link")})
-            # P4 E5: audit log
+            # P4 E5: audit log (timeout=5 to avoid SQLite lock contention with the tool's own writes)
             if user_id:
                 try:
-                    from server import get_db as _gdb
-                    _c = _gdb()
+                    import sqlite3 as _sq
+                    from server import DB_PATH as _dbp
+                    _c = _sq.connect(_dbp, timeout=5)
                     _c.execute(
                         "INSERT INTO tool_audit_log (user_id,session_id,tool_name,args_summary,result_summary) "
                         "VALUES (?,?,?,?,?)",
