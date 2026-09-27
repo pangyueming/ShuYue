@@ -1271,14 +1271,13 @@ async function readerConceptSuggest(question, aiDiv){
             }catch(e){/* best-effort */}
         }
 
-        // show suggestion bar below the answer
+        // show compact inline suggestion below the answer
         const bar=document.createElement('div');
         bar.className='reader-concept-suggest';
-        bar.style.cssText='display:flex;align-items:center;gap:8px;margin:6px 0 0 36px;padding:7px 12px;border-radius:10px;border:1px solid rgba(122,107,255,.3);background:rgba(122,107,255,.06);font-size:11.5px;color:var(--text-secondary);';
-        bar.innerHTML='<span style="color:var(--iris-400,var(--accent));display:flex;">'+iconHtml('lightbulb',13)+'</span>'
-            +'<span>想深入了解这个概念吗？</span>'
-            +'<button style="display:inline-flex;align-items:center;gap:4px;font-size:10px;padding:3px 10px;border-radius:6px;border:1px solid rgba(122,107,255,.4);background:rgba(122,107,255,.12);color:var(--iris-400,var(--accent));cursor:pointer;white-space:nowrap;">'+iconHtml('rocket',10)+' 概念深讲</button>'
-            +'<button style="margin-left:auto;background:none;border:none;color:var(--text-muted);cursor:pointer;font-size:13px;padding:2px;" onclick="this.parentElement.remove()" aria-label="关闭">×</button>';
+        bar.style.cssText='display:inline-flex;align-items:center;gap:5px;margin:4px 0 0 36px;padding:3px 8px;border-radius:6px;font-size:10.5px;color:var(--text-muted);';
+        bar.innerHTML='<span style="color:var(--iris-400,var(--accent));display:flex;">'+iconHtml('lightbulb',10)+'</span>'
+            +'<button style="display:inline-flex;align-items:center;gap:3px;font-size:10px;padding:2px 8px;border-radius:5px;border:none;background:rgba(122,107,255,.1);color:var(--iris-400,var(--accent));cursor:pointer;">概念深讲 '+iconHtml('chevron-right',9)+'</button>'
+            +'<button style="background:none;border:none;color:var(--text-muted);cursor:pointer;font-size:11px;padding:1px 3px;opacity:.5;" onclick="this.parentElement.remove()" aria-label="关闭">×</button>';
         const deepBtn=bar.querySelector('button');
         deepBtn.onclick=()=>{bar.remove();readerDeepConcept(question);};
         aiDiv.appendChild(bar);
@@ -1318,7 +1317,7 @@ async function readerDeepConcept(question){
     const aiDiv=document.createElement('div');
     aiDiv.style.cssText='display:flex;gap:8px;margin-bottom:12px;';
     aiDiv.innerHTML='<div style="width:28px;height:28px;border-radius:50%;background:linear-gradient(135deg,var(--accent),#9b59f7);display:flex;align-items:center;justify-content:center;color:#fff;font-size:10px;font-weight:600;flex-shrink:0;">AI</div>'
-        +'<div id="ai-deep-'+Date.now()+'" style="background:var(--bg-hover);color:var(--text-primary);padding:8px 14px;border-radius:12px 12px 12px 4px;font-size:13px;max-width:75%;min-height:20px;border:1px solid rgba(122,107,255,.2);"></div>';
+        +'<div id="ai-deep-'+Date.now()+'" style="background:var(--bg-hover);color:var(--text-primary);padding:8px 14px;border-radius:12px 12px 12px 4px;font-size:13px;max-width:75%;min-height:20px;border:1px solid rgba(122,107,255,.15);"></div>';
     msgArea.appendChild(aiDiv);
     const streamEl=aiDiv.querySelector('div:last-child');
     msgArea.scrollTop=msgArea.scrollHeight;
@@ -1333,7 +1332,32 @@ async function readerDeepConcept(question){
             msgArea.scrollTop=msgArea.scrollHeight;
         },
         full=>{
-            if(streamEl){streamEl.innerHTML=full?markdownToHtml(full):'<span style="color:var(--yellow);">Empty</span>';enhanceCitations(streamEl);}
+            if(streamEl){
+                streamEl.innerHTML=full?markdownToHtml(full):'<span style="color:var(--yellow);">Empty</span>';
+                enhanceCitations(streamEl);
+                // P6: collapsible — default max-height with expand button
+                if(full && full.length>600){
+                    streamEl.style.maxHeight='250px';
+                    streamEl.style.overflow='hidden';
+                    streamEl.style.position='relative';
+                    const fade=document.createElement('div');
+                    fade.style.cssText='position:absolute;bottom:0;left:0;right:0;height:60px;background:linear-gradient(transparent,var(--bg-hover));pointer-events:none;';
+                    const expand=document.createElement('button');
+                    expand.style.cssText='display:block;width:100%;padding:6px;border:none;background:rgba(122,107,255,.08);color:var(--iris-400,var(--accent));font-size:10px;cursor:pointer;margin-top:0;border-radius:0 0 12px 4px;';
+                    expand.innerHTML='展开全部 '+iconHtml('chevron-down',10);
+                    expand.onclick=()=>{
+                        streamEl.style.maxHeight='';
+                        streamEl.style.overflow='';
+                        fade.remove();
+                        expand.remove();
+                    };
+                    // wrap in a container so fade+expand sit below
+                    const holder=document.createElement('div');
+                    holder.appendChild(fade);
+                    streamEl.appendChild(fade);
+                    streamEl.appendChild(expand);
+                }
+            }
             aiChatMessages.push({role:'assistant',content:full});
             msgArea.scrollTop=msgArea.scrollHeight;
             refreshIcons();
