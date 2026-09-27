@@ -1112,11 +1112,17 @@ def concept_check(req: ConceptCheckRequest):
     from agent.decision import _call, DECISION_MODEL
     try:
         out = _call(DECISION_MODEL,
-                    "判断学生消息是否在询问一个数学概念的定义/含义/理解（而非询问具体页面内容或计算）。"
-                    '输出JSON: {"is_concept": true/false}',
-                    req.text[:300], timeout=10, max_tokens=50)
-        return {"is_concept": bool(out.get("is_concept", False))}
+                    "学生是否在询问或想了解一个数学概念（如：什么是极限/定义/含义/怎么理解/是什么意思/讲讲X）？"
+                    '输出JSON: {"is_concept": true} 或 {"is_concept": false}',
+                    req.text[:300], timeout=10, max_tokens=100)
+        is_concept = out.get("is_concept", False)
+        # handle string "true" from model
+        if isinstance(is_concept, str):
+            is_concept = is_concept.strip().lower() in ("true", "yes", "1")
+        print(f"[concept-check] '{req.text[:40]}' → {out.get('is_concept')} → {is_concept}")
+        return {"is_concept": bool(is_concept)}
     except Exception as e:
+        print(f"[concept-check] error: {e}")
         return {"is_concept": False, "error": str(e)[:100]}
 
 

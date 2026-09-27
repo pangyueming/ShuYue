@@ -1244,47 +1244,53 @@ async function aiChatSend(text){
 // If concept → show suggestion bar + log memory immediately (not on click).
 async function readerConceptSuggest(question, aiDiv){
     if(!question || question.length < 4) return;
+    let isConcept=false;
+    // P6: try flash endpoint first, fall back to regex heuristic
     try{
-        // P6 fix: use the lightweight concept-check endpoint
         const tok=localStorage.getItem('cb_cn_token');
         const r=await fetch(AI_BACKEND_URL+'/api/agent/concept-check',{
             method:'POST',
             headers:{'Content-Type':'application/json',...(tok?{'Authorization':'Bearer '+tok}:{})},
             body:JSON.stringify({text:question.substring(0,300)})
         });
-        if(!r.ok) return;
-        const data=await r.json();
-        if(!data.is_concept) return;
-
-        // P6 fix: log memory HERE (when detected), not on button click
-        if(localStorage.getItem('cb_cn_token')){
-            try{
-                const _doc=Object.values(bsData).flat().find(d=>d.id===readerCurrentDocId);
-                const docTitle=_doc?_doc.title:'';
-                await apiFetch('/api/agent/memory',{
-                    method:'POST',
-                    body:JSON.stringify({
-                        items:[{kind:'episodic',content:'阅读'+(docTitle?'《'+docTitle+'》时':'时')+'询问了概念：'+question.substring(0,50)}],
-                        session_id:''
-                    })
-                });
-            }catch(e){/* best-effort */}
+        if(r.ok){
+            const data=await r.json();
+            isConcept=!!data.is_concept;
         }
-
-        // show compact inline suggestion below the answer
-        const bar=document.createElement('div');
-        bar.className='reader-concept-suggest';
-        bar.style.cssText='display:inline-flex;align-items:center;gap:5px;margin:4px 0 0 36px;padding:3px 8px;border-radius:6px;font-size:10.5px;color:var(--text-muted);';
-        bar.innerHTML='<span style="color:var(--iris-400,var(--accent));display:flex;">'+iconHtml('lightbulb',10)+'</span>'
-            +'<button style="display:inline-flex;align-items:center;gap:3px;font-size:10px;padding:2px 8px;border-radius:5px;border:none;background:rgba(122,107,255,.1);color:var(--iris-400,var(--accent));cursor:pointer;">概念深讲 '+iconHtml('chevron-right',9)+'</button>'
-            +'<button style="background:none;border:none;color:var(--text-muted);cursor:pointer;font-size:11px;padding:1px 3px;opacity:.5;" onclick="this.parentElement.remove()" aria-label="关闭">×</button>';
-        const deepBtn=bar.querySelector('button');
-        deepBtn.onclick=()=>{bar.remove();readerDeepConcept(question);};
-        aiDiv.appendChild(bar);
-        refreshIcons();
-    }catch(e){
-        // silent fail — suggestion is best-effort
+    }catch(e){}
+    // fallback: regex heuristic if flash fails or returns false-negative
+    if(!isConcept){
+        isConcept=/什么是|定义|含义|怎么理解|是什么意思|讲讲|解释.*(概念|定义|定理|公式)|深入/.test(question);
     }
+    if(!isConcept) return;
+
+    // P6: log memory HERE (when detected), not on button click
+    if(localStorage.getItem('cb_cn_token')){
+        try{
+            const _doc=Object.values(bsData).flat().find(d=>d.id===readerCurrentDocId);
+            const docTitle=_doc?_doc.title:'';
+            await apiFetch('/api/agent/memory',{
+                method:'POST',
+                body:JSON.stringify({
+                    items:[{kind:'episodic',content:'阅读'+(docTitle?'《'+docTitle+'》时':'时')+'询问了概念：'+question.substring(0,50)}],
+                    session_id:''
+                })
+            });
+        }catch(e){/* best-effort */}
+    }
+
+    // compact inline chip — directly below the answer, left-aligned (no indent)
+    // Skill rules: color-not-only (iris + icon + text) / icon-style-consistent
+    const bar=document.createElement('div');
+    bar.className='reader-concept-suggest';
+    bar.style.cssText='display:inline-flex;align-items:center;gap:6px;margin:5px 0 0 0;padding:4px 10px;border-radius:8px;font-size:11px;border:1px solid rgba(122,107,255,.25);background:rgba(122,107,255,.06);color:var(--iris-400,var(--accent));cursor:default;';
+    bar.innerHTML='<span style="display:flex;align-items:center;gap:4px;">'+iconHtml('lightbulb',11)+'概念深讲</span>'
+        +'<button style="display:inline-flex;align-items:center;gap:3px;font-size:10px;padding:2px 8px;border-radius:5px;border:none;background:rgba(122,107,255,.15);color:var(--iris-400,var(--accent));cursor:pointer;font-weight:600;transition:background .15s;" onmouseover="this.style.background=\'rgba(122,107,255,.25)\'" onmouseout="this.style.background=\'rgba(122,107,255,.15)\'">深入 →</button>'
+        +'<button style="background:none;border:none;color:var(--text-muted);cursor:pointer;font-size:11px;padding:1px 3px;opacity:.4;" onclick="this.parentElement.remove()" aria-label="关闭">×</button>';
+    const deepBtn=bar.querySelector('button');
+    deepBtn.onclick=()=>{bar.remove();readerDeepConcept(question);};
+    aiDiv.after(bar);
+    refreshIcons();
 }
 
 async function readerDeepConcept(question){
@@ -1317,9 +1323,11 @@ async function readerDeepConcept(question){
     const aiDiv=document.createElement('div');
     aiDiv.style.cssText='display:flex;gap:8px;margin-bottom:12px;';
     aiDiv.innerHTML='<div style="width:28px;height:28px;border-radius:50%;background:linear-gradient(135deg,var(--accent),#9b59f7);display:flex;align-items:center;justify-content:center;color:#fff;font-size:10px;font-weight:600;flex-shrink:0;">AI</div>'
-        +'<div id="ai-deep-'+Date.now()+'" style="background:var(--bg-hover);color:var(--text-primary);padding:8px 14px;border-radius:12px 12px 12px 4px;font-size:13px;max-width:75%;min-height:20px;border:1px solid rgba(122,107,255,.15);"></div>';
+        +'<div id="ai-deep-'+Date.now()+'" style="background:linear-gradient(135deg,rgba(122,107,255,.08),rgba(122,107,255,.03)),var(--bg-hover);color:var(--text-primary);padding:0 14px 10px;border-radius:12px 12px 12px 4px;font-size:13px;max-width:75%;min-height:20px;border:1px solid rgba(122,107,255,.25);border-left:3px solid var(--iris-400,var(--accent));">'
+        +'<div style="display:flex;align-items:center;gap:5px;padding:8px 0 6px;font-size:10.5px;font-weight:600;color:var(--iris-400,var(--accent));letter-spacing:.5px;">'+iconHtml('rocket',11)+' 概念深讲 · CONCEPT BRIDGE</div>'
+        +'<div class="deep-body"></div></div>';
     msgArea.appendChild(aiDiv);
-    const streamEl=aiDiv.querySelector('div:last-child');
+    const streamEl=aiDiv.querySelector('.deep-body');
     msgArea.scrollTop=msgArea.scrollHeight;
 
     const sysWithSkill='你是数跃，中外合办大学一年级 AI 辅导助手。学生正在阅读教材并要求深入讲解一个概念。'
@@ -1337,25 +1345,23 @@ async function readerDeepConcept(question){
                 enhanceCitations(streamEl);
                 // P6: collapsible — default max-height with expand button
                 if(full && full.length>600){
-                    streamEl.style.maxHeight='250px';
-                    streamEl.style.overflow='hidden';
-                    streamEl.style.position='relative';
+                    const bubble=streamEl.parentElement;
+                    bubble.style.maxHeight='280px';
+                    bubble.style.overflow='hidden';
+                    bubble.style.position='relative';
                     const fade=document.createElement('div');
-                    fade.style.cssText='position:absolute;bottom:0;left:0;right:0;height:60px;background:linear-gradient(transparent,var(--bg-hover));pointer-events:none;';
+                    fade.style.cssText='position:absolute;bottom:0;left:0;right:0;height:60px;background:linear-gradient(transparent,rgba(122,107,255,.10));pointer-events:none;';
                     const expand=document.createElement('button');
-                    expand.style.cssText='display:block;width:100%;padding:6px;border:none;background:rgba(122,107,255,.08);color:var(--iris-400,var(--accent));font-size:10px;cursor:pointer;margin-top:0;border-radius:0 0 12px 4px;';
+                    expand.style.cssText='position:absolute;bottom:0;left:0;right:0;padding:7px;border:none;background:rgba(122,107,255,.12);color:var(--iris-400,var(--accent));font-size:10.5px;font-weight:600;cursor:pointer;letter-spacing:.5px;';
                     expand.innerHTML='展开全部 '+iconHtml('chevron-down',10);
                     expand.onclick=()=>{
-                        streamEl.style.maxHeight='';
-                        streamEl.style.overflow='';
+                        bubble.style.maxHeight='';
+                        bubble.style.overflow='';
                         fade.remove();
                         expand.remove();
                     };
-                    // wrap in a container so fade+expand sit below
-                    const holder=document.createElement('div');
-                    holder.appendChild(fade);
-                    streamEl.appendChild(fade);
-                    streamEl.appendChild(expand);
+                    bubble.appendChild(fade);
+                    bubble.appendChild(expand);
                 }
             }
             aiChatMessages.push({role:'assistant',content:full});
