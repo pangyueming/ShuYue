@@ -349,7 +349,7 @@ def _list_docs(user_id) -> dict:
     try:
         rows = conn.execute(
             "SELECT title, category, parse_status FROM documents "
-            "WHERE user_id=? AND is_deleted=0 ORDER BY created_at DESC LIMIT 30",
+            "WHERE user_id=? ORDER BY created_at DESC LIMIT 30",
             (user_id,)).fetchall()
     finally:
         conn.close()

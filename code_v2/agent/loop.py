@@ -188,13 +188,10 @@ def run_agent(message: str, history: list, user_skill, user_id, approved_tools=N
     _usr_hist = [m for m in history if m.get("role") != "system"][-12:]
     _hist = _sys_hist + _usr_hist
 
-    # ---------- 2b. guest / degraded chat: direct stream, no tools ----------
-    # Guests get streaming chat (their only tool is solve_problem in the loop
-    # below — but simple questions stream directly for zero-latency feel).
-    # Logged-in users skip this entirely: ALL intents go through the unified
-    # tool loop below, where the model decides whether to call tools or just
-    # answer (opencode pattern: always offer tools, let the model choose).
-    if not user_id:
+    # ---------- 2b. guest / fast-path: direct stream, no tools ----------
+    # Guests AND logged-in users with simple chat (no skill, high confidence)
+    # skip the tool loop entirely — restoring P2-speed responses (~4-6s).
+    if not user_id or (intent == "chat" and not skill and conf >= 0.90):
         messages = [{"role": "system", "content": system_prompt}] + _hist + \
                    [{"role": "user", "content": message}]
         full = ""
