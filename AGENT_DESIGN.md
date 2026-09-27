@@ -1,8 +1,8 @@
 # 数跃 Harness V4 · Agent 设计文档
 
-> **版本**：v1.0（定稿）
-> **日期**：2026-09-25
-> **状态**：P0 已完成（模型与决策层实测选型），P1 待启动
+> **版本**：v2.2（P6 完成）
+> **日期**：2026-09-27
+> **状态**：P0-P6 全部完成（10 skills / 14 tools / 联动 90%+ / e2e 全绿）；待用户实测验收后 merge 回 main
 > **用途**：V4 开发的执行对照表——每个功能带 ID/期次/验收标准，完成后勾选状态；本文档随代码版本化，是唯一权威参考
 > **工作区**：`D:\study\智学桥\ShuYue-agent\`（harness-v4 worktree，端口 8003，独立数据库，与主分支零干扰）
 > **采用条件**：P1-P4 验收通过后 merge 回 main；效果不达预期则废弃本分支，主分支无损
@@ -255,6 +255,23 @@ TRANSLATE_MODEL=qwen-turbo     # 翻译/术语提取（保持）
 
 C12-C17（每个 skill 独立 3 问人工验收）+ F6 + 主动性（F5 已提前至 P3）
 
+### ✅ P6：Reader 概念深讲联动（2026-09-27 完成并通过验证）
+
+**范围**：Reader AI ↔ concept-bridge 混合触发 + 概念询问记忆同步 + /api/skills/{name} + /api/agent/concept-check
+
+**DoD 验收结果**：
+1. ✅ `GET /api/skills/{name}` 返回任意 skill 完整 body（concept-bridge 1952 chars 实测）
+2. ✅ `POST /api/agent/concept-check` 轻量 flash 判定（不走 agent loop，~1s；放宽提示词 + max_tokens=100 + 字符串容错后 **4/4 PASS**：概念题 True / 页面分析 False / 闲聊 False）
+3. ✅ 概念问题回答后下方出现紧凑建议条（`💡 概念深讲 [深入 →]`，独占一行；flash 失败时正则兜底：`什么是|定义|含义|怎么理解...`）
+4. ✅ 点击"深入"→ 拉 SKILL.md 注入 system prompt → 四层结构重答（紫渐变气泡 + 左侧 iris 边条 + 标签头 + >600 字折叠 280px + 展开按钮）
+5. ✅ 记忆在**检测时**即写入（episodic："阅读《X》时询问了概念：Y"），无需点击按钮、无需用户确认——Agent 助手后续可引用
+6. ✅ P3 回归 13/13 不受影响；正常快速回答路径零改动（检测为非阻塞后置）
+
+**调试档案（三轮用户实测反馈）**：
+- R1（`ff0ac99`）：概念检测原本调 `/api/chat`（完整 agent loop SSE 流）——flash JSON 解析必然失败，建议条从未显示；记忆原本只在点按钮时写 → 均修复
+- R2（`b7c697b`）：建议条大块边框容器 → 紧凑行内 chip；深讲回答全展开 → 折叠 + 展开全部
+- R3（`5343255`）：建议条 `appendChild` 到 flex 横排行容器 → 显示在气泡**侧面**；改 `aiDiv.after()` 插到整行**下方**。测试 FAIL 假象定位：PowerShell 管道把中文转 `????` 发给服务器，非服务器 bug（UTF-8 文件方式验证 4/4）
+
 ---
 
 ## 六、验证资产（已就位）
@@ -310,3 +327,4 @@ code_v2/
 | 2026-09-25 | v1.6 | **P3.8 补齐零联动功能**：知识图谱联动（get_knowledge_map 工具——从 assessments.result_json 重建掌握度摘要+薄弱点+断层预警，动作卡跳转图谱页）；画板联动（plot_function 工具——预填函数跳转）；前测联动（start_assessment 工具——跳转诊断页）。方案A 轻量摘要：不复制前端图谱常量，agent 只做摘要+导航，视觉化交给图谱页本身。前端 TUTOR_LINK_LABELS 增至 7 个跳转（notes/vocab/quiz/plan/graph/plotter/pretest）。联动覆盖率 60%→85%（书架上传和高亮待 P4） |
 | 2026-09-27 | v2.0 | **P5 完成定稿——P0 到 P5 全部完成**。P5 交付：C13 document-guide（教材蒸馏+章节导航+RAG 协同）；C12 proof-coach（五类证明 rubric）；C14 exam-prep（考前冲刺）；C15 mistake-notebook（错题本+get_quiz_mistakes 工具）；C16 weekly-review（周复习）；C17 concept-bridge（概念深讲）；F6 术语预筛（省 40-60% 调用）；技能自动匹配全意图；快速通道（chat 秒回 7s）；quiz 补齐+502 韧性；_list_docs 修复。**skills 4→10，工具 13→14，联动 90%**。注：部分表格状态标记未逐条更新（37 个 ⬜ 实际均已完成），以本变更日志为准 |
 | 2026-09-27 | v2.1 | **P6 规划：Reader 增强**。① Reader AI + concept-bridge 混合触发——快速回答后尾部显示"概念深讲"建议条（学生点击才注入 SKILL.md 重答四层旅程；不全自动因为 Reader 定位是快问快答）；② 概念询问→memory_entries 轻量记录（episodic："阅读《X》时问过Y概念"→Agent 后续可引用；不需要用户确认——行为观察）；③ 不同步完整对话（Reader/Agent 服务不同场景，只同步关键学习事件） |
+| 2026-09-27 | v2.2 | **P6 完成：Reader 概念深讲联动**。交付：`GET /api/skills/{name}`（skill body 下发）+ `POST /api/agent/concept-check`（轻量 flash 判定，4/4 PASS）+ `readerConceptSuggest()`（检测即写记忆 + 正则兜底 + 紧凑建议条独占回答下方一行）+ `readerDeepConcept()`（SKILL.md 注入四层重答 + iris 渐变气泡/边条/标签头/280px 折叠）。三轮实测修复：R1 检测改轻量端点+记忆提前到检测时（`ff0ac99`）；R2 建议条紧凑化+深讲折叠（`b7c697b`）；R3 `aiDiv.after()` 修侧面定位+检测可靠性（`5343255`，测试 FAIL 为 PowerShell 管道中文乱码假象）。P3 回归 13/13 保持全绿。**端点 14→16（含 2 新 API），跨页面联动 Reader↔Agent 打通** |
