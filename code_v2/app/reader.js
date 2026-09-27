@@ -1217,21 +1217,162 @@ async function aiChatSend(text){
         full=>{
             const el=document.getElementById(streamId);
             try{if(stopOrb){stopOrb();stopOrb=null;}}catch(e){}
-            if(typeof aiBusy==='function')aiBusy(false);
-            if(el){el.innerHTML=full?markdownToHtml(full):'<span style="color:var(--yellow);">Empty response — please retry.</span>';enhanceCitations(el);}   // [MinerU] clickable [Page N]
+             if(typeof aiBusy==='function')aiBusy(false);
+             if(el){el.innerHTML=full?markdownToHtml(full):'<span style="color:var(--yellow);">Empty response — please retry.</span>';enhanceCitations(el);}   // [MinerU] clickable [Page N]
+             aiChatMessages.push({role:'assistant',content:full});
+             msgArea.scrollTop=msgArea.scrollHeight;
+             // Post-answer concept tracing (exercises/exam-papers scope only)
+             const _doc=Object.values(bsData).flat().find(d=>d.id===readerCurrentDocId);
+             if(_doc&&['exercises','exam-papers'].includes(_doc.category)){
+                 traceConcepts(full,aiDiv);
+             }
+             // P6: concept-bridge suggestion (non-blocking, after answer)
+             readerConceptSuggest(text, aiDiv);
+         },
+         err=>{
+             const el=document.getElementById(streamId);
+             try{if(stopOrb){stopOrb();stopOrb=null;}}catch(e){}
+             if(typeof aiBusy==='function')aiBusy(false);
+             if(el)el.innerHTML='<span style="color:#ff6b6b;">'+escapeHtml(String(err&&err.message?err.message:err))+'</span>';
+         }
+     );
+ }
+
+// ===== P6: Reader concept-bridge — quick answer + "深讲" suggestion bar =====
+// Non-blocking: after a normal answer, flash checks if it was a concept
+// question. If so, show a subtle suggestion bar. Click = re-send with
+// concept-bridge SKILL.md injected. Also logs to memory (episodic).
+async function readerConceptSuggest(question, aiDiv){
+    if(!question || question.length < 4) return;
+    try{
+        // quick flash check: is this a concept-explanation request?
+        const body = JSON.stringify({
+            model:'qwen3.8-flash',
+            messages:[
+                {role:'system',content:'判断学生消息是否在询问一个数学概念的定义/含义/理解。输出JSON: {"is_concept": true/false}'},
+                {role:'user',content:question.substring(0,200)}
+            ],
+            temperature:0, max_tokens:50,
+            response_format:{type:'json_object'},
+            enable_thinking:false
+        });
+        const tok=localStorage.getItem('cb_cn_token');
+        const r=await fetch(AI_BACKEND_URL+'/api/chat',{method:'POST',
+            headers:{'Content-Type':'application/json',...(tok?{'Authorization':'Bearer '+tok}:{})},
+            body});
+        if(!r.ok) return;
+        const data=await r.json();
+        // parse the flash response from the SSE stream
+        let flashText='';
+        const reader=r.body.getReader();
+        const dec=new TextDecoder();
+        let buf='';
+        while(true){
+            const{done,value}=await reader.read();
+            if(done)break;
+            buf+=dec.decode(value);
+            let idx;
+            while((idx=buf.indexOf('\n\n'))>=0){
+                const frame=buf.slice(0,idx);buf=buf.slice(idx+2);
+                for(const line of frame.split('\n')){
+                    if(line.startsWith('data: ')){
+                        const d=line.slice(6);
+                        if(d==='[DONE]')break;
+                        try{
+                            const ev=JSON.parse(d);
+                            const delta=(ev.choices||[{}])[0].delta||{};
+                            flashText+=delta.content||'';
+                        }catch(e){}
+                    }
+                }
+            }
+        }
+        let isConcept=false;
+        try{isConcept=JSON.parse(flashText).is_concept===true;}catch(e){}
+        if(!isConcept) return;
+
+        // show suggestion bar below the answer
+        const bar=document.createElement('div');
+        bar.className='reader-concept-suggest';
+        bar.style.cssText='display:flex;align-items:center;gap:8px;margin:6px 0 0 36px;padding:7px 12px;border-radius:10px;border:1px solid rgba(122,107,255,.3);background:rgba(122,107,255,.06);font-size:11.5px;color:var(--text-secondary);';
+        bar.innerHTML='<span style="color:var(--iris-400,var(--accent));display:flex;">'+iconHtml('lightbulb',13)+'</span>'
+            +'<span>想深入了解这个概念吗？</span>'
+            +'<button style="display:inline-flex;align-items:center;gap:4px;font-size:10px;padding:3px 10px;border-radius:6px;border:1px solid rgba(122,107,255,.4);background:rgba(122,107,255,.12);color:var(--iris-400,var(--accent));cursor:pointer;white-space:nowrap;">'+iconHtml('rocket',10)+' 概念深讲</button>'
+            +'<button style="margin-left:auto;background:none;border:none;color:var(--text-muted);cursor:pointer;font-size:13px;padding:2px;" onclick="this.parentElement.remove()" aria-label="关闭">×</button>';
+        const deepBtn=bar.querySelector('button');
+        deepBtn.onclick=()=>{bar.remove();readerDeepConcept(question);};
+        aiDiv.appendChild(bar);
+        refreshIcons();
+    }catch(e){
+        // silent fail — suggestion is best-effort
+    }
+}
+
+async function readerDeepConcept(question){
+    // Fetch concept-bridge SKILL.md body
+    let skillBody='';
+    try{
+        const tok=localStorage.getItem('cb_cn_token');
+        const r=await fetch(AI_BACKEND_URL+'/api/skills/concept-bridge',{
+            headers:tok?{'Authorization':'Bearer '+tok}:{}
+        });
+        if(r.ok){
+            const d=await r.json();
+            skillBody=d.body||'';
+        }
+    }catch(e){}
+
+    // Log to memory (episodic: "阅读时问过X概念")
+    if(localStorage.getItem('cb_cn_token')){
+        try{
+            const _doc=Object.values(bsData).flat().find(d=>d.id===readerCurrentDocId);
+            const docTitle=_doc?_doc.title:'';
+            await apiFetch('/api/agent/memory',{
+                method:'POST',
+                body:JSON.stringify({
+                    items:[{kind:'episodic',content:'阅读'+(docTitle?'《'+docTitle+'》时':'时')+'询问了概念：'+question.substring(0,50)}],
+                    session_id:''
+                })
+            });
+        }catch(e){}
+    }
+
+    // Send in the AI chat with skill injected
+    const msgArea=document.getElementById('ai-chat-messages');
+    if(aiChatMessages.length===0)msgArea.innerHTML='';
+
+    const userDiv=document.createElement('div');
+    userDiv.style.cssText='display:flex;flex-direction:row-reverse;gap:8px;margin-bottom:12px;';
+    userDiv.innerHTML='<div style="width:28px;height:28px;border-radius:50%;background:var(--accent);display:flex;align-items:center;justify-content:center;color:#fff;font-size:12px;font-weight:600;flex-shrink:0;">Y</div>'
+        +'<div style="background:var(--accent);color:#fff;padding:8px 14px;border-radius:12px 12px 4px 12px;font-size:13px;max-width:75%;">🚀 深入讲解：'+escapeHtml(question.substring(0,100))+'</div>';
+    msgArea.appendChild(userDiv);
+    aiChatMessages.push({role:'user',content:'请深入讲解这个概念：'+question});
+
+    const aiDiv=document.createElement('div');
+    aiDiv.style.cssText='display:flex;gap:8px;margin-bottom:12px;';
+    aiDiv.innerHTML='<div style="width:28px;height:28px;border-radius:50%;background:linear-gradient(135deg,var(--accent),#9b59f7);display:flex;align-items:center;justify-content:center;color:#fff;font-size:10px;font-weight:600;flex-shrink:0;">AI</div>'
+        +'<div id="ai-deep-'+Date.now()+'" style="background:var(--bg-hover);color:var(--text-primary);padding:8px 14px;border-radius:12px 12px 12px 4px;font-size:13px;max-width:75%;min-height:20px;border:1px solid rgba(122,107,255,.2);"></div>';
+    msgArea.appendChild(aiDiv);
+    const streamEl=aiDiv.querySelector('div:last-child');
+    msgArea.scrollTop=msgArea.scrollHeight;
+
+    const sysWithSkill='你是数跃，中外合办大学一年级 AI 辅导助手。学生正在阅读教材并要求深入讲解一个概念。'
+        +(skillBody?'\n\n请严格按照以下教学方法回答：\n\n'+skillBody:'\n\n用四层结构回答：高考阶段→大学阶段→深层理解→前沿/应用。术语中英对照。');
+    const msgs=[{role:'system',content:sysWithSkill},...aiChatMessages.slice(-4)];
+
+    kimiCall(msgs,
+        full=>{
+            if(streamEl)streamEl.innerHTML=markdownToHtml(full)+'<span style="opacity:.5;">▌</span>';
+            msgArea.scrollTop=msgArea.scrollHeight;
+        },
+        full=>{
+            if(streamEl){streamEl.innerHTML=full?markdownToHtml(full):'<span style="color:var(--yellow);">Empty</span>';enhanceCitations(streamEl);}
             aiChatMessages.push({role:'assistant',content:full});
             msgArea.scrollTop=msgArea.scrollHeight;
-            // Post-answer concept tracing (exercises/exam-papers scope only)
-            const _doc=Object.values(bsData).flat().find(d=>d.id===readerCurrentDocId);
-            if(_doc&&['exercises','exam-papers'].includes(_doc.category)){
-                traceConcepts(full,aiDiv);
-            }
+            refreshIcons();
         },
         err=>{
-            const el=document.getElementById(streamId);
-            try{if(stopOrb){stopOrb();stopOrb=null;}}catch(e){}
-            if(typeof aiBusy==='function')aiBusy(false);
-            if(el)el.innerHTML='<span style="color:#ff6b6b;">'+escapeHtml(String(err&&err.message?err.message:err))+'</span>';
+            if(streamEl)streamEl.innerHTML='<span style="color:#ff6b6b;">'+escapeHtml(String(err.message||err))+'</span>';
         }
     );
 }

@@ -1089,6 +1089,15 @@ def get_skills():
     return {"skills": list_skills()}
 
 
+@app.get("/api/skills/{skill_name}")
+def get_skill_body(skill_name: str):
+    """P6: return a skill's full SKILL.md body (for Reader-side injection)."""
+    body = load_skill(skill_name)
+    if not body:
+        raise HTTPException(404, f"Skill '{skill_name}' not found")
+    return {"name": skill_name, "body": body}
+
+
 # ============================================================================
 # AGENT V4 (P2) · Workspaces (G1) + agent chat loop (A1/F/B)
 # ============================================================================
