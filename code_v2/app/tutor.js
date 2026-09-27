@@ -224,7 +224,9 @@ function tutorSlashKey(e){
 function tutorSlashHl(){
     const p=document.getElementById('tutor-slash-popup');
     if(!p)return;
-    p.querySelectorAll('.tutor-menu-item').forEach((el,i)=>el.classList.toggle('hl',i===tutorSlashIdx));
+    const items=p.querySelectorAll('.tutor-menu-item');
+    items.forEach((el,i)=>el.classList.toggle('hl',i===tutorSlashIdx));
+    if(items[tutorSlashIdx])items[tutorSlashIdx].scrollIntoView({block:'nearest'});
 }
 // click-outside / Esc close the popups
 document.addEventListener('mousedown',e=>{
