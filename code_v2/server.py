@@ -2871,6 +2871,20 @@ def quiz_generate(req: QuizGenerateRequest):
     if not questions:
         raise HTTPException(502, "Quiz generation failed, please retry")
 
+    # P5 fix: top-up — if concurrent batches returned fewer than requested
+    # (flaky VPN kills some batches), fill the gap with SERIAL retries
+    # (serial is slower but much more reliable on unstable connections).
+    if len(questions) < count:
+        deficit = count - len(questions)
+        print(f"[quiz] concurrent batches returned {len(questions)}/{count}, topping up {deficit} serially")
+        for _ in range(2):  # max 2 serial top-up rounds
+            if len(questions) >= count:
+                break
+            extra = _quiz_generate_batch(req.topic, min(6, deficit + 1), req.difficulty,
+                                         req.qtype, weak_context, req.quiz_lang)
+            questions.extend(extra)
+            deficit = count - len(questions)
+
     # 2) Optional Harness cross-verification — PARALLEL (each question already
     #    carries its own 45s solve timeout inside _quiz_verify_question).
     if req.verify:
@@ -2879,10 +2893,12 @@ def quiz_generate(req: QuizGenerateRequest):
         kept = [qd for qd, ok in zip(questions, verdicts) if ok]
         for qd in kept:
             qd["verified"] = True
-        # One concurrent retry batch if verification dropped too many
-        if len(kept) < count:
-            extra = _quiz_generate_batch(req.topic, min(6, count), req.difficulty,
-                                         req.qtype, weak_context, req.quiz_lang)
+        # Serial top-up rounds if verification dropped too many
+        while len(kept) < count:
+            extra = _quiz_generate_batch(req.topic, min(6, count - len(kept) + 1),
+                                         req.difficulty, req.qtype, weak_context, req.quiz_lang)
+            if not extra:
+                break
             with _cf.ThreadPoolExecutor(max_workers=6) as ex:
                 verdicts2 = list(ex.map(_quiz_verify_question, extra))
             for qd, ok in zip(extra, verdicts2):
@@ -2897,6 +2913,9 @@ def quiz_generate(req: QuizGenerateRequest):
 
     if not questions:
         raise HTTPException(502, "Generated questions failed verification, please retry")
+    if len(questions) < count:
+        # partial success is better than 502 — return what we have with a note
+        print(f"[quiz] returning {len(questions)}/{count} questions (network-limited)")
 
     quiz_id = f"quiz_{int(time.time()*1000)}"
     QUIZ_CACHE[quiz_id] = {
