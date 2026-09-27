@@ -1099,6 +1099,28 @@ def get_skill_body(skill_name: str):
 
 
 # ============================================================================
+# P6: Reader concept-check (lightweight flash endpoint — NOT the agent loop)
+# ============================================================================
+
+class ConceptCheckRequest(BaseModel):
+    text: str
+
+@app.post("/api/agent/concept-check")
+def concept_check(req: ConceptCheckRequest):
+    """P6: lightweight flash check — is this a concept-explanation request?
+    Returns {"is_concept": true/false}. No tools, no agent loop, ~1s."""
+    from agent.decision import _call, DECISION_MODEL
+    try:
+        out = _call(DECISION_MODEL,
+                    "判断学生消息是否在询问一个数学概念的定义/含义/理解（而非询问具体页面内容或计算）。"
+                    '输出JSON: {"is_concept": true/false}',
+                    req.text[:300], timeout=10, max_tokens=50)
+        return {"is_concept": bool(out.get("is_concept", False))}
+    except Exception as e:
+        return {"is_concept": False, "error": str(e)[:100]}
+
+
+# ============================================================================
 # AGENT V4 (P2) · Workspaces (G1) + agent chat loop (A1/F/B)
 # ============================================================================
 

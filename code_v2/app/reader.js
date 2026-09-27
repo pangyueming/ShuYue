@@ -1239,57 +1239,37 @@ async function aiChatSend(text){
  }
 
 // ===== P6: Reader concept-bridge — quick answer + "深讲" suggestion bar =====
-// Non-blocking: after a normal answer, flash checks if it was a concept
-// question. If so, show a subtle suggestion bar. Click = re-send with
-// concept-bridge SKILL.md injected. Also logs to memory (episodic).
+// Non-blocking: after a normal answer, lightweight flash check via
+// /api/agent/concept-check (NOT /api/chat — that's the heavy agent loop).
+// If concept → show suggestion bar + log memory immediately (not on click).
 async function readerConceptSuggest(question, aiDiv){
     if(!question || question.length < 4) return;
     try{
-        // quick flash check: is this a concept-explanation request?
-        const body = JSON.stringify({
-            model:'qwen3.8-flash',
-            messages:[
-                {role:'system',content:'判断学生消息是否在询问一个数学概念的定义/含义/理解。输出JSON: {"is_concept": true/false}'},
-                {role:'user',content:question.substring(0,200)}
-            ],
-            temperature:0, max_tokens:50,
-            response_format:{type:'json_object'},
-            enable_thinking:false
-        });
+        // P6 fix: use the lightweight concept-check endpoint
         const tok=localStorage.getItem('cb_cn_token');
-        const r=await fetch(AI_BACKEND_URL+'/api/chat',{method:'POST',
+        const r=await fetch(AI_BACKEND_URL+'/api/agent/concept-check',{
+            method:'POST',
             headers:{'Content-Type':'application/json',...(tok?{'Authorization':'Bearer '+tok}:{})},
-            body});
+            body:JSON.stringify({text:question.substring(0,300)})
+        });
         if(!r.ok) return;
         const data=await r.json();
-        // parse the flash response from the SSE stream
-        let flashText='';
-        const reader=r.body.getReader();
-        const dec=new TextDecoder();
-        let buf='';
-        while(true){
-            const{done,value}=await reader.read();
-            if(done)break;
-            buf+=dec.decode(value);
-            let idx;
-            while((idx=buf.indexOf('\n\n'))>=0){
-                const frame=buf.slice(0,idx);buf=buf.slice(idx+2);
-                for(const line of frame.split('\n')){
-                    if(line.startsWith('data: ')){
-                        const d=line.slice(6);
-                        if(d==='[DONE]')break;
-                        try{
-                            const ev=JSON.parse(d);
-                            const delta=(ev.choices||[{}])[0].delta||{};
-                            flashText+=delta.content||'';
-                        }catch(e){}
-                    }
-                }
-            }
+        if(!data.is_concept) return;
+
+        // P6 fix: log memory HERE (when detected), not on button click
+        if(localStorage.getItem('cb_cn_token')){
+            try{
+                const _doc=Object.values(bsData).flat().find(d=>d.id===readerCurrentDocId);
+                const docTitle=_doc?_doc.title:'';
+                await apiFetch('/api/agent/memory',{
+                    method:'POST',
+                    body:JSON.stringify({
+                        items:[{kind:'episodic',content:'阅读'+(docTitle?'《'+docTitle+'》时':'时')+'询问了概念：'+question.substring(0,50)}],
+                        session_id:''
+                    })
+                });
+            }catch(e){/* best-effort */}
         }
-        let isConcept=false;
-        try{isConcept=JSON.parse(flashText).is_concept===true;}catch(e){}
-        if(!isConcept) return;
 
         // show suggestion bar below the answer
         const bar=document.createElement('div');
@@ -1322,20 +1302,7 @@ async function readerDeepConcept(question){
         }
     }catch(e){}
 
-    // Log to memory (episodic: "阅读时问过X概念")
-    if(localStorage.getItem('cb_cn_token')){
-        try{
-            const _doc=Object.values(bsData).flat().find(d=>d.id===readerCurrentDocId);
-            const docTitle=_doc?_doc.title:'';
-            await apiFetch('/api/agent/memory',{
-                method:'POST',
-                body:JSON.stringify({
-                    items:[{kind:'episodic',content:'阅读'+(docTitle?'《'+docTitle+'》时':'时')+'询问了概念：'+question.substring(0,50)}],
-                    session_id:''
-                })
-            });
-        }catch(e){}
-    }
+    // (P6 fix: memory already logged in readerConceptSuggest when detected)
 
     // Send in the AI chat with skill injected
     const msgArea=document.getElementById('ai-chat-messages');
