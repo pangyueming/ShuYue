@@ -123,6 +123,10 @@ SMTP_PASSWORD = os.getenv("SMTP_PASSWORD", "")
 MAIL_FROM = os.getenv("MAIL_FROM", "")                     # display sender (defaults to SMTP_USER)
 ENV_NAME = os.getenv("ENV", "development")                 # production | development (P7: keep test data out of prod stats)
 ADMIN_EMAIL = os.getenv("ADMIN_EMAIL", "")                 # sole admin for /api/agent/metrics/stats when set
+# --- P8 vision (two-tier VL routing, mirrors the text decision layer) ---
+VISION_MODEL_PLUS = os.getenv("VISION_MODEL_PLUS", "qwen3-vl-plus")    # grading / explaining (quality)
+VISION_MODEL_FLASH = os.getenv("VISION_MODEL_FLASH", "qwen3-vl-flash") # extraction / classification (cheap)
+VISION_GRADE_DAILY_LIMIT = int(os.getenv("VISION_GRADE_DAILY_LIMIT", "20"))
 UPLOAD_DIR = os.path.join(os.path.dirname(__file__), "uploads")
 DB_PATH = os.path.join(os.path.dirname(__file__), "cognibridge.db")
 ENV_PATH = os.path.join(os.path.dirname(__file__), ".env")
@@ -353,6 +357,14 @@ def init_db():
     );
     CREATE INDEX IF NOT EXISTS idx_agent_metrics_created ON agent_metrics(created_at);
     CREATE INDEX IF NOT EXISTS idx_agent_metrics_user ON agent_metrics(user_id, id DESC);
+
+    -- P8: vision grade quota (grade-only daily cap; solve/explain/ask unlimited)
+    CREATE TABLE IF NOT EXISTS vision_usage (
+        user_id TEXT NOT NULL,
+        day TEXT NOT NULL,
+        grade_count INTEGER DEFAULT 0,
+        PRIMARY KEY (user_id, day)
+    );
     """)
 
     # === Migration: add user_id to legacy tables (notes/documents) ===
@@ -1239,6 +1251,311 @@ def concept_check(req: ConceptCheckRequest):
     except Exception as e:
         print(f"[concept-check] error: {e}")
         return {"is_concept": False, "error": str(e)[:100]}
+
+
+# ============================================================================
+# P8: Vision chat — paste-and-ask (grade / solve / explain / ask)
+# Ephemeral by design: image arrives as base64, is used once, never stored.
+# Two-tier VL routing: flash extracts/classifies, plus grades/explains (D9).
+# ============================================================================
+
+VISION_MIME_OK = ("image/jpeg", "image/png", "image/webp", "image/bmp")
+VISION_MAX_BYTES = 8 * 1024 * 1024
+
+
+def _vl_headers():
+    return {"Authorization": f"Bearer {DASHSCOPE_API_KEY}",
+            "Content-Type": "application/json"}
+
+
+def _vl_messages(image_b64: str, mime: str, instruction: str, history: list):
+    """Multimodal messages per official qwen-vl guidance: NO system message —
+    instructions ride in the user turn; prior text turns keep follow-up context."""
+    data_uri = f"data:{mime};base64,{image_b64}"
+    msgs = []
+    for m in (history or [])[-6:]:
+        if isinstance(m, dict) and m.get("role") in ("user", "assistant") and m.get("content"):
+            msgs.append({"role": m["role"], "content": str(m["content"])[:1500]})
+    msgs.append({"role": "user", "content": [
+        {"type": "image_url", "image_url": {"url": data_uri}},
+        {"type": "text", "text": instruction},
+    ]})
+    return msgs
+
+
+def _vl_call(model: str, image_b64: str, mime: str, instruction: str,
+             history: list = None, max_tokens: int = 2000):
+    """Non-streaming VL call → (text, total_tokens)."""
+    payload = {"model": model,
+               "messages": _vl_messages(image_b64, mime, instruction, history),
+               "max_tokens": max_tokens}
+    r = requests.post(BASE_URL, headers=_vl_headers(), json=payload, timeout=180)
+    r.raise_for_status()
+    data = r.json()
+    txt = ((data["choices"][0]["message"].get("content") or "")).strip()
+    usage = int((data.get("usage") or {}).get("total_tokens", 0) or 0)
+    return txt, usage
+
+
+def _vl_stream(model: str, image_b64: str, mime: str, instruction: str,
+               history: list = None, max_tokens: int = 3000):
+    """Streaming VL call → requests response with .iter_lines()."""
+    payload = {"model": model,
+               "messages": _vl_messages(image_b64, mime, instruction, history),
+               "max_tokens": max_tokens, "stream": True}
+    return requests.post(BASE_URL, headers=_vl_headers(), json=payload,
+                         stream=True, timeout=180)
+
+
+def _vision_intent_from_text(text: str) -> str:
+    """Flash classifies the accompanying text (follow-ups naturally become ask)."""
+    from agent.decision import _call, DECISION_MODEL
+    try:
+        out = _call(DECISION_MODEL,
+                    "学生贴了一张数学相关图片并附言。判断意图："
+                    "grade=批改手写作业/检查对错；solve=求解图中题目；"
+                    "explain=讲解图中知识点/概念；ask=其他图片提问或对先前图片的追问。"
+                    '输出JSON {"intent":"grade|solve|explain|ask"}',
+                    (text or "ask").strip()[:200], timeout=10, max_tokens=50)
+        i = out.get("intent", "")
+        if isinstance(i, str) and i.strip() in ("grade", "solve", "explain", "ask"):
+            return i.strip()
+    except Exception as e:
+        print(f"[vision] intent classify failed: {e}")
+    return "ask"
+
+
+def _vision_intent_from_image(image_b64: str, mime: str) -> str:
+    """Empty note → cheap vl-flash looks at the image itself (auto mode)."""
+    try:
+        txt, _ = _vl_call(VISION_MODEL_FLASH, image_b64, mime,
+                          "这张图最像什么？只输出JSON：{\"intent\":\"grade|solve|explain|ask\"}。"
+                          "grade=学生的手写解答过程；solve=纯题目（印刷或手写题目本身）；"
+                          "explain=教材页/笔记/知识点截图；ask=其他。",
+                          max_tokens=50)
+        txt = txt.strip().strip("`")
+        i = json.loads(txt[txt.find("{"):txt.rfind("}") + 1]).get("intent", "solve")
+        if i in ("grade", "solve", "explain", "ask"):
+            return i
+    except Exception as e:
+        print(f"[vision] image classify failed: {e}")
+    return "solve"   # bare image default: search-and-solve
+
+
+_VISION_GRADE_PROMPT = (
+    "你是数学作业批改老师。图片是学生的手写数学解答。请严格批改。\n"
+    "批改流程（务必遵守）：①先逐题独立解出正确答案（在心中演算，不输出过程）；"
+    "②再逐步对照学生解答；③最终答案必须与你独立计算的结果完全一致才判 correct——"
+    "学生结论错误时，定位最早出错的步骤并判 wrong。\n"
+    "只输出严格 JSON（无任何其他文字、无代码块标记）：\n"
+    '{"problems":[{"no":1,"question":"题目概要",'
+    '"steps":[{"text":"该步骤内容概要","verdict":"correct|wrong|unclear","reason":"若wrong说明错因，其余留空"}],'
+    '"result":"correct|partial|wrong",'
+    '"error_type":"计算错误|概念误解|逻辑跳步|符号规范|方法选择|无",'
+    '"suggestion":"一条改进建议"}],'
+    '"overall":"总体评价一句话","praise":"值得肯定的一点"}\n'
+    "注意：手写识别不确定的步骤 verdict 用 unclear，不要猜测；error_type 只能用上述六类之一。"
+)
+
+_VISION_EXTRACT_PROMPT = (
+    "提取图片中的数学题目为纯文本，公式用 LaTeX（行内 $...$），多题用 1. 2. 3. 编号分行。"
+    "只输出题目文本本身，不要解答、不要任何说明或前缀。如果图中没有题目，只输出 NO_QUESTION。"
+)
+
+_VISION_EXPLAIN_PROMPT = (
+    "你是数跃 AI 数学辅导老师（学生来自高考体系、正读中外合办大学一年级）。图片是教材/笔记/知识点页面。"
+    "请讲解图中知识点，严格用四层结构（markdown 标题）：\n"
+    "## 高考阶段（你已会的）\n## 大学阶段（现在要学的）\n## 深层理解（为什么这样定义）\n## 前沿/应用（哪里会用到）\n"
+    "关键术语首次出现附中英对照（如 supremum 上确界），数学用 LaTeX。"
+)
+
+_VISION_ASK_PROMPT = (
+    "你是数跃 AI 数学辅导老师（中外合办大学一年级，学生来自高考体系）。"
+    "请结合图片内容回答学生的附言问题。数学用 LaTeX，markdown 输出，关键术语附中英对照。"
+)
+
+
+def _vision_quota_left(conn, user_id: str) -> int:
+    row = conn.execute(
+        "SELECT grade_count FROM vision_usage WHERE user_id=? AND day=date('now')",
+        (user_id,)).fetchone()
+    return VISION_GRADE_DAILY_LIMIT - (row["grade_count"] if row else 0)
+
+
+def _vision_metrics(user_id, intent, steps, total_ms, tokens, err, text, out_preview):
+    try:
+        conn = get_db()
+        conn.execute(
+            "INSERT INTO agent_metrics (session_id,user_id,env,intent,skill,fast_path,steps,"
+            "n_tools,tools_fail,total_ms,total_tokens,interrupted,error,input_preview,output_preview) "
+            "VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)",
+            ("", user_id, ENV_NAME, f"vision:{intent}", "", 0,
+             json.dumps(steps, ensure_ascii=False)[:4000],
+             len(steps), sum(1 for s in steps if not s.get("ok")), total_ms, tokens,
+             0, (err or "")[:120], (text or "")[:500], (out_preview or "")[:500]))
+        conn.commit(); conn.close()
+    except Exception as e:
+        print(f"[vision] metrics failed: {e}")
+
+
+class VisionChatRequest(BaseModel):
+    image_base64: str = ""
+    mime: str = "image/jpeg"
+    text: str = ""
+    history: List[dict] = []
+
+
+@app.post("/api/vision/chat")
+def vision_chat(req: VisionChatRequest,
+                current_user: Optional[dict] = Depends(get_current_user)):
+    """P8: paste-and-ask vision endpoint (SSE). Image is ephemeral — never stored.
+    grade (20/day quota) | solve (VL extract → harness pipeline) | explain | ask."""
+    if not current_user:
+        raise HTTPException(401, "请登录后使用图片功能")
+    if not req.image_base64:
+        raise HTTPException(400, "Missing image")
+    if req.mime not in VISION_MIME_OK:
+        raise HTTPException(400, f"不支持的图片格式 {req.mime}（支持 jpg/png/webp/bmp；"
+                                 "iPhone 请设置相机'兼容性最好'）")
+    if len(req.image_base64) * 3 // 4 > VISION_MAX_BYTES:
+        raise HTTPException(413, "图片过大（>8MB），请裁剪后重试")
+    user_id = current_user["id"]
+    text = (req.text or "").strip() or "帮我批改"
+
+    def sse(ev: dict):
+        return "data: " + json.dumps(ev, ensure_ascii=False) + "\n\n"
+
+    def stream():
+        t0 = time.time()
+        tokens = 0
+        steps = []
+        intent = ""
+        err = ""
+        out = ""
+        try:
+            # ---- intent routing (flash on text; vl-flash on image when no note) ----
+            if (req.text or "").strip() or req.history:
+                intent = _vision_intent_from_text(req.text)
+            else:
+                yield sse({"type": "status", "text": "识别图片类型…"})
+                intent = _vision_intent_from_image(req.image_base64, req.mime)
+            yield sse({"type": "vision_intent", "intent": intent})
+
+            # ---- grade: quota + structured rubric ----
+            if intent == "grade":
+                conn = get_db()
+                left = _vision_quota_left(conn, user_id)
+                if left <= 0:
+                    conn.close()
+                    yield sse({"type": "quota_exceeded",
+                               "limit": VISION_GRADE_DAILY_LIMIT,
+                               "message": f"今日批改 {VISION_GRADE_DAILY_LIMIT} 次已用完，明天再来～ 解题和讲解不受限制"})
+                    _vision_metrics(user_id, "grade", [], int((time.time()-t0)*1000), 0,
+                                    "quota_exceeded", text, "")
+                    yield "data: [DONE]\n\n"
+                    return
+                conn.execute(
+                    "INSERT INTO vision_usage(user_id,day,grade_count) VALUES(?,date('now'),1) "
+                    "ON CONFLICT(user_id,day) DO UPDATE SET grade_count=grade_count+1",
+                    (user_id,))
+                conn.commit()
+                left2 = _vision_quota_left(conn, user_id)
+                conn.close()
+
+                yield sse({"type": "status", "text": "识别手写内容…"})
+                ts = time.time()
+                raw, tokens = _vl_call(VISION_MODEL_PLUS, req.image_base64, req.mime,
+                                       _VISION_GRADE_PROMPT, max_tokens=3000)
+                steps.append({"type": "vl", "name": VISION_MODEL_PLUS,
+                              "ms": int((time.time()-ts)*1000), "ok": bool(raw)})
+                parsed = None
+                try:
+                    body = raw.strip()
+                    if body.startswith("```"):
+                        body = body.strip("`").lstrip("json").strip()
+                    parsed = json.loads(body[body.find("{"):body.rfind("}") + 1])
+                except Exception:
+                    err = "grade_parse_error"
+                yield sse({"type": "grade_result",
+                           "result": parsed or {"raw": raw[:2000], "parse_error": True},
+                           "quota_left": left2})
+                out = raw[:500]
+
+            # ---- solve: vl-flash extract → harness pipeline (verified) ----
+            elif intent == "solve":
+                yield sse({"type": "status", "text": "提取题目…"})
+                ts = time.time()
+                question, u1 = _vl_call(VISION_MODEL_FLASH, req.image_base64, req.mime,
+                                        _VISION_EXTRACT_PROMPT, max_tokens=800)
+                tokens += u1
+                steps.append({"type": "vl", "name": VISION_MODEL_FLASH,
+                              "ms": int((time.time()-ts)*1000), "ok": True})
+                if not question or "NO_QUESTION" in question:
+                    yield sse({"type": "text", "delta": "图片中未识别出题目。请拍清题目本身，或直接打字描述问题～"})
+                    _vision_metrics(user_id, "solve", steps, int((time.time()-t0)*1000),
+                                    tokens, "no_question", text, "")
+                    yield "data: [DONE]\n\n"
+                    return
+                yield sse({"type": "status", "text": f"已识别题目：{question[:60]}…"})
+                yield sse({"type": "text", "delta": f"**识别到的题目**：{question}\n\n"})
+                yield sse({"type": "status", "text": "解题中…（双车道 + 验证器）"})
+                ts = time.time()
+                result = solve_question(
+                    question_text=question, options=None,
+                    api_key=DASHSCOPE_API_KEY, model=MODEL,
+                    base_url=BASE_URL.replace("/chat/completions", ""))
+                steps.append({"type": "tool", "name": "solve_problem",
+                              "ms": int((time.time()-ts)*1000),
+                              "ok": bool((result or {}).get("solution"))})
+                solution = (result or {}).get("solution") or "解题失败，请重试或打字描述题目。"
+                # stream in chunks for perceived speed
+                for i in range(0, len(solution), 120):
+                    chunk = solution[i:i+120]
+                    out += chunk
+                    yield sse({"type": "text", "delta": chunk})
+                    time.sleep(0.01)
+
+            # ---- explain / ask: streaming VL-plus (concept-bridge style for explain) ----
+            else:
+                prompt = _VISION_EXPLAIN_PROMPT if intent == "explain" else _VISION_ASK_PROMPT
+                if intent == "explain":
+                    prompt += f"\n学生附言：{text}" if (req.text or "").strip() else ""
+                else:
+                    prompt += f"\n学生问题：{text}"
+                yield sse({"type": "status", "text": "思考中…"})
+                ts = time.time()
+                resp = _vl_stream(VISION_MODEL_PLUS, req.image_base64, req.mime,
+                                  prompt, history=req.history)
+                for line in resp.iter_lines(decode_unicode=True):
+                    if not line or not line.startswith("data:"):
+                        continue
+                    payload = line[5:].strip()
+                    if payload == "[DONE]":
+                        break
+                    try:
+                        ev = json.loads(payload)
+                        delta = (ev.get("choices") or [{}])[0].get("delta", {}).get("content", "")
+                        if ev.get("usage"):
+                            tokens += int(ev["usage"].get("total_tokens", 0) or 0)
+                    except Exception:
+                        continue
+                    if delta:
+                        out += delta
+                        yield sse({"type": "text", "delta": delta})
+                steps.append({"type": "vl", "name": VISION_MODEL_PLUS,
+                              "ms": int((time.time()-ts)*1000), "ok": bool(out)})
+
+            yield sse({"type": "usage", "total_tokens": tokens, "intent": intent})
+            yield "data: [DONE]\n\n"
+        except Exception as e:
+            err = str(e)[:120]
+            yield sse({"type": "error", "text": f"图片处理失败：{err}（可重试或改打字提问）"})
+            yield "data: [DONE]\n\n"
+        finally:
+            _vision_metrics(user_id, intent or "unknown", steps,
+                            int((time.time()-t0)*1000), tokens, err, text, out)
+
+    return StreamingResponse(stream(), media_type="text/event-stream")
 
 
 # ============================================================================
