@@ -1,8 +1,8 @@
 # 数跃 Harness V4 · Agent 设计文档
 
-> **版本**：v2.4（P6 完成 + P7-P10 升级路线规划，KT 并入 P9）
+> **版本**：v2.5（P6 完成 + P7-P10 升级路线规划，KT 并入 P9，P8 定稿为通用视觉问答）
 > **日期**：2026-09-27
-> **状态**：P0-P6 全部完成（10 skills / 14 tools / 联动 90%+ / e2e 全绿）；P7-P10 升级路线已规划（见第九章）；执行顺序定为**先迭代后上线**（阶段0+P7 → P8 → P9(含KT) → P10 → 部署预演 → 备案通过即上线）
+> **状态**：P0-P6 全部完成 + 阶段 0 上线加固完成（OWASP 重置/JWT 吊销/P7 遥测/同源托管，`af08f77`）；P8 定稿待实施；执行顺序**先迭代后上线**（P8 → P9(含KT) → P10 → 部署预演 → 备案通过即上线）
 > **用途**：V4 开发的执行对照表——每个功能带 ID/期次/验收标准，完成后勾选状态；本文档随代码版本化，是唯一权威参考
 > **工作区**：`D:\study\智学桥\ShuYue-agent\`（harness-v4 worktree，端口 8003，独立数据库，与主分支零干扰）
 > **采用条件**：P1-P4 验收通过后 merge 回 main；效果不达预期则废弃本分支，主分支无损
@@ -330,6 +330,7 @@ code_v2/
 | 2026-09-27 | v2.2 | **P6 完成：Reader 概念深讲联动**。交付：`GET /api/skills/{name}`（skill body 下发）+ `POST /api/agent/concept-check`（轻量 flash 判定，4/4 PASS）+ `readerConceptSuggest()`（检测即写记忆 + 正则兜底 + 紧凑建议条独占回答下方一行）+ `readerDeepConcept()`（SKILL.md 注入四层重答 + iris 渐变气泡/边条/标签头/280px 折叠）。三轮实测修复：R1 检测改轻量端点+记忆提前到检测时（`ff0ac99`）；R2 建议条紧凑化+深讲折叠（`b7c697b`）；R3 `aiDiv.after()` 修侧面定位+检测可靠性（`5343255`，测试 FAIL 为 PowerShell 管道中文乱码假象）。P3 回归 13/13 保持全绿。**端点 14→16（含 2 新 API），跨页面联动 Reader↔Agent 打通** |
 | 2026-09-27 | v2.3 | **P7-P10 升级路线规划（第九章）**。定位：作为"回答问题的辅导 agent"已完整，作为"陪伴学习 agent"差四块硬能力。P7 生产遥测（上线前 0.5 天：agent_metrics 表+统计端点+轨迹回放）；P8 手写作业批改（★核心：qwen-vl 拍照识别+grade_handwriting 工具+error-analysis 联动）；P9 主动学习陪伴（★留存：APScheduler+SM-2 复习队列+DirectMail 推送，weekly-review 由死代码转自动触发）；P10 Python 沙箱（sympy 隔离执行+solve_problem 验证增强）。新增决策 D9-D12；P2 级五项明确不做入档 |
 | 2026-09-27 | v2.4 | **两項用户决策入档**：① 执行顺序定为"先迭代后上线"——P7-P10 全部完成再上线（与备案 2-4 周窗口契合，上线首日即全功能）；② **知识追踪 KT 转正并并入 P9**（3→4.5 天）——复评结论：BKT 运行与拟合解耦，文献先验参数可冷启动，答题序列已在库（quiz_results.detail_json）。P9 新增：mastery_state 表 + BKT 贝叶斯更新管道 + SRS 阈值触发调度（替代纯固定间隔）+ get_study_state 掌握概率叙述 + 图谱 32 节点 p_known 三档着色；DoD +2 条（更新正确性单元测试/着色实时性）。新增决策 D13；9.5 清单 KT 行标记"已转正"，DKT 仍远期 |
+| 2026-09-27 | v2.5 | **P8 定稿：通用视觉问答（贴图即问）**。范围从"手写批改"升级为一图三用（批改/解题/讲解），经用户四轮决策（①三合一 ②零落盘即问即答 ③tutor+Reader 双入口以 Ctrl+V 粘贴为主 ④只限批改 20 次/天其余不限、追问不限轮）+ 业界对标研究（Mathpix 提取/推理解耦架构验证两段式解题；qwen-vl 官方文档→无 System Message 提示词规范/流式优先/image_tokens 计量/vl-flash+vl-plus 双档）冻结技术工作流：`/api/vision/chat` 单端点 + flash 意图分流 + 两档 VL 路由（flash 提取/plus 批改讲解）+ solve 接 Harness 验证管道 + vision_usage 持久化配额 + SSE 协议（vision_intent/status/text/grade_result/quota_exceeded/usage）+ agent_metrics 记 vision:* 意图。D9 修订为两档路由。阶段 0 已先行完成（v2.4 后：OWASP 重置链路+JWT 吊销+P7 遥测+同源托管+备份脚本，commit af08f77，e2e 15/15+静态 12/12+P3 回归全过） |
 
 ---
 
@@ -367,26 +368,73 @@ code_v2/
 2. ✅ 任一会话可导出 6 步循环轨迹（排查"答错"）
 3. ✅ 写入对主路径延迟 <5ms（异步或单 INSERT）
 
-### P8：手写作业批改（上线第一迭代 · ~3 天）★核心
+### P8：通用视觉问答——贴图即问（上线第一迭代 · ~3 天）★核心
 
-**动机**：数学学生在纸上做题。不能拍手写解答问"我哪一步错了"，是数学辅导 agent 最大的场景断裂——这是用户会为之付费的能力。
+> 2026-09-27 定稿：范围从"手写批改"升级为**一图三用**（批改/解题/讲解）。用户四轮决策 + 业界对标（Mathpix 架构、qwen-vl 官方文档）研究后冻结。
 
-**方案**：
-| 组件 | 内容 |
-|------|------|
-| 上传管道 | `/api/documents/upload` 扩展图片类型（jpg/png/heic），存 `uploads/`；前端拍照/选图入口 |
-| VL 识别 | DashScope qwen-vl：手写→结构化（题目+逐步解答）；提示词要求保留原步骤编号 |
-| 新工具 `grade_handwriting` | 读 | 入参 image 路径+可选题目上下文 → VL 识别 → 逐步对错判定 → 错因归类（衔接 error-analysis skill 五类归因） |
-| 批改报告卡 | 前端动作卡：逐题 ✓/✗ + 错在哪一步 + 错因 + 变式练习按钮（跳 quiz 出题） |
-| 记忆联动 | 批改结果写 episodic 记忆（"X 月 X 日手写作业：数列极限证明第 2 步 ε 声明方向错误"） |
+**动机**：数学学生在纸上做题、截图搜题、拍教材页。不能贴图提问是数学辅导 agent 最大的场景断裂——这是用户会为之付费的能力。
+
+**用户决策记录**：
+1. 范围：批改 + 解题 + 讲解/提问三合一（"不仅是拍照批改也可粘贴照片询问知识点、解题"）
+2. 存储：**零落盘**即问即答（"不用保存吧"）——隐私留存问题顺带消解
+3. 入口：tutor + Reader 双处都要；粘贴（Ctrl+V）为主入口，兼拖拽/拍照
+4. 配额：**只限批改**（20 次/天，`VISION_GRADE_DAILY_LIMIT` 可调）；解题/讲解/追问不限——追问分流为 ask 意图天然不限，日配额是唯一闸门
+5. 游客：仅登录用户（VL 成本管控）
+
+**业界对标结论**：
+| 来源 | 发现 | 采纳 |
+|------|------|------|
+| Mathpix（数学 OCR 标杆） | 产品本质=提取层（手写→LaTeX），不做推理 | 验证两段式解题：VL 提取 + 自有 Harness 推理 |
+| qwen-vl 官方文档 | ① 非工具场景建议**不设 System Message**（指令放 User Message）② 流式优先 ③ usage 含 `image_tokens` ④ vl-plus/flash 双档（混思模型，默认关思考） | ① 提示词规范 ② 全链路 SSE ④ **两档 VL 路由**（镜像文本决策层）：提取用 flash、批改/讲解用 plus |
+
+**技术工作流**：
+```
+前端 app/vision.js（tutor + Reader 共享）
+  粘贴/拖拽/拍照 → 校验(jpg/png/webp/bmp，拒 HEIC 带切换提示)
+  → canvas 压缩 ≤1600px jpeg85 (~300KB) → chip 常驻预览（"图片在上下文中 ×"）
+  → 发送（空文字默认"帮我批改"）
+POST /api/vision/chat（需登录）{image_base64, text, history≤3}
+  ① flash 意图分流（grade|solve|explain|ask，空→auto）
+  ② grade：vision_usage 配额检查（mineru_usage 同款表，持久化，超→quota_exceeded）
+  ③ 路由：
+     grade   → qwen3-vl-plus + rubric 提示词（user msg，无 system）
+               → 严格 JSON（逐题/逐步/对错/错步/五类归因/建议）
+     solve   → qwen3-vl-flash 提取题目/LaTeX → 现有解题管道（车道路由+验证器）
+     explain → qwen3-vl-plus + concept-bridge 四层结构
+     ask     → qwen3-vl-plus + 附言
+SSE: vision_intent → status → text* | grade_result → usage → [DONE]
+遥测：agent_metrics 行（intent="vision:*"，tokens 含 image_tokens）
+记忆（前端后置写入，P6 模式）：批改→episodic；讲解→概念记忆
+联动：报告卡 [🎯 变式练习] 按错题主题跳转出题页
+```
+
+**批改报告卡**（grade 意图专属渲染）：
+```
+┌ 📝 手写作业批改 · 3 题 ──────────────┐
+│ 题1 ✓ 极限计算          方法正确      │
+│ 题2 ✗ 第2步：洛必达前未验证 0/0 型    │
+│      错因: 概念误解 · 建议: 先检验型别 │
+│ [🎯 变式练习]                         │
+└──────────────────────────────────────┘
+```
 
 **DoD**：
-1. ✅ 手机拍手写解答 → 30s 内结构化批改（逐题对错+错步定位+错因）
-2. ✅ 错题自动进错题记忆，后续"我最近常犯什么错"可答
-3. ✅ 与 error-analysis skill 行为一致（同一归因体系）
-4. ✅ VL 调用失败优雅降级（提示重拍/改打字）
+1. ✅ tutor 与 Reader 均可 Ctrl+V 贴图（含拖拽/拍照），chip 预览可移除
+2. ✅ 三意图正确分流：贴手写解答+"批改"→报告卡；贴题目+"怎么做"→分步解答；贴教材页+"讲讲"→四层讲解；空附言自判
+3. ✅ 批改 30s 内结构化输出（逐题对错+错步定位+五类归因）
+4. ✅ 批改结论进 episodic 记忆（"我最近常犯什么错"可答）
+5. ✅ 配额：第 21 次批改 → 友好卡片（解题/讲解不受限提示）；追问不限轮数
+6. ✅ 追问轮自动重带图片（chip 在即带），VL 失败优雅降级（提示重拍/改打字）
+7. ✅ e2e：假手写样图（matplotlib 造含错解答）验证 JSON 结构 + 三意图路由 + 配额
 
-**风险**：qwen-vl 手写数学符号识别率（尤其中英混排/涂改）——先内测 20 张真实作业标定；识别置信度低时要求用户确认转写。
+**风险**：qwen3-vl 手写数学符号识别率（中英混排/涂改/多题同图）——第 3 天用 20 张真实作业标定；置信度低时要求用户确认转写。HEIC 不支持（提示 iPhone 切"兼容格式"，国行默认 JPEG）。
+
+**分天执行**：
+| 天 | 内容 |
+|----|------|
+| 1 | 后端：`/api/vision/chat` + flash 分流 + VL 两档路由 + 三路提示词 + solve 接 Harness + 配额表 + e2e |
+| 2 | 前端：`app/vision.js` 共享模块（三入口/压缩/chip/上下文管理/报告卡/流式气泡复用/guest 引导/记忆写入/变式跳转）× 接入 tutor + Reader |
+| 3 | 标定：用户 20 张真实样本 → 识别率报告 → 提示词调优 |
 
 ### P9：主动学习陪伴 + 知识追踪（第二迭代 · ~4.5 天）★留存
 
@@ -449,7 +497,7 @@ code_v2/
 
 | # | 决策 | 依据 |
 |---|------|------|
-| **D9** | VL 选 **qwen-vl-plus**（P8） | DashScope 同生态零接入成本；手写数学识别先内测验标，不达标再比 Gemini/GPT-4o 视觉 |
+| **D9** | VL **两档路由**（P8，2026-09-27 修订）：批改/讲解用 **qwen3-vl-plus**、题目提取用 **qwen3-vl-flash** | 镜像文本决策层的分档哲学；官方文档：vl 双档混思模型（默认关思考）、非工具场景建议无 System Message（指令放 user msg）、流式优先、usage 含 image_tokens；Mathpix 架构验证"提取与推理解耦"。原选型 qwen-vl-plus 升级为新命名 qwen3-vl-plus |
 | **D10** | 推送通道**复用 DirectMail**（P9） | 上线方案 B 已建邮件通道；免费日 200 封覆盖内测；不做 App 推送（无 App）不做短信（成本） |
 | **D11** | 沙箱用 **subprocess + 白名单**（P10） | 单机部署最轻量；Docker 容器级隔离等用户量起来再上；白名单 math/sympy/numpy 覆盖 95% 数学场景 |
 | **D12** | 调度器选 **APScheduler**（P9） | 进程内随 FastAPI 启动，零运维；celery+redis 对单机 SQLite 是过度设计 |
