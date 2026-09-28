@@ -73,7 +73,7 @@ except ImportError:
     AnswerVerifier = None
     HarnessAPIClient = None
 
-from fastapi import FastAPI, UploadFile, File, Form, HTTPException, Depends, Header
+from fastapi import FastAPI, UploadFile, File, Form, HTTPException, Depends, Header, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import StreamingResponse, FileResponse, JSONResponse
 from pydantic import BaseModel
@@ -114,6 +114,15 @@ MODEL = os.getenv("MODEL", "qwen3.8-27b")
 TRANSLATE_MODEL = os.getenv("TRANSLATE_MODEL", "qwen-turbo")
 PORT = int(os.getenv("PORT", "8000"))
 HOST = os.getenv("HOST", "0.0.0.0")
+# --- Phase 0 (launch): email reset + environment isolation + admin ---
+APP_BASE_URL = os.getenv("APP_BASE_URL", "").rstrip("/")   # e.g. https://shuyue.example.com (OWASP: hardcoded trusted origin, never trust Host header)
+SMTP_HOST = os.getenv("SMTP_HOST", "")                     # Aliyun DirectMail SMTP endpoint
+SMTP_PORT = int(os.getenv("SMTP_PORT", "465"))
+SMTP_USER = os.getenv("SMTP_USER", "")                     # e.g. noreply@mail.yourdomain.com
+SMTP_PASSWORD = os.getenv("SMTP_PASSWORD", "")
+MAIL_FROM = os.getenv("MAIL_FROM", "")                     # display sender (defaults to SMTP_USER)
+ENV_NAME = os.getenv("ENV", "development")                 # production | development (P7: keep test data out of prod stats)
+ADMIN_EMAIL = os.getenv("ADMIN_EMAIL", "")                 # sole admin for /api/agent/metrics/stats when set
 UPLOAD_DIR = os.path.join(os.path.dirname(__file__), "uploads")
 DB_PATH = os.path.join(os.path.dirname(__file__), "cognibridge.db")
 ENV_PATH = os.path.join(os.path.dirname(__file__), ".env")
@@ -321,6 +330,29 @@ def init_db():
         created_at TEXT DEFAULT (datetime('now'))
     );
     CREATE INDEX IF NOT EXISTS idx_tool_audit_user ON tool_audit_log(user_id, id DESC);
+
+    -- P7: agent run metrics (Langfuse-style trace — one row per run, steps as JSON)
+    CREATE TABLE IF NOT EXISTS agent_metrics (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        session_id TEXT DEFAULT '',
+        user_id TEXT,
+        env TEXT DEFAULT 'development',
+        intent TEXT DEFAULT '',
+        skill TEXT DEFAULT '',
+        fast_path INTEGER DEFAULT 0,
+        steps TEXT DEFAULT '[]',
+        n_tools INTEGER DEFAULT 0,
+        tools_fail INTEGER DEFAULT 0,
+        total_ms INTEGER DEFAULT 0,
+        total_tokens INTEGER DEFAULT 0,
+        interrupted INTEGER DEFAULT 0,
+        error TEXT DEFAULT '',
+        input_preview TEXT DEFAULT '',
+        output_preview TEXT DEFAULT '',
+        created_at TEXT DEFAULT (datetime('now'))
+    );
+    CREATE INDEX IF NOT EXISTS idx_agent_metrics_created ON agent_metrics(created_at);
+    CREATE INDEX IF NOT EXISTS idx_agent_metrics_user ON agent_metrics(user_id, id DESC);
     """)
 
     # === Migration: add user_id to legacy tables (notes/documents) ===
@@ -333,6 +365,8 @@ def init_db():
     _ensure_column("documents", "user_id", "TEXT REFERENCES users(id)")
     _ensure_column("assessments", "result_json", "TEXT DEFAULT '{}'")   # full pretestResult snapshot
     _ensure_column("study_plans", "state_json", "TEXT DEFAULT '{}'")    # full plan state snapshot
+    # Phase 0: JWT session revocation — bump on password reset, invalidates all old tokens
+    _ensure_column("users", "token_version", "INTEGER DEFAULT 0")
 
     # One-time repair: imported/legacy embeddings may store dim as REAL
     # (e.g. 1024.0), which breaks struct.unpack -> cast back to INTEGER.
@@ -644,11 +678,14 @@ def get_current_user(authorization: Optional[str] = Header(None)):
             return None
     except (JWTError, ValueError):
         return None
-    
+
     conn = get_db()
     user = conn.execute("SELECT * FROM users WHERE id=?", (user_id,)).fetchone()
     conn.close()
     if user is None:
+        return None
+    # Phase 0: session revocation — tokens minted before a password reset die
+    if int(payload.get("tv", 0)) != int(user["token_version"] or 0):
         return None
     return dict(user)
 
@@ -679,6 +716,47 @@ class ForgotPassword(BaseModel):
 class ResetPassword(BaseModel):
     token: str
     new_password: str
+
+
+# ============================================================================
+# Phase 0: email sending (DirectMail SMTP) + auth rate limiting
+# ============================================================================
+
+def _send_email(to: str, subject: str, html_body: str) -> bool:
+    """Send transactional email via SMTP (Aliyun DirectMail).
+    Unconfigured (dev): fall back to console print — flows keep working locally."""
+    if not (SMTP_HOST and SMTP_USER and SMTP_PASSWORD):
+        print(f"[email:dev-fallback] to={to} | {subject}\n{html_body}")
+        return False
+    try:
+        import smtplib
+        from email.mime.text import MIMEText
+        from email.header import Header
+        msg = MIMEText(html_body, "html", "utf-8")
+        msg["Subject"] = Header(subject, "utf-8")
+        msg["From"] = MAIL_FROM or SMTP_USER
+        msg["To"] = to
+        with smtplib.SMTP_SSL(SMTP_HOST, SMTP_PORT, timeout=15) as s:
+            s.login(SMTP_USER, SMTP_PASSWORD)
+            s.sendmail(msg["From"], [to], msg.as_string())
+        return True
+    except Exception as e:
+        print(f"[email] send failed to {to}: {e}")
+        return False
+
+
+_forgot_rate: dict = {}   # ip -> [request timestamps] (OWASP: stop email-flooding)
+
+
+def _rate_ok(ip: str, limit: int = 3, window_s: int = 3600) -> bool:
+    now = time.time()
+    lst = [t for t in _forgot_rate.get(ip, []) if now - t < window_s]
+    if len(lst) >= limit:
+        _forgot_rate[ip] = lst
+        return False
+    lst.append(now)
+    _forgot_rate[ip] = lst
+    return True
 
 # ============================================================================
 # HARNESS: Topic Detection & Routing (from harness_uk_math.py)
@@ -905,6 +983,14 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+# Phase 0: baseline security headers (OWASP reset-page referrer-leak guidance)
+@app.middleware("http")
+async def security_headers(request: Request, call_next):
+    response = await call_next(request)
+    response.headers.setdefault("X-Content-Type-Options", "nosniff")
+    response.headers.setdefault("Referrer-Policy", "no-referrer")
+    return response
+
 class ChatRequest(BaseModel):
     task_type: str = "general"
     messages: List[dict] = []
@@ -945,7 +1031,7 @@ async def register(req: UserRegister):
     )
     conn.commit(); conn.close()
     
-    access_token = create_access_token(data={"sub": user_id})
+    access_token = create_access_token(data={"sub": user_id, "tv": 0})
     return {
         "access_token": access_token,
         "token_type": "bearer",
@@ -961,8 +1047,8 @@ async def login(req: UserLogin):
     
     if not user or not verify_password(req.password, user["password_hash"]):
         raise HTTPException(401, "Invalid email or password")
-    
-    access_token = create_access_token(data={"sub": user["id"]})
+
+    access_token = create_access_token(data={"sub": user["id"], "tv": int(user["token_version"] or 0)})
     return {
         "access_token": access_token,
         "token_type": "bearer",
@@ -1020,56 +1106,85 @@ async def update_me(req: UserUpdate, current_user: Optional[dict] = Depends(get_
     return {"updated": True}
 
 @app.post("/api/auth/forgot-password")
-async def forgot_password(req: ForgotPassword):
-    """Forgot password — generates reset token (prints to console for demo)."""
+async def forgot_password(req: ForgotPassword, request: Request):
+    """Forgot password — OWASP-hardened reset flow.
+    ① uniform message for existent/non-existent accounts ② crypto-safe token
+    (256-bit) stored HASHED ③ per-IP rate limit (3/h) ④ reset URL from
+    APP_BASE_URL env (never the Host header) ⑤ real email via DirectMail
+    (console fallback in dev)."""
+    ip = request.client.host if request.client else "?"
+    if not _rate_ok(ip):
+        raise HTTPException(429, "请求过于频繁，请 1 小时后再试")
+
+    reset_token = secrets.token_urlsafe(32)
+    token_hash = hashlib.sha256(reset_token.encode()).hexdigest()
+    expires_at = (datetime.utcnow() + timedelta(hours=1)).isoformat()
+
     conn = get_db()
     user = conn.execute("SELECT id, email FROM users WHERE email=?", (req.email,)).fetchone()
-    if not user:
-        conn.close()
-        # Don't reveal whether email exists
-        return {"message": "If the email exists, a reset link has been generated."}
-    
-    reset_token = str(uuid.uuid4())
-    expires_at = (datetime.utcnow() + timedelta(hours=1)).isoformat()
-    
-    conn.execute(
-        "INSERT INTO password_resets (id, user_id, token, expires_at) VALUES (?,?,?,?)",
-        (str(uuid.uuid4())[:8], user["id"], reset_token, expires_at)
-    )
-    conn.commit(); conn.close()
-    
-    # For demo: print reset link to console (no real email sent)
-    reset_url = f"http://localhost:8000/reset-password.html?token={reset_token}"
-    print("=" * 60)
-    print("PASSWORD RESET REQUEST")
-    print(f"Email: {req.email}")
-    print(f"Reset URL: {reset_url}")
-    print("=" * 60)
-    
-    return {"message": "If the email exists, a reset link has been generated. Check server console."}
+    if user:
+        conn.execute(
+            "INSERT INTO password_resets (id, user_id, token, expires_at) VALUES (?,?,?,?)",
+            (uuid.uuid4().hex[:12], user["id"], token_hash, expires_at)
+        )
+        conn.commit()
+    conn.close()
+
+    if user:
+        base = APP_BASE_URL or "http://localhost:8001"
+        reset_url = f"{base}/#/reset?token={reset_token}"
+        sent = _send_email(
+            req.email, "重置你的数跃密码",
+            f'<div style="font-family:system-ui;max-width:480px;margin:0 auto;padding:24px;">'
+            f'<h2 style="color:#1a1a2e;">数跃 ShuYue</h2>'
+            f'<p>你（或他人）请求重置账号密码。点击下方链接设置新密码：</p>'
+            f'<p><a href="{reset_url}" style="display:inline-block;background:#6366f1;color:#fff;'
+            f'padding:10px 24px;border-radius:8px;text-decoration:none;">重置密码</a></p>'
+            f'<p style="color:#888;font-size:12px;">链接 1 小时内有效，仅可使用一次。'
+            f'若非本人操作，请忽略此邮件。</p></div>'
+        )
+        # dev (no SMTP): the link must still be reachable — print it
+        if not sent:
+            print(f"[reset] dev link for {req.email}: {reset_url}")
+
+    # OWASP: identical response whether or not the account exists
+    return {"message": "如果该邮箱已注册，重置链接已发送，请查收邮件。"}
+
 
 @app.post("/api/auth/reset-password")
 async def reset_password(req: ResetPassword):
-    """Reset password using token."""
+    """Reset password with token (hashed lookup, single-use, revokes sessions)."""
     if len(req.new_password) < 6:
         raise HTTPException(400, "Password must be at least 6 characters")
-    
+    if not any(c.isalpha() for c in req.new_password) or not any(c.isdigit() for c in req.new_password):
+        raise HTTPException(400, "Password must contain at least one letter and one number")
+
+    token_hash = hashlib.sha256(req.token.encode()).hexdigest()
     conn = get_db()
     reset = conn.execute(
         "SELECT * FROM password_resets WHERE token=? AND used=0 AND expires_at > ?",
-        (req.token, datetime.utcnow().isoformat())
+        (token_hash, datetime.utcnow().isoformat())
     ).fetchone()
-    
+
     if not reset:
         conn.close()
-        raise HTTPException(400, "Invalid or expired reset token")
-    
+        raise HTTPException(400, "重置链接无效或已过期，请重新申请")
+
+    user = conn.execute("SELECT email FROM users WHERE id=?", (reset["user_id"],)).fetchone()
     new_hash = get_password_hash(req.new_password)
-    conn.execute("UPDATE users SET password_hash=? WHERE id=?", (new_hash, reset["user_id"]))
+    conn.execute(
+        "UPDATE users SET password_hash=?, token_version=token_version+1 WHERE id=?",
+        (new_hash, reset["user_id"]))
     conn.execute("UPDATE password_resets SET used=1 WHERE id=?", (reset["id"],))
     conn.commit(); conn.close()
-    
-    return {"message": "Password reset successfully. Please log in with your new password."}
+
+    # OWASP: notify (never contain the password); old JWTs die via token_version
+    if user:
+        _send_email(user["email"], "你的数跃密码已重置",
+                    '<p>你的数跃账号密码刚刚被重置，所有旧登录已失效。'
+                    '若非本人操作，请立即联系管理员。</p>')
+
+    return {"message": "密码重置成功，请使用新密码登录。"}
 
 # ============================================================================
 # HEALTH
@@ -1669,6 +1784,60 @@ def agent_chat(req: AgentChatRequest,
         except Exception as e:
             print(f"[agent] persist failed: {e}")
 
+    # ---- P7 telemetry: per-run trace (Langfuse-style, low-cardinality names) ----
+    _mx = {"steps": [], "pending_tool": None, "decision": {}, "tokens": 0,
+           "t0": time.time(), "error": ""}
+
+    def _mx_track(chunk: str):
+        if not chunk.startswith("data: "):
+            return
+        try:
+            ev = json.loads(chunk[6:].strip())
+        except Exception:
+            return
+        et = ev.get("type")
+        if et == "decision":
+            _mx["decision"] = {"intent": ev.get("intent", ""),
+                               "confidence": ev.get("confidence", 0),
+                               "skill": ev.get("skill") or ""}
+        elif et == "tool_call":
+            _mx["pending_tool"] = {"name": ev.get("name", ""), "t0": time.time()}
+        elif et == "tool_result":
+            pt = _mx["pending_tool"] or {"name": ev.get("name", ""), "t0": _mx["t0"]}
+            summary = str(ev.get("summary", ""))
+            ok = not any(k in summary for k in ("失败", "未知工具", "上限", "error", "Error"))
+            _mx["steps"].append({"type": "tool", "name": ev.get("name") or pt["name"],
+                                 "ms": int((time.time() - pt["t0"]) * 1000), "ok": ok,
+                                 "summary": summary[:80]})
+            _mx["pending_tool"] = None
+        elif et == "usage":
+            _mx["tokens"] = int(ev.get("total_tokens") or 0)
+        elif et == "error":
+            _mx["error"] = str(ev.get("text", ""))[:120]
+
+    def _mx_write(output_preview: str, interrupted: bool = False):
+        """Single INSERT after the run — normal completion AND abort paths."""
+        try:
+            d = _mx["decision"]
+            n_tools = sum(1 for s in _mx["steps"] if s["type"] == "tool")
+            tools_fail = sum(1 for s in _mx["steps"] if s["type"] == "tool" and not s["ok"])
+            fast_path = 1 if (d.get("intent") == "chat" and not d.get("skill")
+                              and n_tools == 0) else 0
+            conn4 = get_db()
+            conn4.execute(
+                "INSERT INTO agent_metrics (session_id,user_id,env,intent,skill,fast_path,"
+                "steps,n_tools,tools_fail,total_ms,total_tokens,interrupted,error,"
+                "input_preview,output_preview) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)",
+                (req.session_id or "", user_id, ENV_NAME, d.get("intent", ""),
+                 d.get("skill", ""), fast_path,
+                 json.dumps(_mx["steps"], ensure_ascii=False)[:4000],
+                 n_tools, tools_fail, int((time.time() - _mx["t0"]) * 1000),
+                 _mx["tokens"], 1 if interrupted else 0, _mx["error"],
+                 message[:500], output_preview[:500]))
+            conn4.commit(); conn4.close()
+        except Exception as e:
+            print(f"[metrics] write failed: {e}")
+
     def stream():
         full_text = ""
         try:
@@ -1682,13 +1851,16 @@ def agent_chat(req: AgentChatRequest,
                             full_text += ev["delta"]
                     except Exception:
                         pass
+                    _mx_track(chunk)
             # persist BEFORE [DONE]: when the client sees DONE, the answer is
             # guaranteed to be in the DB (background-completion race fix).
             _persist(full_text)
+            _mx_write(full_text)
             yield "data: [DONE]\n\n"
         except GeneratorExit:
             # client aborted (Esc/stop) — keep the partial answer for the workspace
             _persist(full_text)
+            _mx_write(full_text, interrupted=True)
             raise
         except Exception as e:
             yield f"data: {json.dumps({'type': 'error', 'text': str(e)[:200]}, ensure_ascii=False)}\n\n"
@@ -1696,6 +1868,43 @@ def agent_chat(req: AgentChatRequest,
             return
 
     return StreamingResponse(stream(), media_type="text/event-stream")
+
+
+@app.get("/api/agent/metrics/stats")
+def agent_metrics_stats(days: int = 7, current_user: Optional[dict] = Depends(get_current_user)):
+    """P7: production telemetry aggregates. Admin-only when ADMIN_EMAIL is set."""
+    if not current_user:
+        raise HTTPException(401, "Not authenticated")
+    if ADMIN_EMAIL and current_user["email"] != ADMIN_EMAIL:
+        raise HTTPException(403, "Admin only")
+    conn = get_db()
+    rows = conn.execute(
+        "SELECT total_ms, n_tools, tools_fail, interrupted, fast_path, total_tokens, "
+        "intent, error, env, created_at FROM agent_metrics "
+        "WHERE created_at >= datetime('now', ?) AND env=?",
+        (f"-{int(days)} days", ENV_NAME)).fetchall()
+    conn.close()
+    if not rows:
+        return {"days": days, "env": ENV_NAME, "runs": 0}
+    lat = sorted(r["total_ms"] for r in rows)
+    n = len(rows)
+    p95 = lat[min(n - 1, int(n * 0.95))]
+    by_intent = {}
+    for r in rows:
+        by_intent[r["intent"] or "?"] = by_intent.get(r["intent"] or "?", 0) + 1
+    tools = sum(r["n_tools"] for r in rows)
+    fails = sum(r["tools_fail"] for r in rows)
+    return {
+        "days": days, "env": ENV_NAME, "runs": n,
+        "avg_ms": sum(lat) // n, "p95_ms": p95,
+        "interrupted_rate": round(sum(r["interrupted"] for r in rows) / n, 3),
+        "fast_path_share": round(sum(r["fast_path"] for r in rows) / n, 3),
+        "tool_calls": tools,
+        "tool_fail_rate": round(fails / tools, 3) if tools else 0.0,
+        "total_tokens": sum(r["total_tokens"] for r in rows),
+        "errors": sum(1 for r in rows if r["error"]),
+        "by_intent": by_intent,
+    }
 
 
 @app.post("/api/chat")
@@ -3605,6 +3814,34 @@ async def get_stats(current_user: Optional[dict] = Depends(get_current_user)):
         "problems_solved": solved,
         "day_streak": streak,
     }
+
+# ============================================================================
+# Phase 0: same-origin static hosting (whitelist catch-all — LAST route)
+# Serves the SPA from this FastAPI process so the frontend ships with the
+# backend (no CORS, no separate web server). Whitelist-based: .env, the
+# SQLite DB, server source and uploads are NEVER reachable.
+# ============================================================================
+
+_STATIC_ROOT = os.path.dirname(__file__)
+_STATIC_SUBDIRS = ("app/", "styles/")          # code assets only
+_STATIC_ROOT_FILE = re.compile(r'^[A-Za-z0-9._-]+\.(html|js|css|png|svg|ico|woff2?|map)$')
+
+@app.get("/{path:path}")
+async def spa_static(path: str):
+    if not path:
+        return FileResponse(os.path.join(_STATIC_ROOT, "index.html"))
+    p = path.replace("\\", "/")
+    # explicit sensitive-prefix block (defence in depth on top of the whitelist)
+    if p.startswith((".", "uploads/", "mineru_data/", "agent/", "skills/", "core/",
+                     "verification/", "models/", "harness", "__pycache__/")):
+        raise HTTPException(404, "Not Found")
+    allowed = p.startswith(_STATIC_SUBDIRS) or ("/" not in p and _STATIC_ROOT_FILE.match(p))
+    if not allowed:
+        raise HTTPException(404, "Not Found")
+    full = os.path.normpath(os.path.join(_STATIC_ROOT, p))
+    if not full.startswith(_STATIC_ROOT) or not os.path.isfile(full):
+        raise HTTPException(404, "Not Found")
+    return FileResponse(full)
 
 # ============================================================================
 # MAIN

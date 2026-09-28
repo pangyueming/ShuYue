@@ -370,6 +370,8 @@ def run_agent(message: str, history: list, user_skill, user_id, approved_tools=N
             yield _sse({"type": "error", "text": f"生成失败：{str(e)[:120]}"})
             return
 
+    # P7 telemetry: token usage of this run (fast-path streams don't report usage)
+    yield _sse({"type": "usage", "total_tokens": used_tokens})
     yield _sse({"type": "actions", "items": actions})
 
 

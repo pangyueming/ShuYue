@@ -1,7 +1,16 @@
 ﻿// ===== AUTH & API =====
-// Default points at the duel-review backend (localhost:8000).
+// Phase 0 launch: auto-detect backend origin.
+//   http(s)://  → same origin (production single-server deployment)
+//   file://     → localhost dev fallback
 // Override for local testing: localStorage.setItem('cb_cn_api_base','http://localhost:8010')
-const AI_BACKEND_URL=(function(){try{return localStorage.getItem('cb_cn_api_base')||'http://localhost:8001';}catch(e){return 'http://localhost:8001';}})();
+const AI_BACKEND_URL=(function(){
+    try{
+        const o=localStorage.getItem('cb_cn_api_base');
+        if(o)return o;
+        if(location.protocol==='http:'||location.protocol==='https:')return location.origin;
+        return 'http://localhost:8001';
+    }catch(e){return 'http://localhost:8001';}
+})();
 
 // Global API fetch with JWT token
 async function apiFetch(url,options={}){
@@ -25,6 +34,8 @@ function authToggleMode(){
     const loginForm=document.getElementById('login-form');
     const regForm=document.getElementById('register-form');
     const forgotForm=document.getElementById('forgot-form');
+    const resetForm=document.getElementById('reset-form');
+    if(resetForm)resetForm.style.display='none';
     if(loginForm.style.display==='none'){
         loginForm.style.display='block';regForm.style.display='none';forgotForm.style.display='none';
     }else{
@@ -40,6 +51,54 @@ function authShowLogin(){
     document.getElementById('login-form').style.display='block';
     document.getElementById('register-form').style.display='none';
     document.getElementById('forgot-form').style.display='none';
+    const rf=document.getElementById('reset-form');
+    if(rf)rf.style.display='none';
+}
+function authShowReset(token){
+    document.getElementById('login-form').style.display='none';
+    document.getElementById('register-form').style.display='none';
+    document.getElementById('forgot-form').style.display='none';
+    const rf=document.getElementById('reset-form');
+    if(rf){
+        rf.style.display='block';
+        if(token)document.getElementById('reset-token').value=token;
+    }
+}
+
+// Phase 0: parse #/reset?token=xxx from email link → show reset form on load
+(function authMaybeResetRoute(){
+    try{
+        if(location.hash.startsWith('#/reset')){
+            const q=location.hash.split('?')[1]||'';
+            const token=new URLSearchParams(q).get('token')||'';
+            if(!token){showNotification('重置链接无效（缺少 token）','error');return;}
+            // wait for DOM + login page availability, then switch to reset form
+            const _try=()=>{const rf=document.getElementById('reset-form');
+                if(rf){authShowReset(token);location.hash='#/';}
+                else setTimeout(_try,120);};
+            setTimeout(_try,150);
+        }
+    }catch(e){}
+})();
+
+async function authApplyReset(){
+    const token=document.getElementById('reset-token').value.trim();
+    const pw=document.getElementById('reset-password').value;
+    const pw2=document.getElementById('reset-password2').value;
+    if(!token){showNotification('重置链接无效','warning');return;}
+    if(pw.length<6){showNotification('密码至少 6 位','warning');return;}
+    if(!/[a-zA-Z]/.test(pw)||!/\d/.test(pw)){showNotification('密码需包含至少一个字母和一个数字','warning');return;}
+    if(pw!==pw2){showNotification('两次输入的密码不一致','warning');return;}
+    if(typeof formBusy==='function')formBusy('reset-form',true,'重置中…');
+    try{
+        const res=await fetch(AI_BACKEND_URL+'/api/auth/reset-password',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({token,new_password:pw})});
+        if(!res.ok){const err=await res.json();throw new Error(err.detail||'重置失败');}
+        showNotification('密码重置成功，请使用新密码登录','success');
+        document.getElementById('reset-password').value='';
+        document.getElementById('reset-password2').value='';
+        authShowLogin();
+    }catch(e){showNotification(e.message,'error');}
+    finally{if(typeof formBusy==='function')formBusy('reset-form',false);}
 }
 
 async function authLogin(){
@@ -92,14 +151,14 @@ async function authRegister(){
 
 async function authForgotPassword(){
     const email=document.getElementById('forgot-email').value.trim();
-    if(!email){showNotification('Please enter your email','warning');return;}
-    if(typeof formBusy==='function')formBusy('forgot-form',true,'Sending…');
+    if(!email){showNotification('请输入邮箱','warning');return;}
+    if(typeof formBusy==='function')formBusy('forgot-form',true,'发送中…');
     try{
         const res=await fetch(AI_BACKEND_URL+'/api/auth/forgot-password',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({email})});
-        if(!res.ok)throw new Error('Failed');
-        showNotification('重置链接已生成，请查看服务器控制台。');
+        if(!res.ok){const err=await res.json();throw new Error(err.detail||'请求过于频繁');}
+        showNotification('如果该邮箱已注册，重置邮件已发送，请查收（含垃圾箱）。');
         authShowLogin();
-    }catch(e){showNotification('生成重置链接失败','error');}
+    }catch(e){showNotification(e.message,'error');}
     finally{if(typeof formBusy==='function')formBusy('forgot-form',false);}
 }
 
