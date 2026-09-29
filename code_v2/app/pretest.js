@@ -219,6 +219,22 @@ async function collectPlanTasks(result){
     const week=Math.min(16,Math.max(1,parseInt(planState.currentWeek||result.currentWeek||1)||1));
     const evidence=await fetchQuizEvidence();
     const groups=[];let totalTasks=0,doneTasks=0;
+    // P9 Day-3.5: AI weekly-adapted tasks (server-written Friday) render as their
+    // own 🔄 group ABOVE the derived curriculum plan — 演进不推倒.
+    const adapted=(planState.adapted||[]).filter(x=>x&&x.name);
+    if(adapted.length){
+        const items=adapted.map(item=>{
+            const key=planKey('adapt',item.name);
+            const prog=planState.progress[key]||0;
+            const completed=!!planState.completed[key]||prog>=100;
+            totalTasks++;if(completed)doneTasks++;
+            return {item:{name:item.name,desc:item.desc||'',adaptedKind:item.kind||''},
+                    key,prog,completed};
+        });
+        groups.push({block:{w:[week,week],title:'AI 周自适应'},ongoing:true,until:0,
+            tracks:[{tr:'adapt',icon:'refresh-cw',rgb:'122,107,255',u:{n:'AI 自适应（本周）'},items,gkey:'adapt',
+                adapted:true}],adapt:true});
+    }
     CURRICULUM.forEach(block=>{
         if(block.w[1]<week)return;   // finished block — skip
         const ongoing=block.w[0]<=week&&block.w[1]>=week;
@@ -274,6 +290,18 @@ async function renderStudyPlanAsync(result){
     const data=await collectPlanTasks(result);
     const week=data.week;
     let html=`<div style="font-size:12px;color:var(--text-muted);margin-bottom:16px;">课程对齐衔接计划 · 教学周 <strong style="color:var(--text-primary);">${week}</strong>/16 <span style="font-size:10px;">（在个人资料或前测中修改）</span></div>`;
+
+    // P9 Day-3.5: weekly adaptation change card (server writes adapt_log Fridays)
+    const _ps=loadPlanState();
+    const _al=(_ps.adapt_log||[])[_ps.adapt_log?_ps.adapt_log.length-1:0];
+    if(_al&&_al.summary){
+        html+=`<div class="card glass" style="margin-bottom:14px;padding:12px 16px;border:1px solid rgba(122,107,255,.28);background:linear-gradient(135deg,rgba(122,107,255,.08),rgba(122,107,255,.02));display:flex;align-items:center;gap:10px;">
+            <span style="color:var(--iris-400,var(--accent));display:flex;">${iconHtml('refresh-cw',16)}</span>
+            <div style="flex:1;">
+                <div style="font-size:12.5px;font-weight:600;color:var(--text-primary);">本周计划已更新</div>
+                <div style="font-size:11px;color:var(--text-muted);margin-top:2px;">${escapeHtml(_al.summary)}${_al.added&&_al.added.length?('：'+_al.added.map(escapeHtml).join('、')):''}</div>
+            </div></div>`;
+    }
 
     data.groups.forEach(g=>{
         const status=g.ongoing?'<span style="font-size:10px;padding:2px 8px;border-radius:999px;background:rgba(82,196,26,.12);color:#52c41a;font-weight:600;">Now</span>'

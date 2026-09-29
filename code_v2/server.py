@@ -2159,10 +2159,98 @@ try:
     _p9_sched.add_job(_scan_and_remind, "cron", hour=8, minute=0, id="p9_daily_reminder")
     _p9_sched.add_job(lambda: _weekly_report(send_email=True), "cron",
                       day_of_week="fri", hour=18, minute=0, id="p9_weekly_report")
+    _p9_sched.add_job(lambda: _plan_adapt(), "cron",
+                      day_of_week="fri", hour=18, minute=5, id="p9_plan_adapt")
     _p9_sched.start()
-    print("[p9] scheduler started: daily 08:00 reminders + Fri 18:00 weekly report")
+    print("[p9] scheduler started: daily 08:00 reminders + Fri 18:00 weekly/plan-adapt")
 except Exception as _se:
     print(f"[p9] scheduler NOT started ({_se}) — /api/review/due still live")
+
+
+# ---------------------------------------------------------------------------
+# P9 Day-3.5: weekly plan adaptation — the plan EVOLVES with performance
+# (deterministic data-driven task generation; no flaky LLM in the loop).
+# ---------------------------------------------------------------------------
+
+_TOPIC_ZH = {
+    "Limits": "极限", "Differentiation": "导数", "Integration": "积分",
+    "Series_Convergence": "数列与级数", "Linear_Algebra": "线性代数",
+    "Probability": "概率统计", "Discrete_Math": "离散数学",
+    "Proof_Techniques": "证明方法", "Other": "综合", "三角函数": "三角函数",
+}
+
+
+def _plan_adapt(now=None):
+    """Friday 18:05 job: evolve each learner's study plan from THIS week's
+    evidence (per-topic accuracy + FSRS R). Writes `adapted` tasks + `adapt_log`
+    into study_plans.state_json (bumping lastUpdate so clients pull the new
+    version). Principle: 演进不推倒 — derived plan structure is untouched;
+    adapted tasks render as their own 🔄 group. One run per user per week."""
+    now = now or datetime.now()
+    day = now.date().isoformat()
+    from agent import fsrs as F
+    conn = get_db()
+    try:
+        plans = conn.execute(
+            "SELECT id, user_id, state_json FROM study_plans "
+            "ORDER BY last_updated DESC").fetchall()
+        adapted_users = 0
+        for row in plans:
+            uid = row["user_id"]
+            if conn.execute("SELECT 1 FROM notify_log WHERE user_id=? AND kind='plan_adapt' "
+                            "AND day=?", (uid, day)).fetchone():
+                continue
+            try:
+                st = json.loads(row["state_json"] or "{}")
+            except Exception:
+                continue
+            week = _weekly_data(uid)
+            mem = {m["topic"]: m["R"] for m in week.get("memory", [])}
+            # plan completion rate (same derivation as tools._state)
+            prog, comp = st.get("progress", {}), st.get("completed", {})
+            keys = set(prog) | set(comp)
+            done = sum(1 for k in keys if comp.get(k) or (prog.get(k) or 0) >= 100)
+            rate = round(done / len(keys), 2) if keys else None
+            # candidates: weak accuracy this week → 补强; low R not covered → 复习
+            tasks = []
+            for q in week.get("quizzes", []):
+                if q["accuracy"] < 0.6:
+                    zh = _TOPIC_ZH.get(q["topic"], q["topic"])
+                    tasks.append({"name": f"补强：{zh}",
+                                  "desc": f"本周正确率 {int(q['accuracy']*100)}%——建议专项练习 5 题",
+                                  "kind": "补强", "topic": q["topic"]})
+            for t, rr in sorted(mem.items(), key=lambda x: x[1]):
+                if rr < 0.5 and not any(t == x.get("topic") for x in tasks):
+                    zh = _TOPIC_ZH.get(t, t)
+                    tasks.append({"name": f"复习：{zh}",
+                                  "desc": f"记忆保持 {int(rr*100)}%——已接近遗忘临界",
+                                  "kind": "复习", "topic": t})
+                if len(tasks) >= 4:
+                    break
+            tasks = tasks[:4]
+            summary_bits = []
+            if rate is not None:
+                summary_bits.append(f"任务完成率 {int(rate*100)}%")
+            if tasks:
+                summary_bits.append(f"新增 {len(tasks)} 项自适应任务")
+            entry = {"week": now.isocalendar()[1], "day": day,
+                     "summary": "本周 " + "，".join(summary_bits) if summary_bits else "本周无新任务",
+                     "added": [t["name"] for t in tasks]}
+            # evolve: replace this week's adapted set (last week's completed ones
+            # keep their progress via stable keys), keep log tail
+            st["adapted"] = tasks
+            st["adapt_log"] = (st.get("adapt_log") or [])[-5:] + [entry]
+            st["lastUpdate"] = now.isoformat()
+            conn.execute("UPDATE study_plans SET state_json=?, last_updated=datetime('now') "
+                         "WHERE id=?", (json.dumps(st, ensure_ascii=False), row["id"]))
+            conn.execute("INSERT OR IGNORE INTO notify_log (user_id,kind,day) VALUES (?,?,?)",
+                         (uid, "plan_adapt", day))
+            conn.commit()
+            adapted_users += 1
+            print(f"[p9-plan] {uid}: +{len(tasks)} adapted tasks ({entry['summary']})")
+        print(f"[p9-plan] {day}: plans={len(plans)} adapted={adapted_users}")
+    finally:
+        conn.close()
 
 
 # ---------------------------------------------------------------------------
@@ -4823,7 +4911,26 @@ async def get_stats(current_user: Optional[dict] = Depends(get_current_user)):
         "SELECT avg_score FROM assessments WHERE user_id=? ORDER BY created_at DESC LIMIT 1",
         (user_id,)
     ).fetchone()
-    math_proficiency = assessment["avg_score"] if assessment else 0
+    # P9 Day-3.5: dynamic proficiency — average FSRS R(t) across tracked topics
+    # (live: rises with good reviews, decays with neglect). Cold-start guard:
+    # with sparse coverage (<3 topics) a blend of pretest + memory health avoids
+    # overstating overall ability from one fresh topic (user-flagged: 1 topic
+    # at R=0.99 must not read as "99% math mastery" when the pretest said 61).
+    _srs = conn.execute(
+        "SELECT stability, last_review_at FROM srs_queue WHERE user_id=?",
+        (user_id,)).fetchall()
+    _pre = assessment["avg_score"] if assessment else None
+    if _srs:
+        from agent import fsrs as _F
+        _rs = [_F.retrievability(r["stability"], _days_since(r["last_review_at"]))
+               for r in _srs]
+        _mem = sum(_rs) / len(_rs) * 100
+        if len(_srs) >= 3 or _pre is None:
+            math_proficiency = round(_mem)       # full dynamic once coverage exists
+        else:
+            math_proficiency = round(0.5 * _pre + 0.5 * _mem)   # cold-start blend
+    else:
+        math_proficiency = _pre if _pre is not None else 0
 
     # Documents Read: count of user's documents
     doc_count = conn.execute(
