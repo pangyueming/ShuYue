@@ -1491,13 +1491,42 @@ class VisionChatRequest(BaseModel):
     mime: str = "image/jpeg"
     text: str = ""
     history: List[dict] = []
+    session_id: str = ""      # P8: workspace persistence (vision turns live in the workspace)
+
+
+def _vision_grade_summary(parsed) -> str:
+    """Human-readable one-liner block for persisting a grade result (image itself is ephemeral)."""
+    try:
+        probs = (parsed or {}).get("problems") or []
+        wrong = [p for p in probs if p.get("result") == "wrong"]
+        lines = [f"📝 手写批改 · 共 {len(probs)} 题，错 {len(wrong)} 题"]
+        for p in wrong:
+            seg = f"题{p.get('no', '?')} ✗ {str(p.get('question', ''))[:40]}"
+            ws = next((s for s in p.get("steps", []) if s.get("verdict") == "wrong"), None)
+            if ws and ws.get("reason"):
+                seg += f"：{str(ws['reason'])[:60]}"
+            if p.get("error_type") and p["error_type"] != "无":
+                seg += f"（{p['error_type']}）"
+            lines.append(seg)
+        if (parsed or {}).get("overall"):
+            lines.append(str(parsed["overall"])[:80])
+        return "\n".join(lines)
+    except Exception:
+        return "📝 手写批改完成"
+
+
+# P8: heartbeat executor — run the blocking grade VL call off-thread so the SSE
+# generator can emit "批改中… Xs" every 5s (no 40s silence for the client).
+import concurrent.futures as _cfe
+_vision_pool = _cfe.ThreadPoolExecutor(max_workers=2, thread_name_prefix="vision")
 
 
 @app.post("/api/vision/chat")
 def vision_chat(req: VisionChatRequest,
                 current_user: Optional[dict] = Depends(get_current_user)):
     """P8: paste-and-ask vision endpoint (SSE). Image is ephemeral — never stored.
-    grade (20/day quota) | solve (VL extract → harness pipeline) | explain | ask."""
+    grade (20/day quota) | solve (VL extract → harness pipeline) | explain | ask.
+    session_id: turns persist into the workspace like any other chat."""
     if not current_user:
         raise HTTPException(401, "请登录后使用图片功能")
     if not req.image_base64:
@@ -1509,6 +1538,43 @@ def vision_chat(req: VisionChatRequest,
         raise HTTPException(413, "图片过大（>8MB），请裁剪后重试")
     user_id = current_user["id"]
     text = (req.text or "").strip() or "帮我批改"
+
+    # ---- P8 persistence: user turn + follow-up context from the workspace ----
+    session_ok = False
+    if user_id and req.session_id:
+        conn = get_db()
+        row = conn.execute("SELECT user_id FROM chat_sessions WHERE id=?",
+                           (req.session_id,)).fetchone()
+        session_ok = bool(row and row["user_id"] == user_id)
+        if session_ok:
+            if not req.history:
+                rows = conn.execute(
+                    "SELECT role, content FROM chat_messages WHERE session_id=? "
+                    "ORDER BY id DESC LIMIT 6", (req.session_id,)).fetchall()
+                req.history = [{"role": r["role"], "content": r["content"]}
+                               for r in reversed(rows)]
+            conn.execute(
+                "INSERT INTO chat_messages (session_id,role,content,meta) VALUES (?,?,?,?)",
+                (req.session_id, "user",
+                 "📷 图片提问" + (("：" + text) if text != "帮我批改" else ""),
+                 json.dumps({"vision": True}, ensure_ascii=False)))
+            conn.execute("UPDATE chat_sessions SET updated_at=datetime('now') WHERE id=?",
+                         (req.session_id,))
+            conn.commit()
+        conn.close()
+
+    def _persist_vision(full_text):
+        if not (session_ok and req.session_id and full_text):
+            return
+        try:
+            conn5 = get_db()
+            conn5.execute(
+                "INSERT INTO chat_messages (session_id,role,content,meta) VALUES (?,?,?,?)",
+                (req.session_id, "assistant", full_text,
+                 json.dumps({"vision": True}, ensure_ascii=False)))
+            conn5.commit(); conn5.close()
+        except Exception as e:
+            print(f"[vision] persist failed: {e}")
 
     def sse(ev: dict):
         return "data: " + json.dumps(ev, ensure_ascii=False) + "\n\n"
@@ -1552,8 +1618,15 @@ def vision_chat(req: VisionChatRequest,
 
                 yield sse({"type": "status", "text": "识别手写内容…"})
                 ts = time.time()
-                raw, tokens = _vl_call(VISION_MODEL_PLUS, req.image_base64, req.mime,
-                                       _VISION_GRADE_PROMPT, max_tokens=3000)
+                # heartbeat: run the blocking VL call off-thread; emit progress
+                # every 5s so a 30-40s grade never looks frozen
+                fut = _vision_pool.submit(_vl_call, VISION_MODEL_PLUS,
+                                          req.image_base64, req.mime,
+                                          _VISION_GRADE_PROMPT, None, 3000)
+                while not fut.done():
+                    yield sse({"type": "status", "text": f"批改中… {int(time.time() - ts)}s"})
+                    time.sleep(5)
+                raw, tokens = fut.result()
                 steps.append({"type": "vl", "name": VISION_MODEL_PLUS,
                               "ms": int((time.time()-ts)*1000), "ok": bool(raw)})
                 parsed = _extract_grade_json(raw)
@@ -1592,7 +1665,7 @@ def vision_chat(req: VisionChatRequest,
                 yield sse({"type": "grade_result",
                            "result": parsed or {"raw": raw[:2000], "parse_error": True},
                            "quota_left": left2})
-                out = raw[:500]
+                out = _vision_grade_summary(parsed) if parsed else raw[:500]
 
             # ---- solve: vl-flash extract → harness pipeline (verified) ----
             elif intent == "solve":
@@ -1659,7 +1732,12 @@ def vision_chat(req: VisionChatRequest,
                               "ms": int((time.time()-ts)*1000), "ok": bool(out)})
 
             yield sse({"type": "usage", "total_tokens": tokens, "intent": intent})
+            _persist_vision(out)          # assistant turn lands BEFORE the client sees DONE
             yield "data: [DONE]\n\n"
+        except GeneratorExit:
+            # client aborted — keep the partial answer in the workspace (same as agent chat)
+            _persist_vision(out or "（图片处理被中断）")
+            raise
         except Exception as e:
             err = str(e)[:120]
             yield sse({"type": "error", "text": f"图片处理失败：{err}（可重试或改打字提问）"})

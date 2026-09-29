@@ -1,13 +1,21 @@
 // ===== P8 Vision — 贴图即问（tutor + Reader 共享）=====
 // 图片零落盘：压缩后 base64 随请求发送，用完即弃。
 // 三入口：Ctrl+V 粘贴 / 拖拽 / 点击"图片"按钮（手机自动唤起相机）。
-// chip 常驻 composer 上方（"图片在上下文中"），追问自动重带；× 移除。
+// 图片状态按上下文隔离（P8 Day-2.5）：tutor:<工作台id|_temp> 与 reader 各自独立——
+// 新工作台从干净状态开始，切回旧台图片仍在（与材料/技能的会话隔离行为一致）。
 
-let __visionImg = null;   // {b64, mime, dataURL, w, h, kb}
+let __visionImgBySession = {};   // key -> {b64, mime, dataURL, w, h, kb}
+let __visionPickCtx = 'tutor';   // which chip the "图片" button was clicked from
 
-function visionHasImage(){ return !!__visionImg; }
+function __visionKey(ctx){
+    if (ctx === 'reader') return 'reader';
+    const sid = (typeof tutorActiveSession !== 'undefined' && tutorActiveSession) ? tutorActiveSession : '_temp';
+    return 'tutor:' + sid;
+}
 
-function visionClear(){ __visionImg = null; visionRenderChip(); }
+function visionHasImage(ctx){ return !!__visionImgBySession[__visionKey(ctx || 'tutor')]; }
+
+function visionClear(ctx){ delete __visionImgBySession[__visionKey(ctx || 'tutor')]; visionRenderChip(); }
 
 // ---------- 压缩（≤1600px jpeg 85%） ----------
 function __visionCompress(file){
@@ -30,7 +38,8 @@ function __visionCompress(file){
     });
 }
 
-async function visionHandleFiles(file){
+async function visionHandleFiles(file, ctx){
+    ctx = ctx || 'tutor';
     if (!file) return;
     if (!localStorage.getItem('cb_cn_token')) {
         showNotification('图片功能需登录使用——注册即解锁批改/解题/讲解', 'warning');
@@ -44,18 +53,19 @@ async function visionHandleFiles(file){
     }
     if (file.size > 8 * 1024 * 1024) { showNotification('图片超过 8MB，请裁剪后重试', 'warning'); return; }
     try {
-        __visionImg = await __visionCompress(file);
+        __visionImgBySession[__visionKey(ctx)] = await __visionCompress(file);
         visionRenderChip();
         showNotification('图片已就绪——输入问题后发送；不输入直接发送=自动判断', 'success');
     } catch (e) { showNotification('图片处理失败：' + (e.message || e), 'error'); }
 }
 
-// ---------- chip 渲染（无图时显示"图片"按钮=点击选图入口） ----------
+// ---------- chip 渲染（无图时显示"图片"按钮=点击选图入口；按上下文取图） ----------
 function visionRenderChip(){
-    ['vision-chip-tutor', 'vision-chip-reader'].forEach(id => {
+    [['vision-chip-tutor', 'tutor'], ['vision-chip-reader', 'reader']].forEach(([id, ctx]) => {
         const c = document.getElementById(id); if (!c) return;
-        if (!__visionImg) {
-            c.innerHTML = '<button onclick="document.getElementById(\'vision-file-input\').click()" '
+        const img = __visionImgBySession[__visionKey(ctx)];
+        if (!img) {
+            c.innerHTML = '<button onclick="__visionPick(\'' + ctx + '\')" '
                 + 'title="粘贴 / 拖拽 / 点击选图（手机可拍照）" '
                 + 'style="display:inline-flex;align-items:center;gap:4px;font-size:11px;color:var(--text-muted);'
                 + 'background:none;border:1px dashed rgba(128,128,128,.3);border-radius:8px;padding:3px 10px;'
@@ -67,20 +77,25 @@ function visionRenderChip(){
         }
         c.innerHTML = '<div style="display:flex;align-items:center;gap:8px;padding:5px 10px;border-radius:8px;'
             + 'border:1px solid rgba(122,107,255,.25);background:rgba(122,107,255,.06);margin-bottom:6px;">'
-            + '<img src="' + __visionImg.dataURL + '" style="width:40px;height:40px;object-fit:cover;border-radius:6px;">'
+            + '<img src="' + img.dataURL + '" style="width:40px;height:40px;object-fit:cover;border-radius:6px;">'
             + '<span style="font-size:11px;color:var(--iris-400,var(--accent));display:flex;align-items:center;gap:4px;">'
             + iconHtml('image', 12) + ' 图片在上下文中</span>'
-            + '<span style="font-size:10px;color:var(--text-muted);">' + __visionImg.kb + 'KB</span>'
-            + '<button onclick="visionClear()" style="margin-left:auto;color:#ff6b6b;background:none;border:none;'
+            + '<span style="font-size:10px;color:var(--text-muted);">' + img.kb + 'KB</span>'
+            + '<button onclick="visionClear(\'' + ctx + '\')" style="margin-left:auto;color:#ff6b6b;background:none;border:none;'
             + 'cursor:pointer;font-size:14px;" title="移除图片">×</button></div>';
         refreshIcons();
     });
 }
 
+function __visionPick(ctx){ __visionPickCtx = ctx || 'tutor'; document.getElementById('vision-file-input').click(); }
+
 // ---------- 共享 SSE 消费 ----------
-async function visionStream(text, history, h){
+async function visionStream(text, history, h, sessionId){
     const tok = localStorage.getItem('cb_cn_token');
-    const body = { image_base64: __visionImg.b64, mime: __visionImg.mime, text: text || '', history: (history || []).slice(-6) };
+    const body = { image_base64: __visionImgBySession[__visionKey(h.__ctx || 'tutor')].b64,
+                   mime: __visionImgBySession[__visionKey(h.__ctx || 'tutor')].mime,
+                   text: text || '', history: (history || []).slice(-6),
+                   session_id: sessionId || '' };
     const r = await fetch(AI_BACKEND_URL + '/api/vision/chat', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', ...(tok ? { 'Authorization': 'Bearer ' + tok } : {}) },
@@ -194,7 +209,9 @@ function visionQuizJump(topic){
 async function tutorVisionSend(text){
     const chat = document.getElementById('tutor-chat');
     if (!chat) return;
-    const img = __visionImg;
+    const ctx = 'tutor';
+    const img = __visionImgBySession[__visionKey(ctx)];
+    if (!img) return;
     const empty = chat.querySelector('.empty-hero'); if (empty) empty.remove();
     const q = text || '📷 图片提问（自动判断）';
     // 用户气泡（含缩略图）
@@ -219,23 +236,37 @@ async function tutorVisionSend(text){
     let orb = function(){}; try { orb = orbThinking(bubble, 'vision') || function(){}; } catch (e) {}
     chat.scrollTop = chat.scrollHeight;
     let full = '';
+    let lastRender = 0;   // P8 Day-2.5: render throttle (~150ms) — long answers stop thrashing
+    const renderFull = () => {
+        if (typeof mdToHtmlTutor === 'function') bubble.innerHTML = mdToHtmlTutor(full);
+        else bubble.textContent = full;
+        chat.scrollTop = chat.scrollHeight;
+    };
     const st = s => { stWrap.textContent = s; chat.scrollTop = chat.scrollHeight; };
-    const hist = (typeof tutorChatHistory !== 'undefined' && !tutorActiveSession) ? tutorChatHistory : [];
+    const sendSession = (typeof tutorActiveSession !== 'undefined') ? tutorActiveSession : null;
+    const hist = (!sendSession && typeof tutorChatHistory !== 'undefined') ? tutorChatHistory : [];
     try {
         await visionStream(text, hist, {
+            __ctx: ctx,
             onIntent: i => st('vision · ' + i),
             onStatus: s => st(s),
-            onText: d => { try { orb(); orb = function(){}; } catch (e) {} full += d; if (typeof mdToHtmlTutor === 'function') bubble.innerHTML = mdToHtmlTutor(full); else bubble.textContent = full; chat.scrollTop = chat.scrollHeight; },
+            onText: d => {
+                try { orb(); orb = function(){}; } catch (e) {}
+                full += d;
+                const now = Date.now();
+                if (now - lastRender > 150) { lastRender = now; renderFull(); }
+            },
             onGrade: (res, left) => { try { orb(); } catch (e) {} bubble.innerHTML = visionReportHtml(res, left); visionRememberGrade(res); refreshIcons(); },
             onQuota: ev => { try { orb(); } catch (e) {} bubble.innerHTML = visionQuotaHtml(ev); refreshIcons(); },
             onError: t => { try { orb(); } catch (e) {} bubble.innerHTML = '<span style="color:#ff6b6b;">' + escapeHtml(t) + '</span>'; }
-        });
+        }, sendSession);
     } catch (e) {
         try { orb(); } catch (e2) {}
         bubble.innerHTML = '<span style="color:#ff6b6b;">图片处理失败：' + escapeHtml(String(e.message || e)) + '</span>';
     } finally {
         stWrap.textContent = '';
-        if (typeof tutorChatHistory !== 'undefined' && !tutorActiveSession) {
+        if (full) renderFull();          // final state rendered unthrottled
+        if (!sendSession && typeof tutorChatHistory !== 'undefined') {
             tutorChatHistory.push({ role: 'user', content: text || '（图片提问）' });
             tutorChatHistory.push({ role: 'assistant', content: full || '（图片批改结果）' });
         }
@@ -247,7 +278,9 @@ async function tutorVisionSend(text){
 async function readerVisionSend(text){
     const msgArea = document.getElementById('ai-chat-messages');
     if (!msgArea) return;
-    const img = __visionImg;
+    const ctx = 'reader';
+    const img = __visionImgBySession[__visionKey(ctx)];
+    if (!img) return;
     if (typeof aiChatMessages !== 'undefined' && aiChatMessages.length === 0) msgArea.innerHTML = '';
     const userDiv = document.createElement('div');
     userDiv.style.cssText = 'display:flex;flex-direction:row-reverse;gap:8px;margin-bottom:12px;';
@@ -256,6 +289,10 @@ async function readerVisionSend(text){
         + '<img src="' + img.dataURL + '" style="max-width:180px;max-height:120px;border-radius:8px;display:block;margin-bottom:' + (text ? '6px' : '0') + ';">'
         + (text ? escapeHtml(text) : '') + '</div>';
     msgArea.appendChild(userDiv);
+    // P8 Day-2.5: status line — Reader used to sit silent for 10-40s (felt frozen)
+    const stEl = document.createElement('div');
+    stEl.style.cssText = 'padding:2px 0 2px 36px;font-size:11px;color:var(--text-muted);';
+    msgArea.appendChild(stEl);
     const aiDiv = document.createElement('div');
     aiDiv.style.cssText = 'display:flex;gap:8px;margin-bottom:12px;';
     aiDiv.innerHTML = '<div style="width:28px;height:28px;border-radius:50%;background:linear-gradient(135deg,var(--accent),#9b59f7);display:flex;align-items:center;justify-content:center;color:#fff;font-size:10px;font-weight:600;flex-shrink:0;">AI</div>'
@@ -265,11 +302,23 @@ async function readerVisionSend(text){
     msgArea.scrollTop = msgArea.scrollHeight;
     let orb = function(){}; try { orb = orbThinking(bubble, 'vision') || function(){}; } catch (e) {}
     let full = '';
+    let lastRender = 0;   // render throttle
+    const renderFull = () => {
+        bubble.innerHTML = (typeof markdownToHtml === 'function' ? markdownToHtml(full) : full);
+        msgArea.scrollTop = msgArea.scrollHeight;
+    };
     const hist = (typeof aiChatMessages !== 'undefined') ? aiChatMessages : [];
     try {
         await visionStream(text, hist, {
-            onStatus: s => { },
-            onText: d => { try { orb(); orb = function(){}; } catch (e) {} full += d; bubble.innerHTML = (typeof markdownToHtml === 'function' ? markdownToHtml(full) : full); msgArea.scrollTop = msgArea.scrollHeight; },
+            __ctx: ctx,
+            onStatus: s => { stEl.textContent = s; msgArea.scrollTop = msgArea.scrollHeight; },
+            onIntent: i => { stEl.textContent = 'vision · ' + i; },
+            onText: d => {
+                try { orb(); orb = function(){}; } catch (e) {}
+                full += d;
+                const now = Date.now();
+                if (now - lastRender > 150) { lastRender = now; renderFull(); }
+            },
             onGrade: (res, left) => { try { orb(); } catch (e) {} bubble.innerHTML = visionReportHtml(res, left); visionRememberGrade(res); refreshIcons(); },
             onQuota: ev => { try { orb(); } catch (e) {} bubble.innerHTML = visionQuotaHtml(ev); refreshIcons(); },
             onError: t => { try { orb(); } catch (e) {} bubble.innerHTML = '<span style="color:#ff6b6b;">' + escapeHtml(t) + '</span>'; }
@@ -278,6 +327,8 @@ async function readerVisionSend(text){
         try { orb(); } catch (e2) {}
         bubble.innerHTML = '<span style="color:#ff6b6b;">图片处理失败：' + escapeHtml(String(e.message || e)) + '</span>';
     } finally {
+        stEl.textContent = '';
+        if (full) renderFull();
         if (typeof aiChatMessages !== 'undefined') {
             aiChatMessages.push({ role: 'user', content: text || '（图片提问）' });
             aiChatMessages.push({ role: 'assistant', content: full || '（图片批改结果）' });
@@ -302,20 +353,20 @@ document.addEventListener('DOMContentLoaded', () => {
             const d = document.createElement('div'); d.id = 'vision-chip-reader';
             rInp.parentNode.insertBefore(d, rInp);
         }
-        // 隐藏 file input（capture：手机唤起相机）
+        // 隐藏 file input（capture：手机唤起相机）——上下文由 __visionPick 预设
         if (!document.getElementById('vision-file-input')) {
             const f = document.createElement('input');
             f.id = 'vision-file-input'; f.type = 'file'; f.accept = 'image/*';
             f.setAttribute('capture', 'environment'); f.style.display = 'none';
-            f.onchange = () => { if (f.files && f.files[0]) visionHandleFiles(f.files[0]); f.value = ''; };
+            f.onchange = () => { if (f.files && f.files[0]) visionHandleFiles(f.files[0], __visionPickCtx); f.value = ''; };
             document.body.appendChild(f);
         }
-        // 粘贴：tutor + reader 输入框
-        [['tutor-input'], ['ai-chat-input']].forEach(([id]) => {
+        // 粘贴：tutor + reader 输入框（各携上下文）
+        [['tutor-input', 'tutor'], ['ai-chat-input', 'reader']].forEach(([id, ctx]) => {
             const el = document.getElementById(id); if (!el) return;
             el.addEventListener('paste', e => {
                 const files = [...((e.clipboardData && e.clipboardData.files) || [])].filter(x => x.type.startsWith('image/'));
-                if (files.length) { e.preventDefault(); visionHandleFiles(files[0]); }
+                if (files.length) { e.preventDefault(); visionHandleFiles(files[0], ctx); }
             });
         });
         visionRenderChip();

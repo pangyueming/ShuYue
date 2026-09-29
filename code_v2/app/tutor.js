@@ -357,7 +357,7 @@ async function tutorHandleFile(file){
         if(files&&files[0]){
             // P8: images route to the ephemeral vision flow, docs upload as before
             if(files[0].type&&files[0].type.startsWith('image/')&&typeof visionHandleFiles==='function'){
-                visionHandleFiles(files[0]);
+                visionHandleFiles(files[0],'tutor');
             }else{
                 tutorHandleFile(files[0]);
             }
@@ -472,9 +472,10 @@ async function tutorSwitchSession(id){
             chat.scrollTop=chat.scrollHeight;
         }
     }catch(e){/* restore failed → empty session */}
-    // per-workspace UI state follows the room (skill pill / materials)
+    // per-workspace UI state follows the room (skill pill / materials / P8 vision chip)
     tutorRenderSkillPill();
     tutorRenderMaterials();
+    if(typeof visionRenderChip==='function')visionRenderChip();   // image state is per-workspace now
     tutorRenderModeChip();
     tutorSetSendBtn(tutorStreamActive());
     tutorRenderSessions();
@@ -670,7 +671,7 @@ async function tutorSend(){
     window.__tutorDirectSend=null;
     // P8: vision intercept — image chip present routes to /api/vision/chat
     // (empty text allowed: backend auto-classifies the image)
-    if(!directSend&&typeof visionHasImage==='function'&&visionHasImage()){
+    if(!directSend&&typeof visionHasImage==='function'&&visionHasImage('tutor')){
         const vq=inp.value.trim();
         inp.value='';try{tutorAutoGrow(inp);}catch(e){}
         tutorVisionSend(vq);
