@@ -90,7 +90,7 @@ function visionRenderChip(){
 function __visionPick(ctx){ __visionPickCtx = ctx || 'tutor'; document.getElementById('vision-file-input').click(); }
 
 // ---------- 共享 SSE 消费 ----------
-async function visionStream(text, history, h, sessionId){
+async function visionStream(text, history, h, sessionId, signal){
     const tok = localStorage.getItem('cb_cn_token');
     const body = { image_base64: __visionImgBySession[__visionKey(h.__ctx || 'tutor')].b64,
                    mime: __visionImgBySession[__visionKey(h.__ctx || 'tutor')].mime,
@@ -99,7 +99,8 @@ async function visionStream(text, history, h, sessionId){
     const r = await fetch(AI_BACKEND_URL + '/api/vision/chat', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', ...(tok ? { 'Authorization': 'Bearer ' + tok } : {}) },
-        body: JSON.stringify(body)
+        body: JSON.stringify(body),
+        signal: signal || undefined
     });
     if (!r.ok) { let d = ''; try { d = (await r.json()).detail || ''; } catch (e) {} throw new Error(d || ('HTTP ' + r.status)); }
     const rd = r.body.getReader(); const dec = new TextDecoder(); let buf = '';
@@ -244,6 +245,16 @@ async function tutorVisionSend(text){
     };
     const st = s => { stWrap.textContent = s; chat.scrollTop = chat.scrollHeight; };
     const sendSession = (typeof tutorActiveSession !== 'undefined') ? tutorActiveSession : null;
+    const sendKey = sendSession || '_temp';
+    // P8 Day-2.6: register into the P2 background-continuation registry —
+    // switching workspaces mid-stream keeps the stream alive; switching back
+    // re-attaches {userDiv, statusWrap, aiDiv} and the live output resumes.
+    const ac = new AbortController();
+    const vstream = { key: sendKey, session: sendSession, message: text || '📷 图片提问',
+                      userDiv: userDiv, statusWrap: stWrap, aiDiv: aiDiv,
+                      abort: ac, done: false };
+    if (typeof tutorStreams !== 'undefined') tutorStreams.set(sendKey, vstream);
+    if (typeof tutorSetSendBtn === 'function') tutorSetSendBtn(true);
     const hist = (!sendSession && typeof tutorChatHistory !== 'undefined') ? tutorChatHistory : [];
     try {
         await visionStream(text, hist, {
@@ -259,17 +270,23 @@ async function tutorVisionSend(text){
             onGrade: (res, left) => { try { orb(); } catch (e) {} bubble.innerHTML = visionReportHtml(res, left); visionRememberGrade(res); refreshIcons(); },
             onQuota: ev => { try { orb(); } catch (e) {} bubble.innerHTML = visionQuotaHtml(ev); refreshIcons(); },
             onError: t => { try { orb(); } catch (e) {} bubble.innerHTML = '<span style="color:#ff6b6b;">' + escapeHtml(t) + '</span>'; }
-        }, sendSession);
+        }, sendSession, ac.signal);
     } catch (e) {
         try { orb(); } catch (e2) {}
-        bubble.innerHTML = '<span style="color:#ff6b6b;">图片处理失败：' + escapeHtml(String(e.message || e)) + '</span>';
+        if (e && e.name === 'AbortError') {
+            bubble.innerHTML += '<div style="font-size:11px;color:var(--text-muted);margin-top:6px;">⏹ 已中断</div>';
+        } else {
+            bubble.innerHTML = '<span style="color:#ff6b6b;">图片处理失败：' + escapeHtml(String(e.message || e)) + '</span>';
+        }
     } finally {
+        vstream.done = true;
         stWrap.textContent = '';
         if (full) renderFull();          // final state rendered unthrottled
         if (!sendSession && typeof tutorChatHistory !== 'undefined') {
             tutorChatHistory.push({ role: 'user', content: text || '（图片提问）' });
             tutorChatHistory.push({ role: 'assistant', content: full || '（图片批改结果）' });
         }
+        if (typeof tutorSetSendBtn === 'function') tutorSetSendBtn(tutorStreamActive ? tutorStreamActive() : false);
         refreshIcons();
     }
 }

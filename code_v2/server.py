@@ -75,7 +75,7 @@ except ImportError:
 
 from fastapi import FastAPI, UploadFile, File, Form, HTTPException, Depends, Header, Request
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import StreamingResponse, FileResponse, JSONResponse
+from fastapi.responses import StreamingResponse, FileResponse, JSONResponse, Response
 from pydantic import BaseModel
 from typing import List, Optional
 
@@ -365,6 +365,18 @@ def init_db():
         grade_count INTEGER DEFAULT 0,
         PRIMARY KEY (user_id, day)
     );
+
+    -- P8 Day-2.6: images persisted WITH the workspace conversation
+    -- (client-compressed ≤1600px jpeg ~300KB; chat-style, owner-scoped)
+    CREATE TABLE IF NOT EXISTS vision_images (
+        id TEXT PRIMARY KEY,
+        user_id TEXT NOT NULL,
+        mime TEXT DEFAULT 'image/jpeg',
+        b64 TEXT NOT NULL,
+        kb INTEGER DEFAULT 0,
+        created_at TEXT DEFAULT (datetime('now'))
+    );
+    CREATE INDEX IF NOT EXISTS idx_vision_images_user ON vision_images(user_id, id DESC);
     """)
 
     # === Migration: add user_id to legacy tables (notes/documents) ===
@@ -1553,17 +1565,29 @@ def vision_chat(req: VisionChatRequest,
                     "ORDER BY id DESC LIMIT 6", (req.session_id,)).fetchall()
                 req.history = [{"role": r["role"], "content": r["content"]}
                                for r in reversed(rows)]
+            # Day-2.6: persist the (already client-compressed) image with the turn
+            image_id = ""
+            try:
+                image_id = uuid.uuid4().hex[:12]
+                conn.execute(
+                    "INSERT INTO vision_images (id,user_id,mime,b64,kb) VALUES (?,?,?,?,?)",
+                    (image_id, user_id, req.mime, req.image_base64,
+                     len(req.image_base64) * 3 // 4 // 1024))
+            except Exception as _ie:
+                image_id = ""
+                print(f"[vision] image persist failed: {_ie}")
             conn.execute(
                 "INSERT INTO chat_messages (session_id,role,content,meta) VALUES (?,?,?,?)",
                 (req.session_id, "user",
                  "📷 图片提问" + (("：" + text) if text != "帮我批改" else ""),
-                 json.dumps({"vision": True}, ensure_ascii=False)))
+                 json.dumps({"vision": True, "image_id": image_id, "mime": req.mime},
+                            ensure_ascii=False)))
             conn.execute("UPDATE chat_sessions SET updated_at=datetime('now') WHERE id=?",
                          (req.session_id,))
             conn.commit()
         conn.close()
 
-    def _persist_vision(full_text):
+    def _persist_vision(full_text, meta=None):
         if not (session_ok and req.session_id and full_text):
             return
         try:
@@ -1571,7 +1595,7 @@ def vision_chat(req: VisionChatRequest,
             conn5.execute(
                 "INSERT INTO chat_messages (session_id,role,content,meta) VALUES (?,?,?,?)",
                 (req.session_id, "assistant", full_text,
-                 json.dumps({"vision": True}, ensure_ascii=False)))
+                 json.dumps(meta or {"vision": True}, ensure_ascii=False)))
             conn5.commit(); conn5.close()
         except Exception as e:
             print(f"[vision] persist failed: {e}")
@@ -1586,6 +1610,7 @@ def vision_chat(req: VisionChatRequest,
         intent = ""
         err = ""
         out = ""
+        out_meta = None   # Day-2.6: grade turns carry the full report JSON for card-level restore
         try:
             # ---- intent routing (flash on text; vl-flash on image when no note) ----
             if (req.text or "").strip() or req.history:
@@ -1666,6 +1691,13 @@ def vision_chat(req: VisionChatRequest,
                            "result": parsed or {"raw": raw[:2000], "parse_error": True},
                            "quota_left": left2})
                 out = _vision_grade_summary(parsed) if parsed else raw[:500]
+                if parsed:
+                    try:
+                        _m = json.dumps(parsed, ensure_ascii=False)
+                        if len(_m) <= 100000:   # cap: pathological huge reports fall back to text
+                            out_meta = {"vision": "grade", "result": parsed}
+                    except Exception:
+                        pass
 
             # ---- solve: vl-flash extract → harness pipeline (verified) ----
             elif intent == "solve":
@@ -1732,11 +1764,11 @@ def vision_chat(req: VisionChatRequest,
                               "ms": int((time.time()-ts)*1000), "ok": bool(out)})
 
             yield sse({"type": "usage", "total_tokens": tokens, "intent": intent})
-            _persist_vision(out)          # assistant turn lands BEFORE the client sees DONE
+            _persist_vision(out, out_meta)   # assistant turn lands BEFORE the client sees DONE
             yield "data: [DONE]\n\n"
         except GeneratorExit:
             # client aborted — keep the partial answer in the workspace (same as agent chat)
-            _persist_vision(out or "（图片处理被中断）")
+            _persist_vision(out or "（图片处理被中断）", out_meta)
             raise
         except Exception as e:
             err = str(e)[:120]
@@ -1747,6 +1779,22 @@ def vision_chat(req: VisionChatRequest,
                             int((time.time()-t0)*1000), tokens, err, text, out)
 
     return StreamingResponse(stream(), media_type="text/event-stream")
+
+
+@app.get("/api/vision/image/{image_id}")
+def vision_image(image_id: str, current_user: Optional[dict] = Depends(get_current_user)):
+    """P8 Day-2.6: serve a conversation-persisted image (owner only)."""
+    if not current_user:
+        raise HTTPException(401, "Not authenticated")
+    conn = get_db()
+    row = conn.execute("SELECT user_id, mime, b64 FROM vision_images WHERE id=?",
+                       (image_id,)).fetchone()
+    conn.close()
+    if not row or row["user_id"] != current_user["id"]:
+        raise HTTPException(404, "Not found")
+    import base64 as _b64
+    return Response(content=_b64.b64decode(row["b64"]), media_type=row["mime"],
+                    headers={"Cache-Control": "private, max-age=86400"})
 
 
 # ============================================================================

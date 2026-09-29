@@ -450,15 +450,34 @@ async function tutorSwitchSession(id){
                 chat.innerHTML='<div class="empty-hero" style="min-height:240px;"><div class="empty-disc"><i data-lucide="message-square"></i></div><div class="empty-title">这个工作台还没有对话</div><div class="empty-sub">在下方输入第一个问题</div>'+tutorSuggestionsHtml()+'</div>';
             }
             msgs.forEach(m=>{
+                let meta={};
+                try{meta=(m.meta&&typeof m.meta==='object')?m.meta:JSON.parse(m.meta||'{}');}catch(e){}
                 if(m.role==='user'){
+                    // P8 Day-2.6: vision turns restore with their persisted thumbnail
+                    const vimg=meta.image_id?'<img data-vimg="'+String(meta.image_id).replace(/[^a-z0-9]/gi,'')+'" alt="图片" style="max-width:180px;max-height:120px;border-radius:8px;display:block;">':'';
+                    const vtext=vimg&&m.content.includes('：')?'<div style="margin-top:4px;">'+escapeHtmlTutor(m.content.split('：').slice(1).join('：'))+'</div>':escapeHtmlTutor(m.content);
                     const d=document.createElement('div');d.style.cssText='display:flex;flex-direction:row-reverse;gap:8px;';
-                    d.innerHTML='<div style="width:28px;height:28px;border-radius:50%;background:var(--accent);display:flex;align-items:center;justify-content:center;color:#fff;font-size:12px;font-weight:600;flex-shrink:0;">Y</div><div style="background:var(--accent);color:#fff;padding:8px 14px;border-radius:12px 12px 4px 12px;font-size:13px;max-width:75%;">'+escapeHtmlTutor(m.content)+'</div>';
+                    d.innerHTML='<div style="width:28px;height:28px;border-radius:50%;background:var(--accent);display:flex;align-items:center;justify-content:center;color:#fff;font-size:12px;font-weight:600;flex-shrink:0;">Y</div>'
+                        +'<div style="background:var(--accent);color:#fff;padding:8px 14px;border-radius:12px 12px 4px 12px;font-size:13px;max-width:75%;">'+(vimg?vimg+vtext:vtext)+'</div>';
                     chat.appendChild(d);
                 }else if(m.role==='assistant'){
+                    // P8 Day-2.6: grade turns restore as the full report card
+                    let inner=null;
+                    if(meta.vision==='grade'&&meta.result&&typeof visionReportHtml==='function'){
+                        try{inner=visionReportHtml(meta.result);}catch(e){inner=null;}
+                    }
                     const d=document.createElement('div');d.style.cssText='display:flex;gap:8px;';
-                    d.innerHTML='<div style="width:28px;height:28px;border-radius:50%;background:linear-gradient(135deg,var(--accent),#9b59f7);display:flex;align-items:center;justify-content:center;color:#fff;font-size:11px;font-weight:600;flex-shrink:0;">AI</div><div style="background:var(--bg-hover);color:var(--text-primary);padding:12px 16px;border-radius:14px 14px 14px 4px;font-size:13.5px;line-height:1.7;max-width:100%;">'+mdToHtmlTutor(m.content)+'</div>';
+                    d.innerHTML='<div style="width:28px;height:28px;border-radius:50%;background:linear-gradient(135deg,var(--accent),#9b59f7);display:flex;align-items:center;justify-content:center;color:#fff;font-size:11px;font-weight:600;flex-shrink:0;">AI</div>'
+                        +'<div style="background:var(--bg-hover);color:var(--text-primary);padding:12px 16px;border-radius:14px 14px 14px 4px;font-size:13.5px;line-height:1.7;max-width:100%;">'+(inner!==null?inner:mdToHtmlTutor(m.content))+'</div>';
                     chat.appendChild(d);
                 }
+            });
+            // P8 Day-2.6: hydrate restored vision thumbnails (owner-scoped API → objectURL)
+            chat.querySelectorAll('img[data-vimg]').forEach(async im=>{
+                try{
+                    const res=await apiFetch('/api/vision/image/'+im.getAttribute('data-vimg'));
+                    if(res.ok){im.src=URL.createObjectURL(await res.blob());}
+                }catch(e){/* thumbnail stays hidden on failure */}
             });
             tutorChatHistory=msgs.filter(m=>m.role==='user'||m.role==='assistant')
                 .map(m=>({role:m.role,content:m.content}));
@@ -672,6 +691,7 @@ async function tutorSend(){
     // P8: vision intercept — image chip present routes to /api/vision/chat
     // (empty text allowed: backend auto-classifies the image)
     if(!directSend&&typeof visionHasImage==='function'&&visionHasImage('tutor')){
+        if(tutorStreamActive()){showNotification('本工作台正在生成中，请等待完成或按 Esc 中断','warning');return;}
         const vq=inp.value.trim();
         inp.value='';try{tutorAutoGrow(inp);}catch(e){}
         tutorVisionSend(vq);
