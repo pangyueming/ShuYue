@@ -1899,6 +1899,10 @@ def fsrs_review(user_id: str, topic: str, rating: int, source: str = "quiz",
              d, s, reps, lapses, now.isoformat(), due, source))
         if own:
             c.commit()
+        else:
+            c.commit()   # FIX(P9): commit even on a shared conn — callers (quiz
+                         # submit / pretest) close without committing, which
+                         # silently rolled every srs_queue write back
         return {"topic": topic, "difficulty": round(d, 2), "stability": round(s, 2),
                 "R_now": round(r_now, 3) if r_now is not None else None,
                 "due_at": due, "reps": reps, "lapses": lapses}
