@@ -132,7 +132,25 @@ function kgMasteryPct(node){
 }
 
 // ---------- page entry ----------
-let kgModel=null,kgFilter='all';
+let kgModel=null,kgFilter='all',kgFsrs={};   // P9: topic-id -> {R,S} mastery map
+async function kgFetchMastery(){
+    kgFsrs={};
+    if(!localStorage.getItem('cb_cn_token'))return;
+    try{
+        const res=await apiFetch('/api/review/mastery');
+        if(!res.ok)return;
+        const data=await res.json();
+        (data.mastery||[]).forEach(m=>{kgFsrs[m.topic]=m;});
+    }catch(e){/* graph still renders without memory data */}
+}
+function kgNodeR(n){
+    // node -> quiz topic id -> FSRS state (triple-encoded: ring color + % text)
+    const tid=KG_QUIZ_TOPIC[n.name];
+    return tid?kgFsrs[tid]:null;
+}
+function kgRTierColor(R){
+    return R<0.4?'var(--red)':(R<0.7?'var(--yellow)':'var(--green)');
+}
 async function graphPageEnter(){
     const app=document.getElementById('kg-app'),empty=document.getElementById('kg-empty');
     const has=!!window.pretestResult;
@@ -141,6 +159,7 @@ async function graphPageEnter(){
     if(!has)return;
     const evidence=await fetchQuizEvidence();
     kgModel=kgBuildModel(evidence,loadPlanState());
+    kgFetchMastery().then(()=>{kgRenderGraph();kgRenderList();kgRenderLegend();});
     kgRenderFilters();
     kgRenderLegend();
     kgRenderProgress();
@@ -181,6 +200,11 @@ function kgRenderLegend(){
         +'<span style="width:1px;height:14px;background:var(--border);"></span>'
         +sw('covered')+sw('current')+sw('upcoming')
         +'<span style="width:1px;height:14px;background:var(--border);"></span>'
+        // P9: memory retention rings (color + % label + dashes = triple-encoded)
+        +'<span class="kg-legend-item"><svg width="26" height="12"><circle cx="13" cy="6" r="9" fill="none" stroke="var(--red)" stroke-width="2" stroke-dasharray="4 3"/></svg>记忆&lt;40%</span>'
+        +'<span class="kg-legend-item"><svg width="26" height="12"><circle cx="13" cy="6" r="9" fill="none" stroke="var(--yellow)" stroke-width="2" stroke-dasharray="4 3"/></svg>40–70%</span>'
+        +'<span class="kg-legend-item"><svg width="26" height="12"><circle cx="13" cy="6" r="9" fill="none" stroke="var(--green)" stroke-width="2" stroke-dasharray="4 3"/></svg>保持&gt;70%</span>'
+        +'<span style="width:1px;height:14px;background:var(--border);"></span>'
         +'<span class="kg-legend-item" style="gap:4px;"><svg width="26" height="8"><line x1="1" y1="4" x2="25" y2="4" stroke="var(--kg-edge)" stroke-width="1.5"/></svg>prereq met</span>'
         +'<span class="kg-legend-item" style="gap:4px;"><svg width="26" height="8"><line x1="1" y1="4" x2="25" y2="4" stroke="var(--kg-edge)" stroke-width="1.5" stroke-dasharray="5 4"/></svg>prereq open</span>';
     if(typeof refreshIcons==='function')refreshIcons();
@@ -200,7 +224,12 @@ function kgShapeSvg(n){
     }
     const ring=n.state==='weak'?'<circle class="kg-weak-ring" r="26" fill="none" stroke-width="1.5"/>':'';
     const week=n.state==='current'?'<circle class="kg-week-ring" r="27"/>':'';
-    return '<circle class="kg-focus-ring" r="30" fill="none" stroke="var(--accent)" stroke-width="2.5"/>'+ring+week+inner+kgBadge(n.state);
+    // P9: FSRS memory ring (dashed, tier-colored) — color is NOT the only cue:
+    // the % sub-label below the node name carries the same info.
+    const fm=kgNodeR(n);
+    const memRing=fm?('<circle r="34" fill="none" stroke="'+kgRTierColor(fm.R)+
+        '" stroke-width="2" stroke-dasharray="4 3" opacity=".9"/>'):'';
+    return '<circle class="kg-focus-ring" r="30" fill="none" stroke="var(--accent)" stroke-width="2.5"/>'+ring+week+memRing+inner+kgBadge(n.state);
 }
 function kgLabelSvg(n){
     const words=n.name.split(' ');const lines=[];let cur='';
@@ -208,7 +237,11 @@ function kgLabelSvg(n){
     if(cur)lines.push(cur);
     let sub='';
     if(n.layer==='analysis'||n.layer==='algebra')sub='<text class="kg-node-sub" y="'+(14+lines.length*13)+'" text-anchor="middle">w'+n.weeks[0]+'–'+n.weeks[1]+'</text>';
-    return lines.map((l,i)=>'<text class="kg-node-label" y="'+(28+i*13)+'" text-anchor="middle">'+escapeHtml(l)+'</text>').join('')+sub;
+    // P9: memory retention % sub-label (same info as the ring — triple encoding)
+    const fm=kgNodeR(n);
+    const memTxt=fm?('<text class="kg-node-sub" y="'+(27+lines.length*13)+'" text-anchor="middle" '
+        +'fill="'+kgRTierColor(fm.R)+'" font-size="9">保持'+Math.round(fm.R*100)+'%</text>'):'';
+    return lines.map((l,i)=>'<text class="kg-node-label" y="'+(28+i*13)+'" text-anchor="middle">'+escapeHtml(l)+'</text>').join('')+sub+memTxt;
 }
 function kgEdgePath(e){
     const dx=e.to.x-e.from.x,dy=e.to.y-e.from.y;

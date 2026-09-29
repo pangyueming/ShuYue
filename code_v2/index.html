@@ -130,8 +130,7 @@
         <!-- ===== DASHBOARD (bento) ===== -->
         <div id="page-dashboard" class="page-view active page-mid dash-page">
             <!-- P9: review-due card (skill rules: aria-atomic status, labeled 44px CTA) -->
-            <div id="review-due-card" style="display:none;"></div>
-            <!-- Hero head -->
+            <!-- Hero head (page identity first — greeting before data) -->
             <div class="dash-hero">
                 <div>
                     <h1 class="page-title" id="dash-greeting">Hello, User</h1>
@@ -142,6 +141,17 @@
                     <button class="btn-primary" onclick="showPage('tutor')"><i data-lucide="sigma" style="width:14px;height:14px;"></i>问辅导老师</button>
                 </div>
             </div>
+
+            <!-- P9 cards under the greeting: urgent (due) first, reflective (weekly) second -->
+            <div id="review-due-card" style="display:none;"></div>
+            <!-- P9 Day-3: weekly report (lazy-loaded on expand) -->
+            <details id="weekly-report-card" class="card glass" style="margin-bottom:14px;padding:10px 16px;display:none;">
+                <summary style="cursor:pointer;font-size:13px;font-weight:600;color:var(--text-primary);min-height:44px;display:flex;align-items:center;gap:8px;">
+                    <span style="color:var(--iris-400,var(--accent));display:flex;"><i data-lucide="chart-column"></i></span>
+                    本周学习周报
+                </summary>
+                <div id="weekly-report-body" style="padding:10px 2px 4px;font-size:12.5px;color:var(--text-secondary);line-height:1.7;">加载中…</div>
+            </details>
 
             <div class="dash-grid">
                 <!-- Proficiency ring -->
@@ -735,7 +745,11 @@
                     </div>
                     <div class="verify-row">
                         <input type="checkbox" id="profile-input-fm" class="verify-check">
-                        <label for="profile-input-fm" class="verify-label">我有强基计划 / 数学竞赛经历</label>
+                        <label for="profile-input-fm" class="verify-label">进阶数学计划 / 大学数学强化</label>
+                    </div>
+                    <div class="verify-row">
+                        <input type="checkbox" id="profile-input-email-notify" class="verify-check">
+                        <label for="profile-input-email-notify" class="verify-label">邮件学习提醒（复习到期提醒 + 每周周报）</label>
                     </div>
                     <div>
                         <div class="field-label">当前教学周 <span class="field-hint">(aligns your 学习计划 with lectures)</span></div>

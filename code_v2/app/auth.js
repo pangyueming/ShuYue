@@ -208,7 +208,7 @@ async function migrateGuestData(){
 }
 
 // ===== PROFILE =====
-function renderProfile(){
+async function renderProfile(){
     const userStr=localStorage.getItem('cb_cn_user');
     const user=userStr?JSON.parse(userStr):null;
     if(!user){showNotification('Please log in first','warning');showPage('login');return;}
@@ -232,6 +232,14 @@ function renderProfile(){
     const pw=document.getElementById('profile-input-week');
     fillWeekSelect(pw);
     if(pw)pw.value=getCurrentWeek();
+    // P9 Day-3: email reminder toggle (reads server preference)
+    const emNotify=document.getElementById('profile-input-email-notify');
+    if(emNotify){
+        try{
+            const r=await apiFetch('/api/notify/prefs');
+            if(r.ok)emNotify.checked=(await r.json()).email!==false;
+        }catch(e){emNotify.checked=true;}
+    }
 }
 
 async function saveProfile(){
@@ -259,6 +267,15 @@ async function saveProfile(){
         renderProfile();
         renderSidebarUser();
         showNotification('资料已更新','success');
+        // P9: email toggle saved separately (independent of profile fields)
+        const emNotify=document.getElementById('profile-input-email-notify');
+        if(emNotify){
+            try{
+                await apiFetch('/api/notify/prefs',{method:'PUT',
+                    body:JSON.stringify({email:emNotify.checked})});
+                showNotification(emNotify.checked?'邮件提醒已开启':'邮件提醒已关闭（不再发任何学习邮件）','info');
+            }catch(e){}
+        }
     }catch(e){showNotification('资料更新失败','error');}
 }
 

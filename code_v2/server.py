@@ -75,7 +75,7 @@ except ImportError:
 
 from fastapi import FastAPI, UploadFile, File, Form, HTTPException, Depends, Header, Request
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import StreamingResponse, FileResponse, JSONResponse, Response
+from fastapi.responses import StreamingResponse, FileResponse, JSONResponse, Response, HTMLResponse
 from pydantic import BaseModel
 from typing import List, Optional
 
@@ -2017,6 +2017,77 @@ def review_due(current_user: Optional[dict] = Depends(get_current_user)):
     return {"due": due, "count": len(due), "threshold": F.REMIND_R}
 
 
+@app.get("/api/review/mastery")
+def review_mastery(current_user: Optional[dict] = Depends(get_current_user)):
+    """ALL memory states with live R(t) — feeds the knowledge-graph coloring."""
+    if not current_user:
+        raise HTTPException(401, "请登录")
+    from agent import fsrs as F
+    conn = get_db()
+    rows = conn.execute(
+        "SELECT topic, difficulty, stability, last_review_at, reps, lapses "
+        "FROM srs_queue WHERE user_id=?", (current_user["id"],)).fetchall()
+    conn.close()
+    out = []
+    for r in rows:
+        days = _days_since(r["last_review_at"])
+        out.append({"topic": r["topic"], "R": round(F.retrievability(r["stability"], days), 3),
+                    "S": round(r["stability"], 2), "difficulty": round(r["difficulty"], 2),
+                    "reps": r["reps"], "lapses": r["lapses"]})
+    out.sort(key=lambda x: x["R"])
+    return {"mastery": out}
+
+
+@app.get("/api/notify/prefs")
+def notify_prefs_get(current_user: Optional[dict] = Depends(get_current_user)):
+    """Current email-reminder state (profile toggle reads this)."""
+    if not current_user:
+        raise HTTPException(401, "请登录")
+    conn = get_db()
+    off = _email_opted_out(conn, current_user["id"])
+    conn.close()
+    return {"email": not off}
+
+
+def _unsubscribe_token(user_id: str) -> str:
+    import hmac as _hmac
+    return user_id + "-" + _hmac.new(SECRET_KEY.encode(), user_id.encode(),
+                                      hashlib.sha256).hexdigest()[:20]
+
+
+@app.get("/api/notify/unsubscribe", response_class=HTMLResponse)
+def notify_unsubscribe(token: str):
+    """One-click email opt-out from the footer link (user hard requirement).
+    token = <user_id>-<hmac>; no expiry (unsubscribe must always work)."""
+    if not token or "-" not in token:
+        raise HTTPException(400, "无效链接")
+    uid, sig = token.split("-", 1)
+    import hmac as _hmac
+    expect = _hmac.new(SECRET_KEY.encode(), uid.encode(), hashlib.sha256).hexdigest()[:20]
+    if not _hmac.compare_digest(sig, expect):
+        raise HTTPException(400, "无效链接")
+    conn = get_db()
+    user = conn.execute("SELECT id FROM users WHERE id=?", (uid,)).fetchone()
+    if not user:
+        conn.close(); raise HTTPException(400, "无效链接")
+    existing = conn.execute(
+        "SELECT id FROM memory_entries WHERE user_id=? AND kind='preference' "
+        "AND content LIKE 'email_reminders%'", (uid,)).fetchone()
+    if existing:
+        conn.execute("UPDATE memory_entries SET content='email_reminders=off' WHERE id=?",
+                     (existing["id"],))
+    else:
+        conn.execute("INSERT INTO memory_entries (user_id,kind,content,source_session) "
+                     "VALUES (?,?,?,'')", (uid, "preference", "email_reminders=off"))
+    conn.commit(); conn.close()
+    return HTMLResponse("<html><head><meta charset='utf-8'><title>数跃</title></head>"
+                        "<body style='font-family:system-ui;text-align:center;padding:60px 20px;'>"
+                        "<h2>已关闭邮件提醒 ✅</h2>"
+                        "<p>你将不再收到复习提醒与周报邮件。</p>"
+                        "<p style='color:#888;font-size:13px;'>登录后可在个人资料页重新开启；"
+                        "站内待办卡不受影响。</p></body></html>")
+
+
 def _scan_and_remind(now=None):
     """Daily 08:00 job (D12): for every user with items below REMIND_R, send one
     reminder email. HARD RULE: opted-out users are skipped entirely; one email
@@ -2066,7 +2137,9 @@ def _scan_and_remind(now=None):
                     + f'<p><a href="{base}/#/quiz" style="display:inline-block;background:#6366f1;'
                       f'color:#fff;padding:10px 24px;border-radius:8px;text-decoration:none;">开始复习</a></p>'
                     + (f'<p style="color:#555;">{cheer}</p>' if cheer else '')
-                    + '<p style="color:#999;font-size:12px;">不想到邮件？登录后在个人资料页可关闭邮件提醒。</p></div>')
+                    + f'<p style="color:#999;font-size:12px;">不想收到邮件？'
+                      f'<a href="{base}/api/notify/unsubscribe?token={_unsubscribe_token(uid)}">一键关闭</a>'
+                      f'（也可登录后在个人资料页开关）</p></div>')
             ok = _send_email(info["email"], "数跃 · 你有知识点到期复习", body)
             conn.execute("INSERT OR IGNORE INTO notify_log (user_id,kind,day) VALUES (?,?,?)",
                          (uid, "review_reminder", day))
@@ -2084,10 +2157,138 @@ try:
     from apscheduler.schedulers.background import BackgroundScheduler
     _p9_sched = BackgroundScheduler(timezone="Asia/Shanghai")
     _p9_sched.add_job(_scan_and_remind, "cron", hour=8, minute=0, id="p9_daily_reminder")
+    _p9_sched.add_job(lambda: _weekly_report(send_email=True), "cron",
+                      day_of_week="fri", hour=18, minute=0, id="p9_weekly_report")
     _p9_sched.start()
-    print("[p9] scheduler started: daily 08:00 review-reminder scan")
+    print("[p9] scheduler started: daily 08:00 reminders + Fri 18:00 weekly report")
 except Exception as _se:
     print(f"[p9] scheduler NOT started ({_se}) — /api/review/due still live")
+
+
+# ---------------------------------------------------------------------------
+# P9 Day-3: weekly report (on-demand endpoint + Friday email job)
+# ---------------------------------------------------------------------------
+
+def _weekly_data(user_id: str) -> dict:
+    """Aggregate THIS week (Mon..now): quiz per-topic stats + FSRS due backlog."""
+    from agent import fsrs as F
+    conn = get_db()
+    monday = (datetime.now() - timedelta(days=datetime.now().weekday())).replace(
+        hour=0, minute=0, second=0, microsecond=0)
+    quizzes = conn.execute(
+        "SELECT topic, score, total, created_at FROM quiz_results "
+        "WHERE user_id=? AND created_at >= ? ORDER BY created_at",
+        (user_id, monday.isoformat())).fetchall()
+    srs = conn.execute(
+        "SELECT topic, stability, last_review_at FROM srs_queue WHERE user_id=?",
+        (user_id,)).fetchall()
+    conn.close()
+    per_topic = {}
+    for q in quizzes:
+        d = per_topic.setdefault(q["topic"], {"n": 0, "correct": 0, "total": 0})
+        d["n"] += 1
+        d["correct"] += q["score"]
+        d["total"] += q["total"]
+    mem = []
+    for r in srs:
+        rr = F.retrievability(r["stability"], _days_since(r["last_review_at"]))
+        mem.append({"topic": r["topic"], "R": round(rr, 2)})
+    mem.sort(key=lambda x: x["R"])
+    return {"week_start": monday.date().isoformat(),
+            "quizzes": [{"topic": t, "attempts": d["n"],
+                         "accuracy": round(d["correct"] / d["total"], 2) if d["total"] else 0,
+                         "answered": d["total"]} for t, d in per_topic.items()],
+            "attempts_total": len(quizzes),
+            "answered_total": sum(q["total"] for q in quizzes),
+            "accuracy_avg": round(sum(q["score"] for q in quizzes) /
+                                  max(sum(q["total"] for q in quizzes), 1), 2),
+            "memory": mem}
+
+
+def _weekly_paragraph(data: dict) -> str:
+    """Flash-polished 2-3 sentence summary paragraph (cheap, ~100 tokens)."""
+    from agent.decision import _call, DECISION_MODEL
+    facts = json.dumps({k: data[k] for k in ("quizzes", "attempts_total",
+                                             "accuracy_avg", "memory")},
+                       ensure_ascii=False)[:800]
+    try:
+        out = _call(DECISION_MODEL,
+                    "根据以下学生学习周数据，写一段80字以内的中文周报点评（本周表现+一个建议），只输出正文。",
+                    facts, timeout=15, max_tokens=200)
+        return next((v for v in out.values() if isinstance(v, str) and v.strip()),
+                    "继续保持每天练习，记忆曲线会感谢你。")
+    except Exception:
+        return "继续保持每天练习，记忆曲线会感谢你。"
+
+
+@app.get("/api/review/weekly")
+def review_weekly(current_user: Optional[dict] = Depends(get_current_user)):
+    """On-demand weekly report (dashboard collapsible reads this)."""
+    if not current_user:
+        raise HTTPException(401, "请登录")
+    data = _weekly_data(current_user["id"])
+    data["paragraph"] = _weekly_paragraph(data)
+    return data
+
+
+def _weekly_report(send_email: bool = True, now=None):
+    """Friday 18:00 job: email the weekly report to active users.
+    Hard rules same as reminders: opted-out → skip; one per week per user."""
+    now = now or datetime.now()
+    day = now.date().isoformat()
+    conn = get_db()
+    try:
+        monday = (now - timedelta(days=now.weekday())).replace(hour=0, minute=0,
+                                                               second=0, microsecond=0)
+        active = conn.execute(
+            "SELECT DISTINCT user_id FROM quiz_results WHERE created_at >= ?",
+            (monday.isoformat(),)).fetchall()
+        sent = skipped_off = skipped_dupe = 0
+        for row in active:
+            uid = row["user_id"]
+            if _email_opted_out(conn, uid):
+                skipped_off += 1
+                continue
+            if conn.execute("SELECT 1 FROM notify_log WHERE user_id=? AND kind='weekly_report' "
+                            "AND day=?", (uid, day)).fetchone():
+                skipped_dupe += 1
+                continue
+            u = conn.execute("SELECT email FROM users WHERE id=?", (uid,)).fetchone()
+            if not u:
+                continue
+            data = _weekly_data(uid)
+            if not data["attempts_total"]:
+                continue
+            para = _weekly_paragraph(data)
+            rows_html = "".join(
+                f'<tr><td style="padding:4px 10px;">{q["topic"]}</td>'
+                f'<td style="padding:4px 10px;text-align:center;">{q["attempts"]}</td>'
+                f'<td style="padding:4px 10px;text-align:center;">{int(q["accuracy"]*100)}%</td></tr>'
+                for q in data["quizzes"])
+            base = APP_BASE_URL or "http://localhost:8001"
+            body = ('<div style="font-family:system-ui;max-width:480px;margin:0 auto;padding:24px;">'
+                    '<h2 style="color:#1a1a2e;">数跃 · 本周学习周报</h2>'
+                    f'<p>本周共完成 {data["attempts_total"]} 次练习 · '
+                    f'{data["answered_total"]} 题 · 平均正确率 {int(data["accuracy_avg"]*100)}%</p>'
+                    '<table style="border-collapse:collapse;font-size:13px;" cellpadding="0" cellspacing="0">'
+                    '<tr style="color:#666;"><th style="padding:4px 10px;text-align:left;">主题</th>'
+                    '<th style="padding:4px 10px;">次数</th><th style="padding:4px 10px;">正确率</th></tr>'
+                    + rows_html + '</table>'
+                    f'<p style="color:#555;">{para}</p>'
+                    f'<p><a href="{base}" style="display:inline-block;background:#6366f1;color:#fff;'
+                    f'padding:10px 24px;border-radius:8px;text-decoration:none;">进入数跃</a></p>'
+                    f'<p style="color:#999;font-size:12px;">不想收到邮件？'
+                    f'<a href="{base}/api/notify/unsubscribe?token={_unsubscribe_token(uid)}">一键关闭</a></p></div>')
+            ok = _send_email(u["email"], "数跃 · 本周学习周报", body)
+            conn.execute("INSERT OR IGNORE INTO notify_log (user_id,kind,day) VALUES (?,?,?)",
+                         (uid, "weekly_report", day))
+            conn.commit()
+            sent += 1
+            print(f"[p9-weekly] {uid}: email={'sent' if ok else 'console-fallback'}")
+        print(f"[p9-weekly] {day}: active={len(active)} sent={sent} "
+              f"opted_out={skipped_off} dup={skipped_dupe}")
+    finally:
+        conn.close()
 
 
 # ============================================================================

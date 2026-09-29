@@ -114,6 +114,52 @@ function dashboardInit() {
     renderDashHead();
     renderActivity();
     renderReviewDue();
+    initWeeklyCard();
+}
+
+// ===== P9 Day-3: weekly report (lazy — fetched on first expand) =====
+function initWeeklyCard(){
+    var d=document.getElementById('weekly-report-card');
+    if(!d)return;
+    if(!localStorage.getItem('cb_cn_token')){d.style.display='none';return;}
+    d.style.display='block';
+    d.addEventListener('toggle',function(){
+        if(d.open&&!d.dataset.loaded){
+            renderWeeklyReport();
+        }
+    });
+}
+async function renderWeeklyReport(){
+    var body=document.getElementById('weekly-report-body');
+    var d=document.getElementById('weekly-report-card');
+    if(!body)return;
+    try{
+        var res=await apiFetch('/api/review/weekly');
+        if(!res.ok)throw new Error('HTTP '+res.status);
+        var w=await res.json();
+        d.dataset.loaded='1';
+        var rows=(w.quizzes||[]).map(function(q){
+            var pct=Math.round(q.accuracy*100);
+            var color=pct>=80?'var(--green)':(pct>=50?'var(--yellow)':'var(--red)');
+            return '<div style="display:flex;align-items:center;gap:8px;padding:5px 0;">'
+                +'<span style="flex:1;">'+escapeHtml(q.topic)+'</span>'
+                +'<span style="color:var(--text-muted);font-size:11px;">×'+q.attempts+'</span>'
+                +'<b style="color:'+color+';min-width:42px;text-align:right;">'+pct+'%</b></div>';
+        }).join('')||'<div style="color:var(--text-muted);">本周还没有练习记录</div>';
+        var mem=(w.memory||[]).slice(0,3).map(function(m){
+            return escapeHtml(m.topic)+' '+Math.round(m.R*100)+'%';
+        }).join(' · ');
+        body.innerHTML='<div style="font-size:11.5px;color:var(--text-muted);margin-bottom:6px;">'
+            +(w.attempts_total||0)+' 次练习 · '+(w.answered_total||0)+' 题 · 平均正确率 '
+            +'<b>'+Math.round((w.accuracy_avg||0)*100)+'%</b></div>'
+            +rows
+            +(mem?'<div style="margin-top:8px;font-size:11px;color:var(--text-muted);">记忆状态（最弱）：'+mem+'</div>':'')
+            +'<div style="margin-top:10px;padding:8px 12px;border-radius:8px;background:rgba(122,107,255,.06);color:var(--text-primary);">'+escapeHtml(w.paragraph||'')+'</div>';
+        refreshIcons();
+    }catch(e){
+        body.innerHTML='<span style="color:var(--text-muted);">周报加载失败，稍后展开重试</span>';
+        d.dataset.loaded='';
+    }
 }
 
 // ===== P9: review-due card (FSRS R(t) < 0.85 → due) =====

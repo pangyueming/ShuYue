@@ -263,8 +263,25 @@ def _state(user_id) -> dict:
             "ORDER BY last_updated DESC LIMIT 1", (user_id,)).fetchone()
         vocab_n = conn.execute(
             "SELECT COUNT(*) c FROM vocab_entries WHERE user_id=?", (user_id,)).fetchone()["c"]
+        srs = conn.execute(
+            "SELECT topic, stability, last_review_at, lapses FROM srs_queue "
+            "WHERE user_id=?", (user_id,)).fetchall()
     finally:
         conn.close()
+    # P9: FSRS memory narration — R(t) per topic, due backlog, weakest first
+    from agent import fsrs as _F
+    from server import _days_since as _dd
+    mem = []
+    for r in srs:
+        rr = _F.retrievability(r["stability"], _dd(r["last_review_at"]))
+        mem.append({"topic": r["topic"], "R": round(rr, 2),
+                    "S": round(r["stability"], 2), "lapses": r["lapses"]})
+    mem.sort(key=lambda x: x["R"])
+    due_mem = [m for m in mem if m["R"] < _F.REMIND_R]
+    mem_lines = []
+    for m in (due_mem or mem)[:4]:
+        state = "待复习" if m["R"] < _F.REMIND_R else "稳固"
+        mem_lines.append(f"{m['topic']}：记忆保持{int(m['R']*100)}%（{state}）")
     weak = (a["weak_topics"] or "") if a else ""
     quiz_lines = [f"{q['topic']}: {q['score']}/{q['total']}" for q in quizzes]
     plan_done = 0
@@ -285,9 +302,14 @@ def _state(user_id) -> dict:
         "recent_quizzes": quiz_lines,
         "plan": {"done": plan_done, "total": plan_total},
         "vocab_count": vocab_n,
+        "memory": {"due_count": len(due_mem),
+                   "due_topics": [m["topic"] for m in due_mem[:5]],
+                   "narration": mem_lines},
     }
-    summary = (f"掌握度{data['assessment']['avg_score']}%·"
-               f"计划{plan_done}/{plan_total}·最近{len(quiz_lines)}次练习·词汇{vocab_n}")
+    _as = data['assessment']['avg_score']
+    summary = (f"掌握度{_as if _as is not None else '未测'}%·"
+               f"计划{plan_done}/{plan_total}·最近{len(quiz_lines)}次练习·词汇{vocab_n}·"
+               f"{len(due_mem)}项记忆待巩固")
     return {"summary": summary, "data": data}
 
 
