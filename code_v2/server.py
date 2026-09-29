@@ -3321,6 +3321,7 @@ async def upload_document(
         (doc_id, current_user["id"], title, file.filename, safe_name, category, "upload", file_size, int(needs_ocr))
     )
     conn.commit(); conn.close()
+    print(f"[upload] user={current_user['id']} doc={doc_id} cat={category} title={title[:40]} size={file_size}")
     icons = {"pdf": "file-text", "pptx": "presentation"}
 
     # P5 C13: auto-generate study guide for textbooks (background, ~30s one-time cost)
@@ -3401,6 +3402,41 @@ async def get_document_file(
     if not os.path.exists(file_path):
         raise HTTPException(404, "File not found on disk")
     return FileResponse(file_path, filename=row["filename"])
+
+# P11: move a document between bookshelf categories (agent tool + quick-chip)
+VALID_DOC_CATEGORIES = {"slides", "textbooks", "exercises", "exam-papers",
+                        "research-papers", "notes"}
+
+class DocCategoryUpdate(BaseModel):
+    category: str
+
+@app.patch("/api/documents/{doc_id}/category")
+async def update_document_category(
+    doc_id: str,
+    req: DocCategoryUpdate,
+    current_user: Optional[dict] = Depends(get_current_user)
+):
+    """P11: move a bookshelf document to another category (owner only)."""
+    if not current_user:
+        raise HTTPException(401, "请登录")
+    if req.category not in VALID_DOC_CATEGORIES:
+        raise HTTPException(400, f"无效分类 {req.category}（可选：课件/教材/习题/真题卷/文献/笔记）")
+    conn = get_db()
+    row = conn.execute("SELECT id, user_id, title, category FROM documents WHERE id=?",
+                       (doc_id,)).fetchone()
+    if not row:
+        conn.close(); raise HTTPException(404, "文档不存在")
+    if row["user_id"] != current_user["id"]:
+        conn.close(); raise HTTPException(403, "无权操作")
+    if row["category"] == req.category:
+        conn.close()
+        return {"moved": False, "id": doc_id, "category": req.category,
+                "title": row["title"], "message": "已在该分类"}
+    conn.execute("UPDATE documents SET category=? WHERE id=?",
+                 (req.category, doc_id))
+    conn.commit(); conn.close()
+    return {"moved": True, "id": doc_id, "category": req.category, "title": row["title"]}
+
 
 @app.delete("/api/documents/{doc_id}")
 async def delete_document(

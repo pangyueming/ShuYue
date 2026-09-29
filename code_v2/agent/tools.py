@@ -65,6 +65,35 @@ TOOL_SPECS = [
     {
         "type": "function",
         "function": {
+            "name": "move_document",
+            "description": "把学生书架中的一个文档移动到另一个分类（课件slides/教材textbooks/习题exercises/真题卷exam-papers/文献research-papers/笔记notes）。当学生说'把X移到某分类/放错了/换个分类'时使用。",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "title": {"type": "string", "description": "文档标题（模糊匹配）"},
+                    "category": {"type": "string", "description": "目标分类 key：slides/textbooks/exercises/exam-papers/research-papers/notes"},
+                },
+                "required": ["title", "category"],
+            },
+        },
+    },
+    {
+        "type": "function",
+        "function": {
+            "name": "delete_document",
+            "description": "从学生书架删除一个文档（连同其解析数据，不可恢复）。仅当学生明确要求删除某文件时使用；删除前向学生确认文件名。",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "title": {"type": "string", "description": "文档标题（模糊匹配）"},
+                },
+                "required": ["title"],
+            },
+        },
+    },
+    {
+        "type": "function",
+        "function": {
             "name": "list_documents",
             "description": "列出学生书架上的全部文档（标题+分类）。当学生问'我有哪些文档/书架里有什么'时使用。",
             "parameters": {"type": "object", "properties": {}},
@@ -200,7 +229,9 @@ TOOL_SPECS = [
 VALID_TOOLS = {t["function"]["name"] for t in TOOL_SPECS}
 
 # P3: tools that write user data — require per-session approval (E1)
-WRITE_TOOLS = {"extract_vocab", "add_vocab_term", "create_note", "generate_quiz", "update_plan_task", "generate_study_guide"}
+WRITE_TOOLS = {"extract_vocab", "add_vocab_term", "create_note", "generate_quiz",
+               "update_plan_task", "generate_study_guide",
+               "move_document", "delete_document"}
 
 
 def _no_login():
@@ -261,16 +292,89 @@ def _search(query: str, user_id) -> dict:
 
 # ---- B3: study state aggregation ----
 def _run_py(code: str) -> dict:
-    """P10: sandboxed Python execution (see agent/sandbox.py ? three-layer
+    """P10: sandboxed Python execution (see agent/sandbox.py — three-layer
     isolation; read-only compute so no permission gate needed)."""
     from agent import sandbox as _SB
     r = _SB.run(code)
     if r["ok"]:
         first = (r["stdout"].strip().splitlines() or [""])[0][:80]
-        summary = f"????({r['ms']}ms) ??: {first}"
+        summary = f"计算完成({r['ms']}ms) 输出: {first}"
     else:
-        summary = f"??{r['error_type']}: {r['stderr'][:60]}"
+        summary = f"沙盒{r['error_type']}: {r['stderr'][:60]}"
     return {"summary": summary, "data": r}
+
+
+# ---- P11: bookshelf management (move / delete, WRITE-gated) ----
+
+_DOC_CATS = {"slides": "课件", "textbooks": "教材", "exercises": "习题",
+             "exam-papers": "真题卷", "research-papers": "文献", "notes": "笔记"}
+
+
+def _find_doc(conn, user_id: str, title: str):
+    """Owner-scoped fuzzy title match (same matching philosophy as _read_doc)."""
+    row = conn.execute(
+        "SELECT id, title, category FROM documents WHERE user_id=? AND title LIKE ? "
+        "ORDER BY created_at DESC LIMIT 1", (user_id, f"%{title}%")).fetchone()
+    if not row:
+        row = conn.execute(
+            "SELECT id, title, category FROM documents WHERE user_id=? "
+            "ORDER BY created_at DESC LIMIT 1", (user_id,)).fetchone()
+        if not row or (title and title[:3] not in (row["title"] or "")):
+            return None
+    return row
+
+
+def _move_doc(title: str, category: str, user_id: str) -> dict:
+    if not user_id:
+        return _no_login()
+    if category not in _DOC_CATS:
+        return {"summary": f"无效分类 {category}", "data": {"error": "invalid_category",
+                "valid": list(_DOC_CATS.keys())}}
+    from server import get_db
+    conn = get_db()
+    try:
+        row = _find_doc(conn, user_id, title)
+        if not row:
+            return {"summary": f"没有找到《{title}》", "data": {"error": "not_found"}}
+        conn.execute("UPDATE documents SET category=? WHERE id=?", (category, row["id"]))
+        conn.commit()
+        zh = _DOC_CATS[category]
+        return {"summary": f"已将《{row['title'][:30]}》移到【{zh}】",
+                "data": {"link": "bookshelf", "title": row["title"], "category": category}}
+    finally:
+        conn.close()
+
+
+def _delete_doc(title: str, user_id: str) -> dict:
+    if not user_id:
+        return _no_login()
+    from server import get_db, UPLOAD_DIR
+    import os as _os, shutil as _sh
+    conn = get_db()
+    try:
+        row = _find_doc(conn, user_id, title)
+        if not row:
+            return {"summary": f"没有找到《{title}》", "data": {"error": "not_found"}}
+        doc_id, doc_title = row["id"], row["title"]
+        conn.execute("DELETE FROM documents WHERE id=?", (doc_id,))
+        conn.execute("DELETE FROM doc_chunks WHERE doc_id=?", (doc_id,))
+        conn.execute("DELETE FROM doc_embeddings WHERE doc_id=?", (doc_id,))
+        try:
+            conn.execute("DELETE FROM highlights WHERE document_id=?", (doc_id,))
+        except Exception:
+            pass
+        conn.commit()
+    finally:
+        conn.close()
+    # purge stored file + parse artifacts (same as the manual DELETE endpoint)
+    try:
+        for fn in _os.listdir(UPLOAD_DIR):
+            if fn.startswith(doc_id + "_"):
+                _os.remove(_os.path.join(UPLOAD_DIR, fn))
+    except Exception:
+        pass
+    return {"summary": f"已删除《{doc_title[:30]}》及其解析数据",
+            "data": {"link": "bookshelf", "deleted": True, "title": doc_title}}
 
 
 def _state(user_id) -> dict:
@@ -351,6 +455,11 @@ def execute_tool(name: str, args: dict, user_id) -> dict:
             return _state(user_id)
         if name == "run_python":
             return _run_py(str(args.get("code", ""))[:2200])
+        if name == "move_document":
+            return _move_doc(str(args.get("title", ""))[:200],
+                             str(args.get("category", ""))[:40], user_id)
+        if name == "delete_document":
+            return _delete_doc(str(args.get("title", ""))[:200], user_id)
         # ---- P3 read tools ----
         if name == "list_documents":
             return _list_docs(user_id)
