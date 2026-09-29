@@ -907,7 +907,7 @@ function renderGuideUiMock(kind,items){
     box.style.cssText='border:1px dashed var(--border);border-radius:10px;padding:12px 14px;margin:12px 0;background:var(--bg-input);';
     const chip=(txt,accent)=>'<span style="display:inline-block;padding:4px 12px;border-radius:999px;font-size:12px;border:1px solid '+(accent?'var(--accent)':'var(--border)')+';background:'+(accent?'rgba(76,141,255,.08)':'var(--bg-card)')+';color:'+(accent?'var(--accent)':'var(--text-secondary)')+';margin:2px 4px 2px 0;">'+escapeHtml(txt)+'</span>';
     if(kind==='sidebar'){
-        const navs=[['Dashboard 仪表盘','layout-dashboard'],['Pre-Assessment 前测','clipboard-check'],['Math Tutor AI辅导','sigma'],['AI Quiz 智能出题','target'],['Function Plotter 画板','chart-line'],['Reader 阅读','book-open','hot'],['Notes & Vocab 笔记单词库','notebook-pen','hot'],['Knowledge Graph 知识图谱','network'],['Forum 学习论坛','message-square'],['All Materials 书架','library']];
+        const navs=[['Dashboard 仪表板','layout-dashboard'],['Pre-Assessment 学前诊断','clipboard-check'],['Agent 助手 Agent Assistant','sigma','hot'],['AI Quiz AI 出题','target'],['Function Plotter 函数画板','chart-line'],['Reader 阅读器','book-open'],['Notes & Vocab 笔记单词库','notebook-pen'],['Knowledge Graph 知识图谱','network'],['Forum 学习论坛','message-square'],['All Materials 书架','library']];
         box.innerHTML='<div style="font-size:11px;color:var(--text-muted);margin-bottom:8px;">Sidebar 侧边栏导览</div>'
             +navs.map(n=>'<div style="display:flex;align-items:center;gap:8px;font-size:13px;padding:3px 8px;border-radius:6px;'+(n[2]?'background:rgba(76,141,255,.10);color:var(--accent);font-weight:600;':'color:var(--text-secondary);')+'">'+iconHtml(n[1],14)+n[0]+(n[2]?' ◀ start here 从这开始':'')+'</div>').join('');
         refreshIcons();
