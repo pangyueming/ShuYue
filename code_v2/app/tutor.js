@@ -354,7 +354,14 @@ async function tutorHandleFile(file){
         dragCount=0;
         chat.style.outline='';
         const files=e.dataTransfer&&e.dataTransfer.files;
-        if(files&&files[0])tutorHandleFile(files[0]);
+        if(files&&files[0]){
+            // P8: images route to the ephemeral vision flow, docs upload as before
+            if(files[0].type&&files[0].type.startsWith('image/')&&typeof visionHandleFiles==='function'){
+                visionHandleFiles(files[0]);
+            }else{
+                tutorHandleFile(files[0]);
+            }
+        }
     });
 })();
 
@@ -658,8 +665,17 @@ function tutorEscapeKey(e){
 async function tutorSend(){
     const inp=document.getElementById('tutor-input');
     // direct-send bypass (permission retry): uses the stored question, never touches the input box
+    const directSend=!!window.__tutorDirectSend;
     const q=(window.__tutorDirectSend||'').trim()||inp.value.trim();
     window.__tutorDirectSend=null;
+    // P8: vision intercept — image chip present routes to /api/vision/chat
+    // (empty text allowed: backend auto-classifies the image)
+    if(!directSend&&typeof visionHasImage==='function'&&visionHasImage()){
+        const vq=inp.value.trim();
+        inp.value='';try{tutorAutoGrow(inp);}catch(e){}
+        tutorVisionSend(vq);
+        return;
+    }
     if(!q)return;
     if(tutorStreamActive()){showNotification('本工作台正在生成中，请等待完成或按 Esc 中断','warning');return;}
     inp.value='';tutorAutoGrow(inp);

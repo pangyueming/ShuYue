@@ -1135,6 +1135,13 @@ function closeAIChat(){
 })();
 
 async function aiChatSend(text){
+    // P8: vision intercept — pasted/attached image routes to /api/vision/chat
+    if(typeof visionHasImage==='function'&&visionHasImage()&&localStorage.getItem('cb_cn_token')){
+        const vt=(text||document.getElementById('ai-chat-input').value||'').trim();
+        document.getElementById('ai-chat-input').value='';
+        readerVisionSend(vt);
+        return;
+    }
     text=text||document.getElementById('ai-chat-input').value.trim();
     if(!text)return;
     document.getElementById('ai-chat-input').value='';
