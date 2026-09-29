@@ -41,6 +41,7 @@ _SYSTEM_BASE = (
     "- 学生要求列书架文件 → 调 list_documents\n"
     "- 学生要求标记计划任务完成 → 调 update_plan_task\n"
     "- 学生要求做测试/诊断 → 调 start_assessment\n"
+    "- 涉及精确数值/符号计算（求极限、求导、解方程、验证答案数值）→ 优先调 run_python 验证再回答，比心算可靠\n"
     "- 学生选了文档导航技能并@引用文档 → 先调 generate_study_guide（如无指南）→ 再调 read_document\n"
     "\n"
     "**文档上传自动分析**（学生说'我上传了《X》，请分析'时）：\n"
@@ -235,6 +236,7 @@ def run_agent(message: str, history: list, user_skill, user_id, approved_tools=N
                [{"role": "user", "content": message}]
     final_text = ""
     tool_history = []   # P4 H2: track tools for the plan card
+    sandbox_calls = 0   # P10: per-turn sandbox cap (protect the server)
     for step in range(MAX_STEPS):   # E4 step cap
         try:
             if used_tokens > MAX_LOOP_TOKENS:   # E4 token budget
@@ -325,6 +327,15 @@ def run_agent(message: str, history: list, user_skill, user_id, approved_tools=N
                                  "content": json.dumps({"error": "rate_limited"},
                                                        ensure_ascii=False)})
                 continue
+            if name == "run_python":
+                sandbox_calls += 1
+                if sandbox_calls > 3:
+                    yield _sse({"type": "tool_result", "name": name,
+                                "summary": "???????????3????????"})
+                    messages.append({"role": "tool", "tool_call_id": tc.get("id", ""),
+                                     "content": json.dumps({"error": "sandbox_per_turn_limit"},
+                                                           ensure_ascii=False)})
+                    continue
             yield _sse({"type": "tool_call", "name": name, "args": _brief(args)})
             tr = T.execute_tool(name, args, user_id)
             actions.append({"kind": name, "text": tr["summary"],

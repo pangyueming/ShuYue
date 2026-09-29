@@ -51,6 +51,20 @@ TOOL_SPECS = [
     {
         "type": "function",
         "function": {
+            "name": "run_python",
+            "description": "在隔离沙盒中运行 Python 代码做数学计算或验证（可用库：math/sympy/numpy/fractions/statistics；无网络无文件）。需要精确计算数值、符号求值（极限/导数/积分/方程）、或验证一个答案时使用——比心算可靠。用 print() 输出结果。",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "code": {"type": "string", "description": "要执行的 Python 代码（≤2KB）"},
+                },
+                "required": ["code"],
+            },
+        },
+    },
+    {
+        "type": "function",
+        "function": {
             "name": "list_documents",
             "description": "列出学生书架上的全部文档（标题+分类）。当学生问'我有哪些文档/书架里有什么'时使用。",
             "parameters": {"type": "object", "properties": {}},
@@ -246,6 +260,19 @@ def _search(query: str, user_id) -> dict:
 
 
 # ---- B3: study state aggregation ----
+def _run_py(code: str) -> dict:
+    """P10: sandboxed Python execution (see agent/sandbox.py ? three-layer
+    isolation; read-only compute so no permission gate needed)."""
+    from agent import sandbox as _SB
+    r = _SB.run(code)
+    if r["ok"]:
+        first = (r["stdout"].strip().splitlines() or [""])[0][:80]
+        summary = f"????({r['ms']}ms) ??: {first}"
+    else:
+        summary = f"??{r['error_type']}: {r['stderr'][:60]}"
+    return {"summary": summary, "data": r}
+
+
 def _state(user_id) -> dict:
     if not user_id:
         return _no_login()
@@ -322,6 +349,8 @@ def execute_tool(name: str, args: dict, user_id) -> dict:
             return _search(str(args.get("query", ""))[:200], user_id)
         if name == "get_study_state":
             return _state(user_id)
+        if name == "run_python":
+            return _run_py(str(args.get("code", ""))[:2200])
         # ---- P3 read tools ----
         if name == "list_documents":
             return _list_docs(user_id)
