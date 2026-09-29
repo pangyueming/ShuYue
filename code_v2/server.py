@@ -377,6 +377,21 @@ def init_db():
         created_at TEXT DEFAULT (datetime('now'))
     );
     CREATE INDEX IF NOT EXISTS idx_vision_images_user ON vision_images(user_id, id DESC);
+
+    -- P9 (D13): FSRS-5 review queue — one memory state (D/S) per (user, topic)
+    CREATE TABLE IF NOT EXISTS srs_queue (
+        user_id TEXT NOT NULL,
+        topic TEXT NOT NULL,
+        difficulty REAL DEFAULT 5.0,
+        stability REAL DEFAULT 1.0,
+        reps INTEGER DEFAULT 0,
+        lapses INTEGER DEFAULT 0,
+        last_review_at TEXT,
+        due_at TEXT,
+        source TEXT DEFAULT 'quiz',
+        PRIMARY KEY (user_id, topic)
+    );
+    CREATE INDEX IF NOT EXISTS idx_srs_due ON srs_queue(due_at);
     """)
 
     # === Migration: add user_id to legacy tables (notes/documents) ===
@@ -1702,6 +1717,23 @@ def vision_chat(req: VisionChatRequest,
                            "result": parsed or {"raw": raw[:2000], "parse_error": True},
                            "quota_left": left2})
                 out = _vision_grade_summary(parsed) if parsed else raw[:500]
+                # P9: each graded problem is an FSRS review for its topic (D13).
+                # correct→GOOD / partial→HARD / wrong→AGAIN / equivalence→GOOD
+                if isinstance(parsed, dict) and user_id:
+                    for p in (parsed.get("problems") or []):
+                        try:
+                            if not isinstance(p, dict) or not p.get("question"):
+                                continue
+                            _topic = infer_topic(str(p["question"]))
+                            if p.get("equivalence_override") or p.get("result") == "correct":
+                                _rating = 3
+                            elif p.get("result") == "partial":
+                                _rating = 2
+                            else:
+                                _rating = 1
+                            fsrs_review(user_id, _topic, _rating, source="grade")
+                        except Exception as _fe:
+                            print(f"[fsrs] grade hook skipped a problem: {_fe}")
                 if parsed:
                     try:
                         _m = json.dumps(parsed, ensure_ascii=False)
@@ -1818,6 +1850,80 @@ def vision_image(image_id: str, current_user: Optional[dict] = Depends(get_curre
     import base64 as _b64
     return Response(content=_b64.b64decode(row["b64"]), media_type=row["mime"],
                     headers={"Cache-Control": "private, max-age=86400"})
+
+
+# ============================================================================
+# P9 (D13): FSRS review pipeline — every quiz/grade/pretest feeds one memory
+# state per (user, topic); R(t) drives review triggers, graph coloring,
+# agent narration and the dynamic proficiency number.
+# ============================================================================
+
+def fsrs_review(user_id: str, topic: str, rating: int, source: str = "quiz",
+                conn=None) -> dict:
+    """One FSRS review event. Upserts srs_queue and returns the new state.
+    Rating: 1=Again(wrong) 2=Hard(partial) 3=Good(correct) 4=Easy(flawless)."""
+    from agent import fsrs as F
+    own = conn is None
+    c = conn or get_db()
+    try:
+        now = datetime.now()
+        row = c.execute("SELECT difficulty, stability, reps, lapses, last_review_at "
+                        "FROM srs_queue WHERE user_id=? AND topic=?",
+                        (user_id, topic)).fetchone()
+        if row is None:
+            d = F.init_difficulty(rating)
+            s = F.init_stability(rating)
+            reps, lapses = 1, (1 if rating == F.AGAIN else 0)
+            r_now = None
+        else:
+            last = row["last_review_at"]
+            days = 0.0
+            if last:
+                try:
+                    days = max((now - datetime.fromisoformat(last)).total_seconds() / 86400.0, 0.0)
+                except Exception:
+                    days = 0.0
+            r_now = F.retrievability(row["stability"], days)
+            d = F.next_difficulty(row["difficulty"], rating)
+            s = F.next_stability(row["difficulty"], row["stability"], r_now, rating,
+                                 same_day=(days < 1.0))
+            reps = row["reps"] + 1
+            lapses = row["lapses"] + (1 if rating == F.AGAIN else 0)
+        due = (now + timedelta(days=F.interval(s, F.TARGET_R))).isoformat()
+        c.execute(
+            "INSERT INTO srs_queue (user_id,topic,difficulty,stability,reps,lapses,"
+            "last_review_at,due_at,source) VALUES (?,?,?,?,?,?,?,?,?) "
+            "ON CONFLICT(user_id,topic) DO UPDATE SET difficulty=?,stability=?,"
+            "reps=?,lapses=?,last_review_at=?,due_at=?,source=?",
+            (user_id, topic, d, s, reps, lapses, now.isoformat(), due, source,
+             d, s, reps, lapses, now.isoformat(), due, source))
+        if own:
+            c.commit()
+        return {"topic": topic, "difficulty": round(d, 2), "stability": round(s, 2),
+                "R_now": round(r_now, 3) if r_now is not None else None,
+                "due_at": due, "reps": reps, "lapses": lapses}
+    except Exception as e:
+        print(f"[fsrs] review failed for {user_id}/{topic}: {e}")
+        return {"error": str(e)[:100]}
+    finally:
+        if own:
+            try: c.close()
+            except Exception: pass
+
+
+def fsrs_rating_from_ratio(score: int, total: int) -> int:
+    """Map a quiz attempt (score/total) onto the FSRS 4-grade scale."""
+    from agent import fsrs as F
+    if total <= 0:
+        return F.GOOD
+    ratio = score / total
+    if ratio >= 1.0:
+        return F.EASY
+    if ratio >= 0.8:
+        return F.GOOD
+    if ratio >= 0.5:
+        return F.HARD
+    return F.AGAIN
 
 
 # ============================================================================
@@ -3833,13 +3939,19 @@ async def quiz_submit(req: QuizSubmitRequest, current_user: Optional[dict] = Dep
         return {"saved": False, "reason": "guest"}
     result_id = f"qr_{int(time.time()*1000)}"
     conn = get_db()
+    topic = QUIZ_CACHE.get(req.quiz_id, {}).get("topic", req.quiz_id)
     conn.execute(
         "INSERT INTO quiz_results (id,user_id,topic,score,total,detail_json) VALUES (?,?,?,?,?,?)",
-        (result_id, current_user["id"], QUIZ_CACHE.get(req.quiz_id, {}).get("topic", req.quiz_id),
+        (result_id, current_user["id"], topic,
          req.score, req.total, req.detail_json)
     )
-    conn.commit(); conn.close()
-    return {"saved": True, "id": result_id}
+    conn.commit()
+    # P9: every attempt is an FSRS review event for its topic (D13 pipeline)
+    fsrs_state = fsrs_review(current_user["id"], topic,
+                             fsrs_rating_from_ratio(req.score, req.total),
+                             source="quiz", conn=conn)
+    conn.close()
+    return {"saved": True, "id": result_id, "fsrs": fsrs_state}
 
 @app.get("/api/quiz/history")
 def quiz_history(current_user: Optional[dict] = Depends(get_current_user)):
@@ -3887,15 +3999,28 @@ async def create_assessment(
     assessment_id = f"asm_{int(time.time()*1000)}"
     conn = get_db()
     conn.execute(
-        """INSERT INTO assessments 
-           (id, user_id, knowledge_json, transition_json, quiz_correct, quiz_total, 
+        """INSERT INTO assessments
+           (id, user_id, knowledge_json, transition_json, quiz_correct, quiz_total,
             avg_score, weak_topics, strong_topics, danger_topics, result_json)
            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
         (assessment_id, current_user["id"], req.knowledge_json, req.transition_json,
-         req.quiz_correct, req.quiz_total, req.avg_score, req.weak_topics, 
+         req.quiz_correct, req.quiz_total, req.avg_score, req.weak_topics,
          req.strong_topics, req.danger_topics, req.result_json)
     )
-    conn.commit(); conn.close()
+    conn.commit()
+    # P9: pretest seeds the FSRS queue — weak/danger topics enter as AGAIN
+    # (due immediately), strong topics as GOOD. Splits on common separators.
+    from agent import fsrs as _F
+    import re as _re
+    def _seed(field, rating):
+        for t in _re.split(r"[,，、;；\s]+", field or ""):
+            t = t.strip()
+            if t:
+                fsrs_review(current_user["id"], t, rating, source="pretest", conn=conn)
+    _seed(getattr(req, "danger_topics", ""), _F.AGAIN)
+    _seed(getattr(req, "weak_topics", ""), _F.AGAIN)
+    _seed(getattr(req, "strong_topics", ""), _F.GOOD)
+    conn.close()
     return {"id": assessment_id, "saved": True}
 
 @app.get("/api/assessments/latest")
