@@ -700,6 +700,14 @@ async function tutorSend(){
     if(!q)return;
     if(tutorStreamActive()){showNotification('本工作台正在生成中，请等待完成或按 Esc 中断','warning');return;}
     inp.value='';tutorAutoGrow(inp);
+    // P8 Day-2.7.2: lazy workspace creation — logged-in chats ALWAYS persist.
+    // After a refresh (no active workspace), the first send silently creates one.
+    if(!tutorActiveSession&&localStorage.getItem('cb_cn_token')){
+        try{
+            const res=await apiFetch('/api/agent/sessions',{method:'POST',body:JSON.stringify({title:''})});
+            if(res.ok){tutorActiveSession=(await res.json()).id;if(typeof tutorRenderSessions==='function')tutorRenderSessions();}
+        }catch(e){/* fall back to temp chat */}
+    }
     const sendSession=tutorActiveSession;          // scope: this stream belongs to THIS workspace
     const sendKey=sendSession||'_temp';
     const chat=document.getElementById('tutor-chat');

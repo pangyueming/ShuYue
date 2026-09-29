@@ -1587,7 +1587,7 @@ def vision_chat(req: VisionChatRequest,
             conn.commit()
         conn.close()
 
-    def _persist_vision(full_text, meta=None):
+    def _persist_vision(full_text, meta=None, naming_hint=""):
         if not (session_ok and req.session_id and full_text):
             return
         try:
@@ -1596,6 +1596,16 @@ def vision_chat(req: VisionChatRequest,
                 "INSERT INTO chat_messages (session_id,role,content,meta) VALUES (?,?,?,?)",
                 (req.session_id, "assistant", full_text,
                  json.dumps(meta or {"vision": True}, ensure_ascii=False)))
+            # Day-2.7.3: fixed title for vision-first workspaces (user decision —
+            # flash naming was flaky; a stable, predictable name beats a bad guess)
+            trow = conn5.execute("SELECT title FROM chat_sessions WHERE id=?",
+                                 (req.session_id,)).fetchone()
+            if trow and (not trow["title"] or trow["title"] in ("新工作台", "工作台")):
+                try:
+                    conn5.execute("UPDATE chat_sessions SET title=? WHERE id=?",
+                                  ("图片知识点解答", req.session_id))
+                except Exception as _te:
+                    print(f"[vision] title set failed: {_te}")
             conn5.commit(); conn5.close()
         except Exception as e:
             print(f"[vision] persist failed: {e}")
@@ -1611,6 +1621,7 @@ def vision_chat(req: VisionChatRequest,
         err = ""
         out = ""
         out_meta = None   # Day-2.6: grade turns carry the full report JSON for card-level restore
+        naming_hint = text   # Day-2.7: intent-aware material for workspace auto-naming
         try:
             # ---- intent routing (flash on text; vl-flash on image when no note) ----
             if (req.text or "").strip() or req.history:
@@ -1698,6 +1709,11 @@ def vision_chat(req: VisionChatRequest,
                             out_meta = {"vision": "grade", "result": parsed}
                     except Exception:
                         pass
+                    try:   # Day-2.7: name the workspace from the first graded problem
+                        naming_hint = str(
+                            ((parsed.get("problems") or [{}])[0].get("question")) or "手写批改")[:100]
+                    except Exception:
+                        naming_hint = "手写批改"
 
             # ---- solve: vl-flash extract → harness pipeline (verified) ----
             elif intent == "solve":
@@ -1714,18 +1730,25 @@ def vision_chat(req: VisionChatRequest,
                                     tokens, "no_question", text, "")
                     yield "data: [DONE]\n\n"
                     return
+                naming_hint = question[:100]   # Day-2.7: name from the extracted problem (content only)
                 yield sse({"type": "status", "text": f"已识别题目：{question[:60]}…"})
                 yield sse({"type": "text", "delta": f"**识别到的题目**：{question}\n\n"})
                 yield sse({"type": "status", "text": "解题中…（双车道 + 验证器）"})
                 ts = time.time()
-                result = solve_question(
-                    question_text=question, options=None,
-                    api_key=DASHSCOPE_API_KEY, model=MODEL,
-                    base_url=BASE_URL.replace("/chat/completions", ""))
+                # Day-2.7: heartbeat — blocking solve off-thread, "解题中… Xs" every 5s
+                fut = _vision_pool.submit(solve_question,
+                                          question_text=question, options=None,
+                                          api_key=DASHSCOPE_API_KEY, model=MODEL,
+                                          base_url=BASE_URL.replace("/chat/completions", ""))
+                while not fut.done():
+                    yield sse({"type": "status", "text": f"解题中… {int(time.time() - ts)}s"})
+                    time.sleep(5)
+                result = fut.result()
                 steps.append({"type": "tool", "name": "solve_problem",
                               "ms": int((time.time()-ts)*1000),
                               "ok": bool((result or {}).get("solution"))})
                 solution = (result or {}).get("solution") or "解题失败，请重试或打字描述题目。"
+                yield sse({"type": "status", "text": "解题完成，整理输出…"})
                 # stream in chunks for perceived speed
                 for i in range(0, len(solution), 120):
                     chunk = solution[i:i+120]
@@ -1764,11 +1787,11 @@ def vision_chat(req: VisionChatRequest,
                               "ms": int((time.time()-ts)*1000), "ok": bool(out)})
 
             yield sse({"type": "usage", "total_tokens": tokens, "intent": intent})
-            _persist_vision(out, out_meta)   # assistant turn lands BEFORE the client sees DONE
+            _persist_vision(out, out_meta, naming_hint)   # assistant turn lands BEFORE the client sees DONE
             yield "data: [DONE]\n\n"
         except GeneratorExit:
             # client aborted — keep the partial answer in the workspace (same as agent chat)
-            _persist_vision(out or "（图片处理被中断）", out_meta)
+            _persist_vision(out or "（图片处理被中断）", out_meta, naming_hint)
             raise
         except Exception as e:
             err = str(e)[:120]

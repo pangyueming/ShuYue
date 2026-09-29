@@ -1,4 +1,4 @@
-// ===== P8 Vision — 贴图即问（tutor + Reader 共享）=====
+﻿// ===== P8 Vision — 贴图即问（tutor + Reader 共享）=====
 // 图片零落盘：压缩后 base64 随请求发送，用完即弃。
 // 三入口：Ctrl+V 粘贴 / 拖拽 / 点击"图片"按钮（手机自动唤起相机）。
 // 图片状态按上下文隔离（P8 Day-2.5）：tutor:<工作台id|_temp> 与 reader 各自独立——
@@ -90,10 +90,14 @@ function visionRenderChip(){
 function __visionPick(ctx){ __visionPickCtx = ctx || 'tutor'; document.getElementById('vision-file-input').click(); }
 
 // ---------- 共享 SSE 消费 ----------
+// Day-2.7.3: the image payload is passed IN (h.__img, captured once at send start) —
+// never re-resolved from live state. Lazy workspace creation used to shift the key
+// between paste (tutor:_temp) and send (tutor:<new id>) → undefined.b64 crash.
 async function visionStream(text, history, h, sessionId, signal){
     const tok = localStorage.getItem('cb_cn_token');
-    const body = { image_base64: __visionImgBySession[__visionKey(h.__ctx || 'tutor')].b64,
-                   mime: __visionImgBySession[__visionKey(h.__ctx || 'tutor')].mime,
+    const img = h.__img;
+    if (!img) throw new Error('没有待发送的图片');
+    const body = { image_base64: img.b64, mime: img.mime,
                    text: text || '', history: (history || []).slice(-6),
                    session_id: sessionId || '' };
     const r = await fetch(AI_BACKEND_URL + '/api/vision/chat', {
@@ -211,7 +215,27 @@ async function tutorVisionSend(text){
     const chat = document.getElementById('tutor-chat');
     if (!chat) return;
     const ctx = 'tutor';
-    const img = __visionImgBySession[__visionKey(ctx)];
+    // P8 Day-2.7.2: lazy workspace creation FIRST — vision turns always persist.
+    // Day-2.7.3: creation happens BEFORE the image read, and the '_temp' image
+    // (pasted while no workspace existed) migrates to the new workspace key —
+    // the conversation that just gained a workspace owns that image.
+    if (!(typeof tutorActiveSession !== 'undefined' && tutorActiveSession)
+        && localStorage.getItem('cb_cn_token') && typeof apiFetch === 'function') {
+        try {
+            const res = await apiFetch('/api/agent/sessions', { method: 'POST', body: JSON.stringify({ title: '' }) });
+            if (res.ok) {
+                tutorActiveSession = (await res.json()).id;
+                if (typeof tutorRenderSessions === 'function') tutorRenderSessions();
+            }
+        } catch (e) { /* fall back to ephemeral temp chat */ }
+    }
+    const vkey = __visionKey(ctx);
+    if (!__visionImgBySession[vkey] && __visionImgBySession['tutor:_temp']) {
+        __visionImgBySession[vkey] = __visionImgBySession['tutor:_temp'];
+        if (vkey !== 'tutor:_temp') delete __visionImgBySession['tutor:_temp'];
+        visionRenderChip();
+    }
+    const img = __visionImgBySession[vkey];
     if (!img) return;
     const empty = chat.querySelector('.empty-hero'); if (empty) empty.remove();
     const q = text || '📷 图片提问（自动判断）';
@@ -258,7 +282,7 @@ async function tutorVisionSend(text){
     const hist = (!sendSession && typeof tutorChatHistory !== 'undefined') ? tutorChatHistory : [];
     try {
         await visionStream(text, hist, {
-            __ctx: ctx,
+            __ctx: ctx, __img: img,
             onIntent: i => st('vision · ' + i),
             onStatus: s => st(s),
             onText: d => {
@@ -286,6 +310,10 @@ async function tutorVisionSend(text){
             tutorChatHistory.push({ role: 'user', content: text || '（图片提问）' });
             tutorChatHistory.push({ role: 'assistant', content: full || '（图片批改结果）' });
         }
+        // Day-2.7.1: mirror the agent flow's post-stream bookkeeping —
+        // registry cleanup + sidebar refresh (auto-named title appears WITHOUT manual refresh)
+        if (typeof tutorStreams !== 'undefined') tutorStreams.delete(sendKey);
+        if (sendSession && typeof tutorSessionsInit === 'function') tutorSessionsInit();
         if (typeof tutorSetSendBtn === 'function') tutorSetSendBtn(tutorStreamActive ? tutorStreamActive() : false);
         refreshIcons();
     }
@@ -327,7 +355,7 @@ async function readerVisionSend(text){
     const hist = (typeof aiChatMessages !== 'undefined') ? aiChatMessages : [];
     try {
         await visionStream(text, hist, {
-            __ctx: ctx,
+            __ctx: ctx, __img: img,
             onStatus: s => { stEl.textContent = s; msgArea.scrollTop = msgArea.scrollHeight; },
             onIntent: i => { stEl.textContent = 'vision · ' + i; },
             onText: d => {
