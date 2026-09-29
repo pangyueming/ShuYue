@@ -41,6 +41,10 @@ _SYSTEM_BASE = (
     "- 学生要求列书架文件 → 调 list_documents\n"
     "- 学生要求标记计划任务完成 → 调 update_plan_task\n"
     "- 学生要求做测试/诊断 → 调 start_assessment\n"
+    "- 学生要求移动书架文件/换分类（如'把X移到教材/放错了'）→ 必须调 move_document（title+category）。**你拥有该工具，绝不允许声称没有移动文件的能力**\n"
+    "- 学生明确要求删除某个文件 → 调 delete_document（先向学生确认文件名）\n"
+    "- **授权语义**：若学生回复'同意/可以/好的/确认/允许'且上一轮是操作确认，必须**重新调用**该工具真正执行操作\n"
+    "- **诚实铁律**：未实际调用工具并看到成功结果前，**严禁**用任何措辞（已完成/已移动/已删除/已把…移到/搞定/成功）宣称操作成功；若工具返回 pending_user_approval，必须如实说明操作尚未完成、等待授权\n"
     "- 涉及精确数值/符号计算（求极限、求导、解方程、验证答案数值）→ 优先调 run_python 验证再回答，比心算可靠\n"
     "- 学生选了文档导航技能并@引用文档 → 先调 generate_study_guide（如无指南）→ 再调 read_document\n"
     "\n"
@@ -192,7 +196,28 @@ def run_agent(message: str, history: list, user_skill, user_id, approved_tools=N
     # ---------- 2b. guest / fast-path: direct stream, no tools ----------
     # Guests AND logged-in users with simple chat (no skill, high confidence)
     # skip the tool loop entirely — restoring P2-speed responses (~4-6s).
-    if not user_id or (intent == "chat" and not skill and conf >= 0.90):
+    # P11-G: a typed approval right after a permission ask must reach the TOOL
+    # LOOP (tools + honesty rules live there) ? the fast path has neither,
+    # which let the model claim success without executing anything.
+    def _approval_after_permission(msg, hist):
+        if not any(k in msg for k in ("同意", "可以", "好的", "确认", "允许", "approve", "ok", "OK")):
+            return False
+        if len(msg) > 12:
+            return False
+        for m in reversed((hist or [])[-4:]):
+            if m.get("role") == "assistant":
+                t = m.get("content", "")
+                return ("授权" in t) or ("确认" in t and "操作" in t) or ("允许" in t)
+        return False
+
+    _approval = _approval_after_permission(message, _hist)
+    if _approval:
+        message = message + ("\n（系统注：学生刚对上一轮待授权操作回复了授权。请立即重新调用该待授权"
+                             "工具完成执行；若再次收到 pending_user_approval，必须如实说明操作尚未"
+                             "完成、需在弹窗中点击允许，严禁声称已成功。）")
+
+    if not user_id or (intent == "chat" and not skill and conf >= 0.90
+                       and not _approval):
         messages = [{"role": "system", "content": system_prompt}] + _hist + \
                    [{"role": "user", "content": message}]
         full = ""
@@ -315,7 +340,7 @@ def run_agent(message: str, history: list, user_skill, user_id, approved_tools=N
                 messages.append({"role": "tool", "tool_call_id": tc.get("id", ""),
                                  "content": json.dumps(
                                      {"status": "pending_user_approval",
-                                      "note": "用户尚未授权此操作，请先告知用户需要做什么，等待授权后重试。"},
+                                      "note": "用户尚未授权——操作【未执行】。你的回答必须明确告诉用户：操作还没有完成，需要在弹窗中点击允许（或再次回复同意触发弹窗）。严禁声称已完成/已移动/已删除/已把…移到/搞定，或任何表示成功的措辞。"},
                                      ensure_ascii=False)})
                 actions.append({"kind": "permission", "text": f"待授权：{name}"})
                 continue
@@ -331,7 +356,7 @@ def run_agent(message: str, history: list, user_skill, user_id, approved_tools=N
                 sandbox_calls += 1
                 if sandbox_calls > 3:
                     yield _sse({"type": "tool_result", "name": name,
-                                "summary": "???????????3????????"})
+                                "summary": "本轮沙盒调用已达上限（3次），请直接作答"})
                     messages.append({"role": "tool", "tool_call_id": tc.get("id", ""),
                                      "content": json.dumps({"error": "sandbox_per_turn_limit"},
                                                            ensure_ascii=False)})
@@ -403,4 +428,6 @@ def _perm_hint(name: str) -> str:
         "generate_quiz": "AI 将预填出题配置并跳转出题页",
         "update_plan_task": "AI 将标记你的学习计划任务为已完成",
         "generate_study_guide": "AI 将为此文档生成知识指南（约30秒，只需一次）",
+        "move_document": "AI 将把这份文档移到你指定的书架分类",
+        "delete_document": "⚠ AI 将删除这份文档及其全部解析数据——不可恢复",
     }.get(name, f"AI 请求执行写操作 {name}")

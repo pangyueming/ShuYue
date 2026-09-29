@@ -324,7 +324,8 @@ async function tutorHandleFile(file){
             }
         }catch(e){/* best-effort */}
         // auto-send analysis message
-        window.__tutorDirectSend='我上传了《'+doc.title+'》，请帮我分析：读取内容摘要、提取数学术语、并将摘要保存为笔记。';
+        window.__tutorDirectSend='我上传了《'+doc.title+'》（已放入【课件】分类），请帮我分析：读取内容摘要、提取数学术语、并将摘要保存为笔记。结尾请告诉我这份文件现在放在哪个分类，如果放错了告诉我可以帮你移动。';
+        window.__tutorUploadedDoc=doc;   // P11: chip data for the upload bubble
         tutorSend();
     }catch(e){
         showNotification('上传失败：'+e.message,'error');
@@ -373,6 +374,44 @@ function tutorRenderMaterials(){
         <span style="color:var(--text-secondary);">${iconHtml('paperclip',13)}</span><span style="color:var(--text-primary);">${m.name}</span><span style="color:var(--text-muted);">${m.size}</span>
         <button onclick="tutorRemoveMaterial(${i})" style="margin-left:auto;color:#ff6b6b;background:none;border:none;cursor:pointer;font-size:14px;">×</button></div>`
     ).join('');refreshIcons();
+}
+
+// ===== P11: bookshelf management ? quick-move chip & action link =====
+// ===== P11: bookshelf management — quick-move chip & action link =====
+function tutorRenderCatChip(bubble, doc){
+    if(!bubble||!doc||!doc.id)return;
+    const CATS=[['slides','课件'],['textbooks','教材'],['exercises','习题'],
+                ['exam-papers','真题卷'],['research-papers','文献'],['notes','笔记']];
+    let cur=doc.category||'slides';
+    const zh=c=>(CATS.find(x=>x[0]===c)||['','课件'])[1];
+    const wrap=document.createElement('div');
+    wrap.style.cssText='display:flex;align-items:center;gap:6px;margin-top:6px;font-size:10.5px;';
+    const sel=document.createElement('select');
+    sel.style.cssText='font-size:10.5px;padding:2px 6px;border-radius:6px;border:1px solid rgba(255,255,255,.6);background:#fff;color:#1a1a2e;cursor:pointer;font-weight:500;';
+    sel.innerHTML=CATS.map(c=>'<option value="'+c[0]+'" style="color:#1a1a2e;background:#fff;"'+(c[0]===cur?' selected':'')+'>'+c[1]+'</option>').join('');
+    sel.onchange=async()=>{
+        const cat=sel.value;
+        try{
+            const res=await apiFetch('/api/documents/'+doc.id+'/category',{method:'PATCH',body:JSON.stringify({category:cat})});
+            if(!res.ok)throw new Error('HTTP '+res.status);
+            try{   // sync local bookshelf cache between category arrays
+                for(const k of Object.keys(bsData)){
+                    const idx=(bsData[k]||[]).findIndex(d=>d.id===doc.id);
+                    if(idx>=0){const d=bsData[k].splice(idx,1)[0];d.category=cat;bsData[cat].push(d);break;}
+                }
+            }catch(e){}
+            cur=cat;
+            showNotification('已将《'+doc.title+'》移到【'+zh(cat)+'】','success');
+        }catch(e){showNotification('移动失败：'+e.message,'error');sel.value=cur;}
+    };
+    const tag=document.createElement('span');
+    tag.style.cssText='opacity:.85;display:inline-flex;align-items:center;gap:3px;';
+    tag.innerHTML=iconHtml('folder',10)+'分类：';
+    wrap.appendChild(tag);
+    wrap.appendChild(sel);
+    wrap.insertAdjacentHTML('beforeend','<span style="opacity:.65;">放错了？直接换</span>');
+    bubble.appendChild(wrap);
+    refreshIcons();
 }
 
 function tutorSendQuick(q){
@@ -527,7 +566,7 @@ async function tutorDeleteSession(id){
 
 // P3 E1: session-scoped write-tool approvals (client-held, sent with each request)
 let tutorApprovedTools=[];
-const TUTOR_LINK_LABELS={notes:'查看笔记',vocab:'去单词本',quiz:'去出题',plan:'查看计划',graph:'查看图谱',plotter:'去画板',pretest:'去前测'};
+const TUTOR_LINK_LABELS={notes:'查看笔记',vocab:'去单词本',quiz:'去出题',plan:'查看计划',graph:'查看图谱',plotter:'去画板',pretest:'去前测',bookshelf:'去书架'};
 
 // P3 G5: /finish flow state
 let tutorFinishPending=null;   // {session_id, summary, candidates}
@@ -722,6 +761,11 @@ async function tutorSend(){
     userDiv.innerHTML='<div style="width:28px;height:28px;border-radius:50%;background:var(--accent);display:flex;align-items:center;justify-content:center;color:#fff;font-size:12px;font-weight:600;flex-shrink:0;">Y</div>'+
         '<div style="background:var(--accent);color:#fff;padding:8px 14px;border-radius:12px 12px 4px 12px;font-size:13px;max-width:75%;">'+escapeHtmlTutor(q)+'</div>';
     chat.appendChild(userDiv);
+    // P11: quick-move category chip on the upload bubble (decoupled from the stream)
+    if(window.__tutorUploadedDoc){
+        try{tutorRenderCatChip(userDiv.lastElementChild, window.__tutorUploadedDoc);}catch(e){}
+        window.__tutorUploadedDoc=null;
+    }
 
     // AI bubble — status feed lives OUTSIDE the bubble (Codex-style collapsed rows)
     const statusWrap=document.createElement('div');
@@ -815,7 +859,14 @@ async function tutorSend(){
                     if(!(ev.text||'').startsWith('已启用技能'))stLine(escapeHtmlTutor(ev.text||''));
                 }
                 else if(ev.type==='tool_call'){stCalls++;stLine('calling <b>'+escapeHtmlTutor(ev.name||'tool')+'</b>…');}
-                else if(ev.type==='tool_result'){stLine('✓ '+escapeHtmlTutor(ev.name||'tool')+' done');}
+                else if(ev.type==='tool_result'){
+                    stLine('✓ '+escapeHtmlTutor(ev.name||'tool')+' done');
+                    // P11-R: bookshelf data changed server-side → background
+                    // re-pull so the shelf/dashboard are fresh before navigation
+                    if(ev.name==='move_document'||ev.name==='delete_document'){
+                        try{ if(typeof bsPageInit==='function')bsPageInit(); }catch(e){}
+                    }
+                }
                 else if(ev.type==='plan_step'){
                     // P4 H2: plan progress — accumulate and re-render checklist
                     if(!planSteps)planSteps=[];
@@ -915,7 +966,8 @@ function tutorApproveTool(name,resendQ){
 let tutorActionData={};   // link → data payload from the tool result
 
 function tutorActionJump(link){
-    if(link==='notes'){vocabTabSwitch('notes');showPage('notes');}
+if(link==='bookshelf'){showPage('bookshelf');}
+else if(link==='notes'){vocabTabSwitch('notes');showPage('notes');}
     else if(link==='vocab'){vocabTabSwitch('vocab');showPage('notes');}
     else if(link==='quiz'){
         showPage('quiz');
