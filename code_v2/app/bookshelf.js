@@ -120,7 +120,12 @@ function bsPageRenderTabs(){const c=document.getElementById('bs-page-tabs');if(!
             if(deletedCount>0)t.innerHTML+=` <span style="font-size:10px;padding:1px 5px;border-radius:999px;background:#ff6b6b;color:#fff;font-weight:600;">${deletedCount}</span>`;
             if(bsPageCat==='recycle-bin'){t.style.borderBottomColor='#ff6b6b';t.style.color='#ff6b6b';}
         }
-        t.onclick=()=>{c.querySelectorAll('span').forEach(s=>{s.style.borderBottomColor='transparent';s.style.color='var(--text-muted)';s.style.fontWeight='400';});t.style.borderBottomColor='var(--accent)';t.style.color='var(--accent)';t.style.fontWeight='600';if(cat.key==='recycle-bin'){t.style.borderBottomColor='#ff6b6b';t.style.color='#ff6b6b';}bsPageCat=cat.key;bsPageRenderGrid(cat.key);};c.appendChild(t);});refreshIcons();}
+        t.onclick=()=>{c.querySelectorAll('span').forEach(s=>{s.style.borderBottomColor='transparent';s.style.color='var(--text-muted)';s.style.fontWeight='400';});t.style.borderBottomColor='var(--accent)';t.style.color='var(--accent)';t.style.fontWeight='600';if(cat.key==='recycle-bin'){t.style.borderBottomColor='#ff6b6b';t.style.color='#ff6b6b';}bsPageCat=cat.key;bsPageRenderGrid(cat.key);};
+        // P12: every tab is a drag-drop target (move category / recycle-bin)
+        t.addEventListener('dragover',e=>bsDragOver(e,t));
+        t.addEventListener('dragleave',e=>bsDragLeave(e,t));
+        t.addEventListener('drop',e=>bsDrop(e,t,cat.key));
+        c.appendChild(t);});refreshIcons();}
 function bsPageRenderGrid(cat){
     const g=document.getElementById('bs-page-grid');const c=document.getElementById('bs-page-count');if(!g)return;
     if(cat==='recycle-bin'){
@@ -164,8 +169,9 @@ function bsPageRenderGrid(cat){
         }else if(d.parseStatus==='failed'){
             statusLine='<div style="font-size:10px;color:#ff6b6b;text-align:center;margin-top:6px;">Parsing failed</div>';
         }
-        return `<div style="border:1px solid var(--border);border-radius:10px;padding:12px;cursor:pointer;transition:all .18s cubic-bezier(.2,.8,.2,1);background:var(--bg-card);position:relative;box-shadow:var(--shadow-xs);" onmouseenter="this.style.borderColor='var(--accent)';this.style.transform='translateY(-3px)';this.style.boxShadow='var(--shadow-md)';this.querySelector('.bs-del-btn').style.opacity='1'" onmouseleave="this.style.borderColor='var(--border)';this.style.transform='translateY(0)';this.style.boxShadow='var(--shadow-xs)';this.querySelector('.bs-del-btn').style.opacity='0'">
+        return `<div draggable="true" ondragstart="bsDragStart(event,'${d.id}')" ondragend="bsDragEnd(event)" style="border:1px solid var(--border);border-radius:10px;padding:12px;cursor:pointer;transition:all .18s cubic-bezier(.2,.8,.2,1);background:var(--bg-card);position:relative;box-shadow:var(--shadow-xs);" onmouseenter="this.style.borderColor='var(--accent)';this.style.transform='translateY(-3px)';this.style.boxShadow='var(--shadow-md)';this.querySelector('.bs-del-btn').style.opacity='1';this.querySelector('.bs-move-btn').style.opacity='1'" onmouseleave="this.style.borderColor='var(--border)';this.style.transform='translateY(0)';this.style.boxShadow='var(--shadow-xs)';this.querySelector('.bs-del-btn').style.opacity='0';this.querySelector('.bs-move-btn').style.opacity='0'">
         <button class="bs-del-btn" onclick="event.stopPropagation();bsDeleteDocument('${d.id}')" style="position:absolute;top:6px;right:6px;width:22px;height:22px;border-radius:6px;border:none;background:rgba(255,107,107,.9);color:#fff;font-size:11px;cursor:pointer;opacity:0;transition:opacity .15s;display:flex;align-items:center;justify-content:center;z-index:2;">×</button>
+        <button class="bs-move-btn" title="移动分类" onclick="event.stopPropagation();bsMoveMenu(event,'${d.id}')" style="position:absolute;top:6px;right:32px;width:22px;height:22px;border-radius:6px;border:none;background:rgba(122,107,255,.9);color:#fff;cursor:pointer;opacity:0;transition:opacity .15s;display:flex;align-items:center;justify-content:center;z-index:2;">${iconHtml('folder-input',12)}</button>
         <span style="position:absolute;top:6px;left:6px;font-size:9px;padding:1px 6px;border-radius:4px;background:rgba(82,196,26,.15);color:#52c41a;font-weight:500;">Yours</span>
         <div onclick="bsOpenFromPage('${cat}',${origIdx})" style="cursor:pointer;">
         <div style="text-align:center;margin-bottom:8px;"><div style="width:48px;height:56px;border-radius:8px;display:inline-flex;align-items:center;justify-content:center;color:var(--text-secondary);background:var(--bg-tag);">${iconHtml(d.icon,22)}</div></div>
@@ -295,4 +301,94 @@ async function bsGenVocab(docId, docTitle){
             showNotification('提取失败：' + msg, 'error');
         }
     }
+}
+
+// ===== P12: drag-and-drop between bookshelf categories (tabs = drop zones) =====
+let bsDragDocId=null;
+
+function bsDragStart(ev,docId){
+    bsDragDocId=docId;
+    try{ev.dataTransfer.setData('text/plain',docId);ev.dataTransfer.effectAllowed='move';}catch(e){}
+    if(ev.target&&ev.target.style)ev.target.style.opacity='.4';
+}
+function bsDragEnd(ev){
+    bsDragDocId=null;
+    if(ev.target&&ev.target.style)ev.target.style.opacity='';
+}
+function bsDragOver(ev,el){
+    if(!bsDragDocId)return;
+    ev.preventDefault();
+    el.style.background='rgba(122,107,255,.14)';
+    el.style.borderRadius='8px';
+}
+function bsDragLeave(ev,el){
+    el.style.background='';
+    el.style.borderRadius='';
+}
+function bsDrop(ev,el,cat){
+    ev.preventDefault();
+    el.style.background='';el.style.borderRadius='';
+    const docId=bsDragDocId||(ev.dataTransfer&&ev.dataTransfer.getData('text/plain'))||null;
+    bsDragDocId=null;
+    if(!docId)return;
+    if(cat==='recycle-bin'){
+        const doc=Object.values(bsData).flat().find(d=>d.id===docId);
+        if(doc&&!doc.isDeleted)bsDeleteDocument(docId);   // soft delete + its own toast/refresh
+        return;
+    }
+    bsMoveDocTo(docId,cat);
+}
+
+// Unified move (drag drop + hover-button menu share this): optimistic update
+// ? refresh trio (tabs + grid + dashboard) ? PATCH ? revert on failure.
+async function bsMoveDocTo(docId,cat){
+    if(!docId||!cat)return;
+    let fromKey=null,doc=null,idx=-1;
+    for(const k of Object.keys(bsData)){
+        idx=(bsData[k]||[]).findIndex(d=>d.id===docId);
+        if(idx>=0){fromKey=k;doc=bsData[k][idx];break;}
+    }
+    if(!doc||doc.isDeleted)return;
+    if(fromKey===cat)return;                       // dropped on its own tab: no-op
+    bsData[fromKey].splice(idx,1);
+    doc.category=cat;
+    bsData[cat]=bsData[cat]||[];
+    bsData[cat].push(doc);
+    bsRefreshTrio();
+    try{
+        const res=await apiFetch('/api/documents/'+docId+'/category',{method:'PATCH',body:JSON.stringify({category:cat})});
+        if(!res.ok)throw new Error('HTTP '+res.status);
+        const zh=(BS_CATS.find(c=>c.key===cat)||{}).label||cat;
+        showNotification('已将《'+doc.title+'》移到【'+zh+'】','success');
+    }catch(e){
+        const j=bsData[cat].findIndex(d=>d.id===docId);
+        if(j>=0)bsData[cat].splice(j,1);
+        doc.category=fromKey;
+        bsData[fromKey].push(doc);
+        bsRefreshTrio();
+        showNotification('移动失败：'+e.message,'error');
+    }
+}
+function bsRefreshTrio(){
+    bsPageRenderTabs();
+    bsPageRenderGrid(bsPageCat);
+    try{bsRenderDashboard(bsPageCat);}catch(e){}
+}
+
+// Accessible / touch fallback: floating 6-category menu (hover button opens it)
+function bsMoveMenu(ev,docId){
+    const old=document.getElementById('bs-move-pop');if(old)old.remove();
+    const m=document.createElement('div');
+    m.id='bs-move-pop';
+    m.style.cssText='position:fixed;z-index:9999;background:var(--bg-card,#fff);border:1px solid rgba(122,107,255,.35);border-radius:10px;box-shadow:0 8px 24px rgba(0,0,0,.18);padding:6px;min-width:120px;';
+    m.style.left=Math.min(ev.clientX,window.innerWidth-140)+'px';
+    m.style.top=Math.min(ev.clientY+8,window.innerHeight-240)+'px';
+    m.innerHTML='<div style="font-size:10.5px;color:var(--text-muted,#888);padding:4px 8px;">移动到…</div>'
+        +BS_CATS.map(c=>'<div onclick="bsMoveDocTo(\''+docId+'\',\''+c.key+'\');document.getElementById(\'bs-move-pop\').remove();" style="display:flex;align-items:center;gap:6px;font-size:12.5px;padding:7px 10px;border-radius:6px;cursor:pointer;color:var(--text-primary,#222);" onmouseover="this.style.background=\'rgba(122,107,255,.10)\'" onmouseout="this.style.background=\'\'">'+iconHtml(c.icon,13)+c.label+'</div>').join('');
+    document.body.appendChild(m);
+    refreshIcons();
+    setTimeout(()=>{
+        const closer=e2=>{if(!m.contains(e2.target)){m.remove();document.removeEventListener('pointerdown',closer);}};
+        document.addEventListener('pointerdown',closer);
+    },0);
 }
