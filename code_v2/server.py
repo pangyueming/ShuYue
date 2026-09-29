@@ -1299,10 +1299,12 @@ def _vl_call(model: str, image_b64: str, mime: str, instruction: str,
 
 def _vl_stream(model: str, image_b64: str, mime: str, instruction: str,
                history: list = None, max_tokens: int = 3000):
-    """Streaming VL call → requests response with .iter_lines()."""
+    """Streaming VL call → requests response with .iter_lines().
+    stream_options.include_usage: final chunk carries token usage (P7 telemetry)."""
     payload = {"model": model,
                "messages": _vl_messages(image_b64, mime, instruction, history),
-               "max_tokens": max_tokens, "stream": True}
+               "max_tokens": max_tokens, "stream": True,
+               "stream_options": {"include_usage": True}}
     return requests.post(BASE_URL, headers=_vl_headers(), json=payload,
                          stream=True, timeout=180)
 
@@ -1343,18 +1345,31 @@ def _vision_intent_from_image(image_b64: str, mime: str) -> str:
 
 
 _VISION_GRADE_PROMPT = (
-    "你是数学作业批改老师。图片是学生的手写数学解答。请严格批改。\n"
-    "批改流程（务必遵守）：①先逐题独立解出正确答案（在心中演算，不输出过程）；"
-    "②再逐步对照学生解答；③最终答案必须与你独立计算的结果完全一致才判 correct——"
-    "学生结论错误时，定位最早出错的步骤并判 wrong。\n"
+    "你是数学作业批改老师。图片是学生的手写数学解答。请严格但公正地批改。\n"
+    "批改流程：①先逐题独立解出正确答案（心中演算，不输出过程）；"
+    "②按学生自己的方法逐步检查；③判定最终结论看【数学等价】而非字面一致。\n"
+    "判定规则（务必遵守）：\n"
+    "- 数学等价即 correct：常数乘开（4·4=16）、化简/通分/因式分解、"
+    "等价记号（x²与x^2、y'与dy/dx）、数值形式（1/2与0.5）。"
+    "例：参考答案 4·4cos4x、学生写 16cos4x → correct。\n"
+    "- 方法正确但个别数值错 → result=partial（保留方法分）；"
+    "后续步骤只是沿用前面错误数值而方法本身正确 → verdict=correct，"
+    "reason 注明'承接前步误差'。\n"
+    "- 常规代数化简跳步不算错；仅证明题缺失关键论证才标 逻辑跳步。\n"
+    "- 记号/格式风格差异（省略乘号、中英符号、等号链）不算错误，"
+    "写入 suggestion 提示即可；error_type 用 符号规范 仅当记号会引人数义错误。\n"
+    "- 手写辨认不确定的步骤 verdict=unclear（疑罪从无）；"
+    "仅有 unclear 步骤时 result 仍可判 correct。\n"
+    "- error_type=方法选择 仅当方法本身错误或不适用。\n"
     "只输出严格 JSON（无任何其他文字、无代码块标记）：\n"
     '{"problems":[{"no":1,"question":"题目概要",'
+    '"reference_answer":"你独立算出的参考最终答案",'
+    '"student_answer":"识别到的学生最终答案",'
     '"steps":[{"text":"该步骤内容概要","verdict":"correct|wrong|unclear","reason":"若wrong说明错因，其余留空"}],'
     '"result":"correct|partial|wrong",'
     '"error_type":"计算错误|概念误解|逻辑跳步|符号规范|方法选择|无",'
     '"suggestion":"一条改进建议"}],'
-    '"overall":"总体评价一句话","praise":"值得肯定的一点"}\n'
-    "注意：手写识别不确定的步骤 verdict 用 unclear，不要猜测；error_type 只能用上述六类之一。"
+    '"overall":"总体评价一句话","praise":"值得肯定的一点"}'
 )
 
 _VISION_EXTRACT_PROMPT = (
@@ -1373,6 +1388,79 @@ _VISION_ASK_PROMPT = (
     "你是数跃 AI 数学辅导老师（中外合办大学一年级，学生来自高考体系）。"
     "请结合图片内容回答学生的附言问题。数学用 LaTeX，markdown 输出，关键术语附中英对照。"
 )
+
+
+def _extract_grade_json(raw: str):
+    """Tolerant JSON extraction for VL grading output (P8 regression fix).
+    VL occasionally emits stray quotes near structural chars (}"] instead of }])
+    or trailing chatter. Four-level fallback:
+      ① strict parse of the {..} slice
+      ② targeted repairs for VL's frequent glitch patterns (stray quote / trailing comma)
+      ③ balanced-brace salvage: parse each problem object inside "problems":[..]
+      ④ None (caller returns raw + parse_error to the client)."""
+    if not raw:
+        return None
+    body = raw.strip()
+    if body.startswith("```"):
+        body = body.strip("`").lstrip("jsonJSON").strip()
+    i0, i1 = body.find("{"), body.rfind("}")
+    if i0 < 0 or i1 <= i0:
+        return None
+    seg = body[i0:i1 + 1]
+    # ① strict
+    try:
+        return json.loads(seg)
+    except Exception:
+        pass
+    # ② targeted glitch repairs
+    repairs = (
+        lambda s: re.sub(r'(?<=[\}\]])"(?=[\],])', "", s),   # stray " before ]/, (incident case }"])
+        lambda s: re.sub(r'(?<=,)\s*"(?=\])', "", s),        # dangling " before ]
+        lambda s: re.sub(r',\s*([\]}])', r"\1", s),          # trailing comma before ]/}
+    )
+    for rep in repairs:
+        try:
+            return json.loads(rep(seg))
+        except Exception:
+            continue
+    # ③ balanced-brace salvage of individual problem objects
+    m = re.search(r'"problems"\s*:\s*\[', seg)
+    if m:
+        arr = seg[m.end():]
+        problems, depth, start, in_str, esc = [], 0, -1, False, False
+        for idx, ch in enumerate(arr):
+            if esc:
+                esc = False
+                continue
+            if ch == "\\":
+                esc = True
+                continue
+            if ch == '"':
+                in_str = not in_str
+                continue
+            if in_str:
+                continue
+            if ch == "{":
+                if depth == 0:
+                    start = idx
+                depth += 1
+            elif ch == "}":
+                if depth > 0:
+                    depth -= 1
+                    if depth == 0 and start >= 0:
+                        frag = arr[start:idx + 1]
+                        for cand in (frag,) + tuple(rep(frag) for rep in repairs):
+                            try:
+                                po = json.loads(cand)
+                                if isinstance(po, dict):
+                                    problems.append(po)
+                                    break
+                            except Exception:
+                                continue
+        if problems:
+            return {"problems": problems, "overall": "", "praise": "",
+                    "salvaged": True}
+    return None
 
 
 def _vision_quota_left(conn, user_id: str) -> int:
@@ -1468,14 +1556,39 @@ def vision_chat(req: VisionChatRequest,
                                        _VISION_GRADE_PROMPT, max_tokens=3000)
                 steps.append({"type": "vl", "name": VISION_MODEL_PLUS,
                               "ms": int((time.time()-ts)*1000), "ok": bool(raw)})
-                parsed = None
-                try:
-                    body = raw.strip()
-                    if body.startswith("```"):
-                        body = body.strip("`").lstrip("json").strip()
-                    parsed = json.loads(body[body.find("{"):body.rfind("}") + 1])
-                except Exception:
+                parsed = _extract_grade_json(raw)
+                if parsed is None:
                     err = "grade_parse_error"
+                # Fix B — equivalence safety net: VL may judge a mathematically
+                # equivalent answer as wrong over notation form (4·4 vs 16).
+                # Cross-check final answers with the F3 verifier (P0-tested 8/8);
+                # equivalent (conf≥0.85) overrides result to correct.
+                if isinstance(parsed, dict):
+                    try:
+                        from agent.decision import answer_equivalence
+                    except Exception:
+                        answer_equivalence = None
+                    for p in parsed.get("problems", []):
+                        if not isinstance(p, dict) or p.get("result") == "correct":
+                            continue
+                        ref = str(p.get("reference_answer") or "").strip()
+                        stu = str(p.get("student_answer") or "").strip()
+                        if not (ref and stu and ref != stu and answer_equivalence):
+                            continue
+                        try:
+                            eq = answer_equivalence(ref, stu)
+                            if eq.get("equivalent") and float(eq.get("confidence", 0)) >= 0.85:
+                                p["result"] = "correct"
+                                p["error_type"] = "无"
+                                p["equivalence_override"] = True
+                                note = "最终答案与参考数学等价（仅记号/化简形式不同）"
+                                p["suggestion"] = ((p.get("suggestion") or "").strip("｜") + "｜" + note).strip("｜")
+                                for s in p.get("steps", []):
+                                    if s.get("verdict") == "wrong" and "等价" not in (s.get("reason") or ""):
+                                        s["verdict"] = "correct"
+                                        s["reason"] = ""
+                        except Exception as _eqe:
+                            print(f"[vision] equivalence check failed: {_eqe}")
                 yield sse({"type": "grade_result",
                            "result": parsed or {"raw": raw[:2000], "parse_error": True},
                            "quota_left": left2})
