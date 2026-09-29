@@ -696,13 +696,50 @@ const GUIDE_PAGES=[
   {t:'h',lvl:1,en:'The Adaptive Loop — Evidence Updates Your Plan',cn:'自适应闭环 — 证据更新计划'},
   {t:'ui',kind:'flow',items:['Diagnose 诊断','Plan 计划','Practise 练习','Evidence 证据','Re-plan 再规划']},
   {t:'p',en:'Self-ratings are only the starting point. Every AI Quiz you take becomes evidence: score below 50% on a topic — even one you rated as strong — and it goes back into your plan with a quiz-score badge that shows the score.',cn:'自评只是起点。每次 AI Quiz 都是证据：某知识点得分低于 50%——即使你自评"掌握"——也会带着分数徽章回到计划中。'},
-  {t:'p',en:'Score above 90% twice, and a "weak" topic is exempted automatically. The plan keeps matching the real you, not the you from day one.',cn:'连续两次得分高于 90%，自评"薄弱"的知识点会被自动豁免。计划始终匹配当下的你，而不是第一天的你。'}
+  {t:'p',en:'Score above 90% twice, and a "weak" topic is exempted automatically. The plan keeps matching the real you, not the you from day one.',cn:'连续两次得分高于 90%，自评"薄弱"的知识点会被自动豁免。计划始终匹配当下的你，而不是第一天的你。'},
+  {t:'p',en:'V4 adds a second engine to this loop: the FSRS memory model. Every graded quiz and homework feeds it, and every Friday the plan itself evolves — reinforcement tasks for what you struggled with, review tasks for what is decaying. Evidence now updates not just mastery, but memory itself.',cn:'V4 为这个闭环加装了第二台引擎：FSRS 记忆模型。每次判分都在喂养它；每周五计划还会自动进化——本周薄弱的加补强任务、记忆衰减的加复习任务。证据如今不仅更新掌握度，也在更新记忆本身。'}
 ]},
 {blocks:[
-  {t:'h',lvl:1,en:'Math Tutor — Two Ways to Learn',cn:'AI 辅导 — 两种学法'},
-  {t:'ui',kind:'modes'},
-  {t:'p',en:'General gives full step-by-step solutions with properly typeset formulas. Deep asks Socratic questions and waits for YOUR reasoning — stuck? "Need a hint" and "I\'m stuck" buttons appear.',cn:'General 给出公式排版规整的分步解答；Deep 以苏格拉底式提问等你推理——卡住时可点"要提示 / 我卡住了"按钮。'},
-  {t:'p',en:'Attach lecture PDFs/PPTs with the paperclip button and ask about them. One-tap buttons generate similar practice problems or explain the Gaokao-to-university bridge behind any topic — which school skills it builds on, and how the university (English-medium) treatment differs.',cn:'用回形针按钮附上讲义 PDF/PPT 后可直接提问；一键按钮可生成同类练习，或解释知识点的高考衔接——它以高考哪些知识为前置、大学（英文授课）的处理方式有何不同。'}
+  {t:'h',lvl:1,en:'Agent Assistant — Your Study Intelligence',cn:'Agent 助手 — 你的学习智能体'},
+  {t:'p',en:'V4 turns 数跃 into a real agent: it decides for itself which tools to call (15 of them — solve, quiz, notes, vocab, graph, plotter, diagnostics…), which teaching skill to adopt (10 SKILL.md methodologies), and verifies its own calculations in a sandbox before answering.',cn:'V4 起，数跃是一个真正的智能体：它自主决定调用哪些工具（15 个：解题/出题/笔记/单词本/图谱/画板/诊断…）、采用哪项教学技能（10 套方法论），并在回答前于沙盒中验证自己的计算。'},
+  {t:'h',lvl:2,en:'Workspaces',cn:'工作台'},
+  {t:'p',en:'Each workspace is an isolated conversation. Ask freely — the agent picks the right tool automatically. Streams keep running when you switch tabs (a breathing dot marks live ones); Esc stops generation.',cn:'每个工作台是一段独立对话。直接提问即可——agent 会自动选择合适的工具。切换工作台时回答继续在后台生成（呼吸点标记进行中）；Esc 可随时中断。'},
+  {t:'h',lvl:2,en:'Three entrances, one agent',cn:'三个入口，同一个智能体'},
+  {t:'table',head:['Entrance 入口','What it does 作用'],rows:[
+    ['+ menu ＋菜单','Skills, attach files, finish-session memory capture 技能选择/附资料/结束学习并提取记忆'],
+    ['/ command ／命令','Type / to filter skills and actions by keyboard 打字过滤技能，键盘直达'],
+    ['@ reference ＠引用','@ a bookshelf doc to feed it as context @引用书架文档作为上下文']]},
+  {t:'h',lvl:2,en:'Memory — it remembers you',cn:'记忆 — 它记得你'},
+  {t:'p',en:'Five memory layers. The practical part: say "finish this session" and the agent proposes what to remember long-term (weak spots, preferences) — you approve, it persists across devices. Ask "what do you remember about me?" anytime.',cn:'五层记忆体系。实用的是：说"结束本次学习"，agent 会提炼值得长期记住的要点（薄弱点、偏好）让你确认入库；随时可问"你记得我什么"。'}
+]},
+{blocks:[
+  {t:'h',lvl:1,en:'Paste & Ask — Photos Welcome',cn:'贴图即问 — 拍照也能问'},
+  {t:'p',en:'Paste (Ctrl+V), drag, or click the 图片 button in any AI chat — then just ask. One image, three intents, auto-detected:',cn:'在任意 AI 对话里 Ctrl+V 粘贴、拖拽或点"图片"按钮选图/拍照，然后直接问。一张图，三种意图自动识别：'},
+  {t:'table',head:['You send 你发的','What happens 会发生'],rows:[
+    ['手写作业照片 Handwritten homework','Graded problem by problem: ✓/✗ per step, wrong-step located, error type classified (计算错误/概念误解/逻辑跳步/符号规范/方法选择), a "similar practice" button per wrong problem 逐题批改：逐步对错、错步定位、五类归因，错题可一键变式练习'],
+    ['题目照片 A problem photo','Extracted by VL, then solved through the verified Harness pipeline — two-stage reliability 题目识别后经 Harness 验证管道解答——两段式可靠'],
+    ['教材页照片 A textbook page','Explained in four layers: Gaokao → University → Deeper why → Frontiers 四层讲解：高考→大学→深层理解→前沿应用']]},
+  {t:'p',en:'Grading is quota-capped (20/day; solving and explaining are unlimited). Mathematically equivalent answers are never marked wrong — 16cos4x and 4·4cos4x are the same. Images live only in the conversation; follow-ups re-use them automatically.',cn:'批改有每日 20 次配额（解题与讲解不限）。数学等价的答案绝不误判——16cos4x 与 4·4cos4x 是同一个答案。图片只存在于对话中；追问会自动携带图片上下文。'}
+]},
+{blocks:[
+  {t:'h',lvl:1,en:'Memory Engine & Review — Never Forget to Review',cn:'记忆引擎与复习 — 不忘复习'},
+  {t:'p',en:'Every quiz, graded homework and pre-assessment feeds an FSRS-5 memory model: each topic has a Difficulty, a Stability, and a live recall probability R(t) that decays with time — revisit before it drops and half the work is done for you.',cn:'每次答题、批改、前测都在更新 FSRS-5 记忆模型：每个知识点有难度、稳定性与一个随时间衰减的实时记忆保持率 R(t)——在它跌破临界前复习，事半功倍。'},
+  {t:'table',head:['Where 哪里','What you see 看到什么'],rows:[
+    ['Dashboard 待办卡','"N topics due for review" with a one-click review quiz "N 个知识点到期复习"，一键开始复习'],
+    ['知识图谱 Knowledge Graph','Dashed rings turn red (<40%) / yellow / green (>70%) per topic; hover shows the retention % 节点虚线环红黄绿三档，显示记忆保持百分比'],
+    ['Email 邮件','Daily 08:00 reminder when memory decays past threshold (toggle in Profile, one-click unsubscribe) 每日 08:00 到期提醒（资料页可开关，邮件内一键退订）'],
+    ['Agent 助手','Ask "我该复习什么" — it answers with per-topic retention and due list 问"我该复习什么"——按主题报记忆保持率与到期清单']]},
+  {t:'p',en:'The Dashboard proficiency number is alive too: it blends your pretest baseline with memory health at first, then tracks pure memory once you cover 3+ topics. Study and it rises; slack and it decays.',cn:'Dashboard 的掌握度数字也活了：初期混合前测基线与记忆健康度，覆盖 3 个以上主题后完全跟随记忆动态——学则涨、弃则跌。'}
+]},
+{blocks:[
+  {t:'h',lvl:1,en:'Weekly Report & Evolving Plan',cn:'周报与计划进化'},
+  {t:'p',en:'Every Friday 18:00 the agent writes your week: attempts, accuracy per topic, weakest memories, and a short AI comment — delivered by email (if on) and on the Dashboard\'s collapsible weekly card.',cn:'每周五 18:00，agent 自动写周报：练习次数、各主题正确率、最薄弱记忆与一段 AI 点评——邮件（开启时）与 Dashboard 折叠卡均可查看。'},
+  {t:'p',en:'Minutes later your study plan evolves: topics you struggled with this week get reinforcement tasks, decaying memories get review tasks — inserted as a distinct "AI 自适应" group, original plan untouched. A change card on the plan page summarises what was added.',cn:'几分钟后学习计划自动进化：本周薄弱主题加入补强任务、记忆衰减主题加入复习任务——以"AI 自适应"分组插入，原计划结构不动；计划页顶部的变更卡说明新增了什么。'}
+]},
+{blocks:[
+  {t:'h',lvl:1,en:'Answers You Can Trust — Verified, Not Guessed',cn:'带验证的回答 — 算过，不是猜的'},
+  {t:'p',en:'When exact numbers or symbols are involved, the agent runs Python (sympy/numpy) in an isolated sandbox — 5s cap, no network, no files, nothing from the server — and shows the verified result. "让我算一下" is now literal.',cn:'涉及精确数值或符号计算时，agent 会在隔离沙盒中运行 Python（sympy/numpy）——5 秒上限、无网络、无文件访问——然后带着验证过的结果回答。"让我算一下"如今是字面意思。'},
+  {t:'p',en:'You will see it happen: a run_python step in the status line, then an answer that cites its own computation (often double-checked symbolically AND numerically).',cn:'你能看到全过程：状态行出现 run_python 步骤，随后回答引用自己的计算结果（常常符号法与数值法双重验证）。'}
 ]},
 {blocks:[
   {t:'h',lvl:1,en:'AI Quiz — Questions You Can Trust',cn:'AI 出题 — 可信的题目'},

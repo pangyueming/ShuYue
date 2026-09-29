@@ -113,4 +113,107 @@ function dashContinueTileHtml(cat) {
 function dashboardInit() {
     renderDashHead();
     renderActivity();
+    renderReviewDue();
+    initWeeklyCard();
+}
+
+// ===== P9 Day-3: weekly report (lazy — fetched on first expand) =====
+function initWeeklyCard(){
+    var d=document.getElementById('weekly-report-card');
+    if(!d)return;
+    if(!localStorage.getItem('cb_cn_token')){d.style.display='none';return;}
+    d.style.display='block';
+    d.addEventListener('toggle',function(){
+        if(d.open&&!d.dataset.loaded){
+            renderWeeklyReport();
+        }
+    });
+}
+async function renderWeeklyReport(){
+    var body=document.getElementById('weekly-report-body');
+    var d=document.getElementById('weekly-report-card');
+    if(!body)return;
+    try{
+        var res=await apiFetch('/api/review/weekly');
+        if(!res.ok)throw new Error('HTTP '+res.status);
+        var w=await res.json();
+        d.dataset.loaded='1';
+        var rows=(w.quizzes||[]).map(function(q){
+            var pct=Math.round(q.accuracy*100);
+            var color=pct>=80?'var(--green)':(pct>=50?'var(--yellow)':'var(--red)');
+            return '<div style="display:flex;align-items:center;gap:8px;padding:5px 0;">'
+                +'<span style="flex:1;">'+escapeHtml(q.topic)+'</span>'
+                +'<span style="color:var(--text-muted);font-size:11px;">×'+q.attempts+'</span>'
+                +'<b style="color:'+color+';min-width:42px;text-align:right;">'+pct+'%</b></div>';
+        }).join('')||'<div style="color:var(--text-muted);">本周还没有练习记录</div>';
+        var mem=(w.memory||[]).slice(0,3).map(function(m){
+            return escapeHtml(m.topic)+' '+Math.round(m.R*100)+'%';
+        }).join(' · ');
+        body.innerHTML='<div style="font-size:11.5px;color:var(--text-muted);margin-bottom:6px;">'
+            +(w.attempts_total||0)+' 次练习 · '+(w.answered_total||0)+' 题 · 平均正确率 '
+            +'<b>'+Math.round((w.accuracy_avg||0)*100)+'%</b></div>'
+            +rows
+            +(mem?'<div style="margin-top:8px;font-size:11px;color:var(--text-muted);">记忆状态（最弱）：'+mem+'</div>':'')
+            +'<div style="margin-top:10px;padding:8px 12px;border-radius:8px;background:rgba(122,107,255,.06);color:var(--text-primary);">'+escapeHtml(w.paragraph||'')+'</div>';
+        refreshIcons();
+    }catch(e){
+        body.innerHTML='<span style="color:var(--text-muted);">周报加载失败，稍后展开重试</span>';
+        d.dataset.loaded='';
+    }
+}
+
+// ===== P9: review-due card (FSRS R(t) < 0.85 → due) =====
+// Skill rules applied: aria-atomic full-sentence status (no bare-number live
+// region), labeled CTA button ≥44px (no icon-only), Lucide icons.
+async function renderReviewDue(){
+    var c = document.getElementById('review-due-card');
+    if (!c) return;
+    if (!localStorage.getItem('cb_cn_token')) { c.style.display = 'none'; return; }
+    try {
+        var res = await apiFetch('/api/review/due');
+        if (!res.ok) throw new Error('HTTP ' + res.status);
+        var data = await res.json();
+        window.__reviewDue = data.due || [];
+        if (!data.count) { c.style.display = 'none'; return; }
+        var items = data.due.slice(0, 3);
+        var chips = items.map(function (d) {
+            return '<span style="display:inline-flex;align-items:center;gap:3px;">'
+                + escapeHtml(d.topic) + ' <b style="color:' + (d.R < 0.4 ? '#ff8a8a' : '#faad14') + ';">'
+                + Math.round(d.R * 100) + '%</b></span>';
+        }).join('<span style="opacity:.4;margin:0 4px;">·</span>');
+        c.style.display = 'block';
+        c.innerHTML = '<div class="card glass" style="margin-bottom:14px;padding:14px 16px;'
+            + 'border:1px solid rgba(122,107,255,.28);background:linear-gradient(135deg,'
+            + 'rgba(122,107,255,.08),rgba(122,107,255,.02));">'
+            + '<div style="display:flex;align-items:center;gap:12px;">'
+            + '<span style="color:var(--iris-400,var(--accent));display:flex;">' + iconHtml('timer', 20) + '</span>'
+            + '<div style="flex:1;min-width:0;">'
+            + '<div role="status" aria-atomic="true" style="font-size:13.5px;font-weight:600;'
+            + 'color:var(--text-primary);">' + data.count + ' 个知识点到期复习</div>'
+            + '<div style="font-size:11.5px;color:var(--text-muted);margin-top:3px;overflow:hidden;'
+            + 'text-overflow:ellipsis;white-space:nowrap;">' + chips + '</div></div>'
+            + '<button onclick="startReviewQuiz()" style="min-height:44px;min-width:96px;display:inline-flex;'
+            + 'align-items:center;justify-content:center;gap:5px;font-size:12.5px;font-weight:600;padding:8px 16px;'
+            + 'border-radius:10px;border:none;background:rgba(122,107,255,.16);color:var(--iris-400,var(--accent));'
+            + 'cursor:pointer;transition:background .15s;" onmouseover="this.style.background=\'rgba(122,107,255,.28)\'" '
+            + 'onmouseout="this.style.background=\'rgba(122,107,255,.16)\'">'
+            + iconHtml('play', 12) + '开始复习</button>'
+            + '</div></div>';
+        refreshIcons();
+    } catch (e) {
+        c.style.display = 'none';
+    }
+}
+
+// One-click review: prefill the quiz page with the WEAKEST due topic and
+// auto-start (reuses the agent action-card jump mechanism).
+function startReviewQuiz(){
+    var first = window.__reviewDue && window.__reviewDue[0];
+    if (first && first.topic) {
+        if (typeof tutorActionData !== 'undefined') {
+            tutorActionData['quiz'] = { topic: first.topic, count: 5 };
+        }
+        if (typeof tutorActionJump === 'function') { tutorActionJump('quiz'); return; }
+    }
+    showPage('quiz');
 }

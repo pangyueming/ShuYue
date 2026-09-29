@@ -1,8 +1,9 @@
 ﻿<!DOCTYPE html>
 <html lang="en">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta charset="UTF-8">
+<meta name="referrer" content="no-referrer">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>数跃 ShuYue</title>
     <link rel="stylesheet" href="katex.min.css">
     <script src="katex.min.js"></script>
@@ -35,7 +36,7 @@
             <div class="nav-section-label">工作区</div>
             <div class="nav-item active" onclick="showPage('dashboard')"><i data-lucide="layout-dashboard"></i>仪表板</div>
             <div class="nav-item" onclick="showPage('pretest')"><i data-lucide="clipboard-check"></i>学前诊断</div>
-            <div class="nav-item" onclick="showPage('tutor')"><i data-lucide="sigma"></i>AI 辅导</div>
+            <div class="nav-item" onclick="showPage('tutor')"><i data-lucide="sigma"></i>Agent 助手</div>
             <div class="nav-item" onclick="showPage('quiz')"><i data-lucide="target"></i>AI 出题</div>
             <div class="nav-item" onclick="showPage('plotter')"><i data-lucide="chart-line"></i>函数画板</div>
             <div class="nav-item" onclick="showPage('reader')"><i data-lucide="book-open"></i>阅读器</div>
@@ -98,9 +99,21 @@
 
                 <!-- Forgot Password Form (hidden by default) -->
                 <div id="forgot-form" style="display:none;">
-                    <p class="login-note">输入邮箱，我们将生成重置链接（见服务器控制台）。</p>
+                    <p class="login-note">输入邮箱，我们将发送重置链接到你的邮箱。</p>
                     <input id="forgot-email" class="input login-input" placeholder="邮箱" type="email">
                     <button class="btn-primary login-cta" onclick="authForgotPassword()">发送重置链接</button>
+                    <p class="login-alt">
+                        <a href="#" onclick="authShowLogin()" class="login-link">返回登录</a>
+                    </p>
+                </div>
+
+                <!-- Reset Password Form (entered from email link, hidden by default) -->
+                <div id="reset-form" style="display:none;">
+                    <p class="login-note">设置新密码（至少 6 位，含字母和数字）</p>
+                    <input id="reset-token" type="hidden">
+                    <input id="reset-password" class="input login-input" placeholder="新密码" type="password">
+                    <input id="reset-password2" class="input login-input" placeholder="确认新密码" type="password">
+                    <button class="btn-primary login-cta" onclick="authApplyReset()">重置密码</button>
                     <p class="login-alt">
                         <a href="#" onclick="authShowLogin()" class="login-link">返回登录</a>
                     </p>
@@ -116,7 +129,8 @@
 
         <!-- ===== DASHBOARD (bento) ===== -->
         <div id="page-dashboard" class="page-view active page-mid dash-page">
-            <!-- Hero head -->
+            <!-- P9: review-due card (skill rules: aria-atomic status, labeled 44px CTA) -->
+            <!-- Hero head (page identity first — greeting before data) -->
             <div class="dash-hero">
                 <div>
                     <h1 class="page-title" id="dash-greeting">Hello, User</h1>
@@ -127,6 +141,17 @@
                     <button class="btn-primary" onclick="showPage('tutor')"><i data-lucide="sigma" style="width:14px;height:14px;"></i>问辅导老师</button>
                 </div>
             </div>
+
+            <!-- P9 cards under the greeting: urgent (due) first, reflective (weekly) second -->
+            <div id="review-due-card" style="display:none;"></div>
+            <!-- P9 Day-3: weekly report (lazy-loaded on expand) -->
+            <details id="weekly-report-card" class="card glass" style="margin-bottom:14px;padding:10px 16px;display:none;">
+                <summary style="cursor:pointer;font-size:13px;font-weight:600;color:var(--text-primary);min-height:44px;display:flex;align-items:center;gap:8px;">
+                    <span style="color:var(--iris-400,var(--accent));display:flex;"><i data-lucide="chart-column"></i></span>
+                    本周学习周报
+                </summary>
+                <div id="weekly-report-body" style="padding:10px 2px 4px;font-size:12.5px;color:var(--text-secondary);line-height:1.7;">加载中…</div>
+            </details>
 
             <div class="dash-grid">
                 <!-- Proficiency ring -->
@@ -285,34 +310,50 @@
 
         <!-- ===== MATH TUTOR ===== -->
         <div id="page-tutor" class="page-view page-chat">
+          <div style="display:flex;gap:14px;align-items:flex-start;">
+            <!-- P2.6 · G1 工作台侧栏（可折叠：把手+微+ / Ctrl+B / 状态记忆） -->
+            <aside id="tutor-ws-sidebar" class="ws-sidebar">
+                <button class="ws-collapse-btn" onclick="tutorToggleWs()" title="折叠侧栏 (Ctrl+B)" aria-label="折叠工作台侧栏"><i data-lucide="panel-left-close" style="width:14px;height:14px;"></i></button>
+                <button class="ws-new-btn" onclick="tutorNewSession()"><i data-lucide="plus" style="width:14px;height:14px;"></i>新工作台</button>
+                <div class="ws-label">工作台</div>
+                <div id="tutor-ws-list"></div>
+            </aside>
+            <div id="tutor-ws-handle" class="ws-handle" style="display:none;">
+                <button onclick="tutorToggleWs()" title="展开工作台 (Ctrl+B)" aria-label="展开工作台侧栏"><i data-lucide="panel-left-open" style="width:15px;height:15px;"></i></button>
+                <button onclick="tutorWsCollapsed=false;tutorApplyWsState();tutorNewSession()" title="新工作台" aria-label="新工作台"><i data-lucide="plus" style="width:15px;height:15px;"></i></button>
+                <span class="ws-handle-live" id="tutor-ws-handle-live" style="display:none;" title="有工作台正在生成"></span>
+            </div>
+            <!-- P2.7 · 右列：阅读宽度护栏（≤920px 居中），随主导航折叠自适应放宽 -->
+            <div class="tutor-column">
             <div class="page-head">
-                <div class="page-eyebrow">AI 辅导</div>
-                <h1 class="page-title">AI 解题助手</h1>
+                <div class="page-eyebrow">Agent 助手</div>
+                <h1 class="page-title" id="tutor-ws-title">学习助手</h1>
             </div>
-            <div class="seg" style="margin-bottom:4px;">
-                <button id="tutor-mode-general" style="flex:1;padding:8px;border-radius:8px;border:none;font-size:13px;font-weight:600;background:var(--accent);color:#fff;cursor:pointer;" onclick="tutorSwitchMode('general')">通用模式</button>
-                <button id="tutor-mode-deep" style="flex:1;padding:8px;border-radius:8px;border:none;font-size:13px;font-weight:600;background:transparent;color:var(--text-secondary);cursor:pointer;" onclick="tutorSwitchMode('deep')">引导模式</button>
+            <!-- P2.6 · B 方案：模式并入技能系统——单一快捷 chip 切换 socratic-tutor（按工作台隔离） -->
+            <div class="tutor-topbar">
+                <button id="tutor-mode-chip" onclick="tutorToggleGuideMode()" aria-pressed="false" title="切换引导模式（=苏格拉底技能，本工作台生效）"><i data-lucide="graduation-cap" style="width:13px;height:13px;"></i><span>引导模式</span></button>
+                <span class="tutor-topbar-hint">关闭=通用直答 · 点 + 或输入 / 唤起全部技能</span>
             </div>
-            <p id="tutor-mode-desc" class="seg-desc">直接解答：知识来源、方法拆解、通俗讲解</p>
             <!-- Uploaded materials -->
             <div id="tutor-materials" style="margin-bottom:12px;"></div>
-            <!-- Chat area -->
+            <!-- Chat area（示例建议只在空对话时显示，随 empty-hero 一起移除） -->
             <div id="tutor-chat" class="chat-area">
-                <div class="empty-hero"><div class="empty-disc"><i data-lucide="sigma"></i></div><div class="empty-title">提问或上传资料开始学习</div><div class="empty-sub">数跃 AI 提供支持</div></div>
+                <div class="empty-hero" style="min-height:240px;"><div class="empty-disc"><i data-lucide="sigma"></i></div><div class="empty-title">提问开始学习</div><div class="empty-sub">数跃 AI 提供支持 · 输入 / 唤起教学技能</div><div class="tutor-suggest-row"><button class="chip" onclick="tutorSendQuick('Evaluate: lim(x→0) sin(x)/x')">求极限 sin(x)/x</button><button class="chip" onclick="tutorSendQuick('Prove that a²+b² ≥ 2ab for all real numbers')">证明 a²+b²≥2ab</button><button class="chip" onclick="tutorSendQuick('Find the eigenvalues of matrix [[2,1],[1,2]]')">求特征值</button><button class="chip" onclick="tutorSendQuick('Does the series Σ(1/n²) converge?')">Σ1/n² 收敛吗？</button></div></div>
             </div>
-            <!-- Quick examples -->
-            <div class="chip-row">
-                <button class="chip" onclick="tutorSendQuick('Evaluate: lim(x→0) sin(x)/x')">求极限 sin(x)/x</button>
-                <button class="chip" onclick="tutorSendQuick('Prove that a²+b² ≥ 2ab for all real numbers')">证明 a²+b²≥2ab</button>
-                <button class="chip" onclick="tutorSendQuick('Find the eigenvalues of matrix [[2,1],[1,2]]')">求特征值</button>
-                <button class="chip" onclick="tutorSendQuick('Does the series Σ(1/n²) converge?')">Σ1/n² 收敛吗？</button>
-            </div>
-            <!-- Input -->
+            <!-- P1.5: active-skill pill (above composer) -->
+            <div id="tutor-skill-pill-row" style="display:none;margin-bottom:8px;"></div>
+            <!-- Input（P2.5 Claude 式：自增高 textarea，Enter 发送 / Shift+Enter 换行） -->
             <div class="composer card glass">
-                <span class="composer-attach" onclick="tutorUploadMaterial()" title="Attach material"><i data-lucide="paperclip"></i></span>
-                <input id="tutor-input" class="input composer-input" placeholder="输入数学问题…" onkeypress="if(event.key==='Enter')tutorSend()">
-                <button class="btn-primary tutor-send-arrow" onclick="tutorSend()" title="Send" aria-label="Send"><i data-lucide="arrow-up" style="width:16px;height:16px;"></i></button>
+                <span class="composer-attach" id="tutor-plus-btn" onclick="tutorTogglePlusMenu(event)" title="技能与附件" aria-label="打开技能与附件菜单" role="button" tabindex="0"><i data-lucide="plus"></i></span>
+                <textarea id="tutor-input" class="input composer-input" rows="1" placeholder="输入数学问题… 输入 / 唤起技能" onkeydown="if(tutorSlashKey(event))return;if(event.key==='Enter'&&!event.shiftKey){event.preventDefault();tutorSend();}" oninput="tutorSlashInput(this.value);tutorAutoGrow(this)"></textarea>
+                <button id="tutor-send-btn" class="btn-primary tutor-send-arrow" onclick="tutorSendOrStop()" title="Send" aria-label="发送"><i data-lucide="arrow-up" style="width:16px;height:16px;"></i></button>
             </div>
+            <!-- P1.5: + menu & / command popup (fixed-position overlays) -->
+            <div id="tutor-plus-menu" style="display:none;"></div>
+            <div id="tutor-slash-popup" style="display:none;"></div>
+            <div id="tutor-at-popup" style="display:none;"></div>
+            </div>
+          </div>
         </div>
 
         <!-- ===== NOTES ===== -->
@@ -345,9 +386,11 @@
                     <input id="notes-editor-tag" class="input" style="flex:1;font-size:13px;" placeholder="标签（如：微积分、代数、读书笔记）">
                     <span class="editor-meta" id="notes-editor-meta"></span>
                 </div>
-                <textarea id="notes-editor-content" class="editor-body" placeholder="在这里写下笔记…"></textarea>
+                <textarea id="notes-editor-content" class="editor-body" placeholder="在这里写下笔记…&#10;&#10;支持 Markdown：**加粗** *斜体* # 标题 - 列表&#10;支持 LaTeX：行内 $E=mc^2$，独立 $$\int_0^1 x^2 dx$$"></textarea>
+                <div id="notes-editor-preview" class="editor-body" style="display:none;white-space:normal;overflow-y:auto;"></div>
                 <div class="step-nav" style="margin-top:16px;">
                     <button class="btn-primary" style="flex:1;padding:10px;" onclick="notesSaveFromEditor()">保存笔记</button>
+                    <button id="notes-preview-btn" class="btn-secondary" style="padding:10px;display:inline-flex;align-items:center;gap:5px;" onclick="notesTogglePreview()"><i data-lucide="eye" style="width:13px;height:13px;"></i> 预览</button>
                     <button class="btn-secondary" style="padding:10px;" onclick="notesCloseEditor()">取消</button>
                 </div>
             </div>
@@ -702,7 +745,11 @@
                     </div>
                     <div class="verify-row">
                         <input type="checkbox" id="profile-input-fm" class="verify-check">
-                        <label for="profile-input-fm" class="verify-label">我有强基计划 / 数学竞赛经历</label>
+                        <label for="profile-input-fm" class="verify-label">进阶数学计划 / 大学数学强化</label>
+                    </div>
+                    <div class="verify-row">
+                        <input type="checkbox" id="profile-input-email-notify" class="verify-check">
+                        <label for="profile-input-email-notify" class="verify-label">邮件学习提醒（复习到期提醒 + 每周周报）</label>
                     </div>
                     <div>
                         <div class="field-label">当前教学周 <span class="field-hint">(aligns your 学习计划 with lectures)</span></div>
@@ -787,6 +834,7 @@
 <script src="app/bookshelf.js"></script>
 <script src="app/reader.js"></script>
 <script src="app/reader-notes.js"></script>
+<script src="app/vision.js"></script>
 <script src="app/dashboard.js"></script>
 <script src="app/ui.js"></script>
 <script src="app/init.js"></script>

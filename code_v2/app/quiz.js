@@ -117,8 +117,14 @@ async function quizGenerate(){
     }catch(e){
         clearInterval(tick);
         quizGenOrb(false);
-        showNotification(e.message,'error');
-        quizShow('quiz-config');
+        bar.style.width='100%';
+        // P5 fix: stay on generating page with inline error + retry (not back to config)
+        st.innerHTML='<span style="color:#ff6b6b;font-size:14px;">✗ '+(e.message||'生成失败')+'</span>'+
+            '<br><span style="font-size:11px;color:var(--text-muted);margin-top:6px;display:inline-block;">可能是 AI 服务暂时限流（连续调用后常见），稍等片刻后点击重试</span>'+
+            '<div style="display:flex;gap:8px;justify-content:center;margin-top:16px;">'+
+            '<button class="btn-primary" style="padding:8px 24px;font-size:13px;" onclick="quizGenerate()">重试</button>'+
+            '<button class="btn-secondary" style="padding:8px 20px;font-size:13px;" onclick="quizShow(\'quiz-config\')">返回设置</button>'+
+            '</div>';
     }
 }
 
@@ -241,12 +247,63 @@ async function quizFinish(){
     const retryBtn=document.getElementById('quiz-retry-btn');
     retryBtn.style.display=quizState.detail.some(d=>!d.correct)?'':'none';
     quizShow('quiz-results');
+    // P4.2 C6: suggest error-analysis if there are wrong answers
+    const wrongCount=total-quizState.score;
+    if(wrongCount>0){
+        setTimeout(()=>{
+            const existing=document.getElementById('quiz-suggest-bar');
+            if(existing)existing.remove();
+            const topicEl=document.getElementById('quiz-topic');
+            const topic=topicEl?topicEl.value:'Mixed';
+            const topicZh=(typeof TOPIC_ZH!=='undefined'&&TOPIC_ZH[topic])||topic;
+            const bar=document.createElement('div');
+            bar.id='quiz-suggest-bar';
+            bar.style.cssText='display:flex;align-items:center;gap:10px;margin-top:16px;padding:10px 16px;border-radius:12px;border:1px solid rgba(122,107,255,.3);background:rgba(122,107,255,.08);font-size:13px;color:var(--text-secondary);';
+            bar.innerHTML='<span style="color:var(--iris-400,var(--accent));display:flex;">'+iconHtml('lightbulb',16)+'</span>'
+                +'<span style="flex:1;">做错了 '+wrongCount+' 题——要用 Agent 助手做<span style="font-weight:600;color:var(--iris-400,var(--accent));">错因分析</span>吗？</span>'
+                +'<button class="btn-primary" style="font-size:11px;padding:5px 14px;flex-shrink:0;" onclick="quizSuggestAnalysis(\''+topicZh+'\')">去做</button>'
+                +'<button style="background:none;border:none;color:var(--text-muted);cursor:pointer;font-size:16px;padding:4px;" onclick="this.parentElement.remove()" aria-label="关闭">×</button>';
+            const results=document.getElementById('quiz-results');
+            if(results)results.appendChild(bar);
+            refreshIcons();
+        },600);
+    }
     // Persist attempt (feeds Problems Solved on Dashboard)
     try{
         await apiFetch('/api/quiz/submit',{method:'POST',body:JSON.stringify({
             quiz_id:quizState.quizId,score:quizState.score,total,
             detail_json:JSON.stringify(quizState.detail.map(d=>({q:d.q,ok:d.correct})))})});
+        // P9: refresh the review-due card right after FSRS state updated
+        if(typeof renderReviewDue==='function'){try{renderReviewDue();}catch(_e){}}
     }catch(e){/* guests: ignore */}
+}
+
+// P4.2: jump to agent with error-analysis request (includes actual wrong answers)
+function quizSuggestAnalysis(topicZh){
+    const bar=document.getElementById('quiz-suggest-bar');
+    if(bar)bar.remove();
+    // Build detailed wrong-answer context from quizState
+    const allWrong=quizState.detail.filter(d=>!d.correct);
+    const wrong=allWrong.slice(0,5);
+    let msg='我在「'+topicZh+'」测验中做错了 '+allWrong.length+' 题，请做错因分析。\n\n';
+    wrong.forEach((d,i)=>{
+        const qText=(d.q||'').substring(0,150);
+        msg+='❌ 第'+(i+1)+'题：'+qText+'\n';
+        msg+='   我的答案：'+(d.student_answer||'?')+'，正确答案：'+(d.correct_answer||'?')+'\n\n';
+    });
+    if(allWrong.length>5){
+        msg+='（还有 '+(allWrong.length-5)+' 题错题，可后续分析）\n\n';
+    }
+    msg+='请逐题告诉我：错在哪一步、是什么类型的错误（概念/程序/符号/策略/语言/迁移）、怎么避免。';
+    showPage('tutor');
+    setTimeout(()=>{
+        const inp=document.getElementById('tutor-input');
+        if(inp){
+            inp.value=msg;
+            tutorAutoGrow(inp);
+            inp.focus();
+        }
+    },200);
 }
 
 function quizRetryWrong(){
@@ -269,12 +326,14 @@ function quizReset(){
 const USE_BACKEND=true;
 // API key is now in backend .env file (not exposed in frontend)
 
-async function kimiCall(messages,onChunk,onDone,onErr){
+async function kimiCall(messages,onChunk,onDone,onErr,skill){
     try{
         // === Harness Backend route (routing + verifier) ===
         const taskType=messages[0]?.content?.includes('translate')||messages[0]?.content?.includes('翻译')?'translate':messages[0]?.content?.includes('Socratic')||messages[0]?.content?.includes('引导')?'math_guide':'general';
+        const payload={task_type:taskType,messages:messages.slice(1),temperature:0.3,max_tokens:2000,stream:true};
+        if(skill)payload.skill=skill;   // P1: activate an Agent Skill for this message
         const r=await fetch(AI_BACKEND_URL+'/api/chat',{method:'POST',headers:{'Content-Type':'application/json'},
-            body:JSON.stringify({task_type:taskType,messages:messages.slice(1),temperature:0.3,max_tokens:2000,stream:true})});
+            body:JSON.stringify(payload)});
         if(!r.ok){const e=await r.json().catch(()=>({}));throw new Error(e.error?.message||e.detail?.[0]?.msg||`HTTP ${r.status}`);}
         const reader=r.body.getReader();const dec=new TextDecoder();let full='';
         while(true){const{done,value}=await reader.read();if(done)break;

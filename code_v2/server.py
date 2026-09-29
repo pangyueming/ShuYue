@@ -40,6 +40,8 @@ from mineru_client import (
     validate_token,
 )
 import rag
+import skill_loader
+from skill_loader import list_skills, load_skill, skill_label
 
 # Add harness_design paths for importing Harness V2 and V3
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..', 'harness_design', 'harness_uk'))
@@ -71,9 +73,9 @@ except ImportError:
     AnswerVerifier = None
     HarnessAPIClient = None
 
-from fastapi import FastAPI, UploadFile, File, Form, HTTPException, Depends, Header
+from fastapi import FastAPI, UploadFile, File, Form, HTTPException, Depends, Header, Request
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import StreamingResponse, FileResponse, JSONResponse
+from fastapi.responses import StreamingResponse, FileResponse, JSONResponse, Response, HTMLResponse
 from pydantic import BaseModel
 from typing import List, Optional
 
@@ -112,6 +114,19 @@ MODEL = os.getenv("MODEL", "qwen3.8-27b")
 TRANSLATE_MODEL = os.getenv("TRANSLATE_MODEL", "qwen-turbo")
 PORT = int(os.getenv("PORT", "8000"))
 HOST = os.getenv("HOST", "0.0.0.0")
+# --- Phase 0 (launch): email reset + environment isolation + admin ---
+APP_BASE_URL = os.getenv("APP_BASE_URL", "").rstrip("/")   # e.g. https://shuyue.example.com (OWASP: hardcoded trusted origin, never trust Host header)
+SMTP_HOST = os.getenv("SMTP_HOST", "")                     # Aliyun DirectMail SMTP endpoint
+SMTP_PORT = int(os.getenv("SMTP_PORT", "465"))
+SMTP_USER = os.getenv("SMTP_USER", "")                     # e.g. noreply@mail.yourdomain.com
+SMTP_PASSWORD = os.getenv("SMTP_PASSWORD", "")
+MAIL_FROM = os.getenv("MAIL_FROM", "")                     # display sender (defaults to SMTP_USER)
+ENV_NAME = os.getenv("ENV", "development")                 # production | development (P7: keep test data out of prod stats)
+ADMIN_EMAIL = os.getenv("ADMIN_EMAIL", "")                 # sole admin for /api/agent/metrics/stats when set
+# --- P8 vision (two-tier VL routing, mirrors the text decision layer) ---
+VISION_MODEL_PLUS = os.getenv("VISION_MODEL_PLUS", "qwen3-vl-plus")    # grading / explaining (quality)
+VISION_MODEL_FLASH = os.getenv("VISION_MODEL_FLASH", "qwen3-vl-flash") # extraction / classification (cheap)
+VISION_GRADE_DAILY_LIMIT = int(os.getenv("VISION_GRADE_DAILY_LIMIT", "20"))
 UPLOAD_DIR = os.path.join(os.path.dirname(__file__), "uploads")
 DB_PATH = os.path.join(os.path.dirname(__file__), "cognibridge.db")
 ENV_PATH = os.path.join(os.path.dirname(__file__), ".env")
@@ -277,6 +292,115 @@ def init_db():
         pages INTEGER DEFAULT 0,
         PRIMARY KEY (user_id, day)
     );
+
+    -- Agent V4 · G1 工作台（用户命名，独立聊天场所；消息/摘要按会话隔离）
+    CREATE TABLE IF NOT EXISTS chat_sessions (
+        id TEXT PRIMARY KEY,
+        user_id TEXT NOT NULL REFERENCES users(id),
+        title TEXT DEFAULT '新工作台',
+        created_at TEXT DEFAULT (datetime('now')),
+        updated_at TEXT DEFAULT (datetime('now'))
+    );
+    CREATE INDEX IF NOT EXISTS idx_chat_sessions_user ON chat_sessions(user_id, updated_at);
+    CREATE TABLE IF NOT EXISTS chat_messages (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        session_id TEXT NOT NULL REFERENCES chat_sessions(id),
+        role TEXT NOT NULL,
+        content TEXT NOT NULL,
+        meta TEXT DEFAULT '{}',
+        created_at TEXT DEFAULT (datetime('now'))
+    );
+    CREATE INDEX IF NOT EXISTS idx_chat_messages_session ON chat_messages(session_id, id);
+
+    -- P3 G5: long-term memory entries (semi-auto curated, user-approved)
+    CREATE TABLE IF NOT EXISTS memory_entries (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        user_id TEXT NOT NULL REFERENCES users(id),
+        kind TEXT NOT NULL,
+        content TEXT NOT NULL,
+        source_session TEXT DEFAULT '',
+        created_at TEXT DEFAULT (datetime('now'))
+    );
+    CREATE INDEX IF NOT EXISTS idx_memory_user ON memory_entries(user_id, id DESC);
+
+    -- P4 E5: tool call audit log
+    CREATE TABLE IF NOT EXISTS tool_audit_log (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        user_id TEXT NOT NULL REFERENCES users(id),
+        session_id TEXT DEFAULT '',
+        tool_name TEXT NOT NULL,
+        args_summary TEXT DEFAULT '',
+        result_summary TEXT DEFAULT '',
+        created_at TEXT DEFAULT (datetime('now'))
+    );
+    CREATE INDEX IF NOT EXISTS idx_tool_audit_user ON tool_audit_log(user_id, id DESC);
+
+    -- P7: agent run metrics (Langfuse-style trace — one row per run, steps as JSON)
+    CREATE TABLE IF NOT EXISTS agent_metrics (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        session_id TEXT DEFAULT '',
+        user_id TEXT,
+        env TEXT DEFAULT 'development',
+        intent TEXT DEFAULT '',
+        skill TEXT DEFAULT '',
+        fast_path INTEGER DEFAULT 0,
+        steps TEXT DEFAULT '[]',
+        n_tools INTEGER DEFAULT 0,
+        tools_fail INTEGER DEFAULT 0,
+        total_ms INTEGER DEFAULT 0,
+        total_tokens INTEGER DEFAULT 0,
+        interrupted INTEGER DEFAULT 0,
+        error TEXT DEFAULT '',
+        input_preview TEXT DEFAULT '',
+        output_preview TEXT DEFAULT '',
+        created_at TEXT DEFAULT (datetime('now'))
+    );
+    CREATE INDEX IF NOT EXISTS idx_agent_metrics_created ON agent_metrics(created_at);
+    CREATE INDEX IF NOT EXISTS idx_agent_metrics_user ON agent_metrics(user_id, id DESC);
+
+    -- P8: vision grade quota (grade-only daily cap; solve/explain/ask unlimited)
+    CREATE TABLE IF NOT EXISTS vision_usage (
+        user_id TEXT NOT NULL,
+        day TEXT NOT NULL,
+        grade_count INTEGER DEFAULT 0,
+        PRIMARY KEY (user_id, day)
+    );
+
+    -- P8 Day-2.6: images persisted WITH the workspace conversation
+    -- (client-compressed ≤1600px jpeg ~300KB; chat-style, owner-scoped)
+    CREATE TABLE IF NOT EXISTS vision_images (
+        id TEXT PRIMARY KEY,
+        user_id TEXT NOT NULL,
+        mime TEXT DEFAULT 'image/jpeg',
+        b64 TEXT NOT NULL,
+        kb INTEGER DEFAULT 0,
+        created_at TEXT DEFAULT (datetime('now'))
+    );
+    CREATE INDEX IF NOT EXISTS idx_vision_images_user ON vision_images(user_id, id DESC);
+
+    -- P9 (D13): FSRS-5 review queue — one memory state (D/S) per (user, topic)
+    CREATE TABLE IF NOT EXISTS srs_queue (
+        user_id TEXT NOT NULL,
+        topic TEXT NOT NULL,
+        difficulty REAL DEFAULT 5.0,
+        stability REAL DEFAULT 1.0,
+        reps INTEGER DEFAULT 0,
+        lapses INTEGER DEFAULT 0,
+        last_review_at TEXT,
+        due_at TEXT,
+        source TEXT DEFAULT 'quiz',
+        PRIMARY KEY (user_id, topic)
+    );
+    CREATE INDEX IF NOT EXISTS idx_srs_due ON srs_queue(due_at);
+
+    -- P9 Day-2: reminder dedup log (one email per user per kind per day)
+    CREATE TABLE IF NOT EXISTS notify_log (
+        user_id TEXT NOT NULL,
+        kind TEXT NOT NULL,               -- review_reminder | weekly_report
+        day TEXT NOT NULL,
+        created_at TEXT DEFAULT (datetime('now')),
+        PRIMARY KEY (user_id, kind, day)
+    );
     """)
 
     # === Migration: add user_id to legacy tables (notes/documents) ===
@@ -289,6 +413,8 @@ def init_db():
     _ensure_column("documents", "user_id", "TEXT REFERENCES users(id)")
     _ensure_column("assessments", "result_json", "TEXT DEFAULT '{}'")   # full pretestResult snapshot
     _ensure_column("study_plans", "state_json", "TEXT DEFAULT '{}'")    # full plan state snapshot
+    # Phase 0: JWT session revocation — bump on password reset, invalidates all old tokens
+    _ensure_column("users", "token_version", "INTEGER DEFAULT 0")
 
     # One-time repair: imported/legacy embeddings may store dim as REAL
     # (e.g. 1024.0), which breaks struct.unpack -> cast back to INTEGER.
@@ -309,6 +435,8 @@ def init_db():
     _ensure_column("documents", "parse_status", "TEXT DEFAULT 'none'")
     _ensure_column("documents", "parse_error", "TEXT DEFAULT ''")
     _ensure_column("users", "mineru_token_enc", "TEXT DEFAULT ''")
+    # P5 C13: structured knowledge guide for textbooks (AI-distilled)
+    _ensure_column("documents", "study_guide", "TEXT DEFAULT ''")
 
     # vocab_entries: add tag column (idempotent)
     try:
@@ -598,11 +726,14 @@ def get_current_user(authorization: Optional[str] = Header(None)):
             return None
     except (JWTError, ValueError):
         return None
-    
+
     conn = get_db()
     user = conn.execute("SELECT * FROM users WHERE id=?", (user_id,)).fetchone()
     conn.close()
     if user is None:
+        return None
+    # Phase 0: session revocation — tokens minted before a password reset die
+    if int(payload.get("tv", 0)) != int(user["token_version"] or 0):
         return None
     return dict(user)
 
@@ -633,6 +764,47 @@ class ForgotPassword(BaseModel):
 class ResetPassword(BaseModel):
     token: str
     new_password: str
+
+
+# ============================================================================
+# Phase 0: email sending (DirectMail SMTP) + auth rate limiting
+# ============================================================================
+
+def _send_email(to: str, subject: str, html_body: str) -> bool:
+    """Send transactional email via SMTP (Aliyun DirectMail).
+    Unconfigured (dev): fall back to console print — flows keep working locally."""
+    if not (SMTP_HOST and SMTP_USER and SMTP_PASSWORD):
+        print(f"[email:dev-fallback] to={to} | {subject}\n{html_body}")
+        return False
+    try:
+        import smtplib
+        from email.mime.text import MIMEText
+        from email.header import Header
+        msg = MIMEText(html_body, "html", "utf-8")
+        msg["Subject"] = Header(subject, "utf-8")
+        msg["From"] = MAIL_FROM or SMTP_USER
+        msg["To"] = to
+        with smtplib.SMTP_SSL(SMTP_HOST, SMTP_PORT, timeout=15) as s:
+            s.login(SMTP_USER, SMTP_PASSWORD)
+            s.sendmail(msg["From"], [to], msg.as_string())
+        return True
+    except Exception as e:
+        print(f"[email] send failed to {to}: {e}")
+        return False
+
+
+_forgot_rate: dict = {}   # ip -> [request timestamps] (OWASP: stop email-flooding)
+
+
+def _rate_ok(ip: str, limit: int = 3, window_s: int = 3600) -> bool:
+    now = time.time()
+    lst = [t for t in _forgot_rate.get(ip, []) if now - t < window_s]
+    if len(lst) >= limit:
+        _forgot_rate[ip] = lst
+        return False
+    lst.append(now)
+    _forgot_rate[ip] = lst
+    return True
 
 # ============================================================================
 # HARNESS: Topic Detection & Routing (from harness_uk_math.py)
@@ -859,12 +1031,21 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+# Phase 0: baseline security headers (OWASP reset-page referrer-leak guidance)
+@app.middleware("http")
+async def security_headers(request: Request, call_next):
+    response = await call_next(request)
+    response.headers.setdefault("X-Content-Type-Options", "nosniff")
+    response.headers.setdefault("Referrer-Policy", "no-referrer")
+    return response
+
 class ChatRequest(BaseModel):
     task_type: str = "general"
     messages: List[dict] = []
     temperature: float = 0.3
     max_tokens: int = 2000
     stream: bool = True
+    skill: Optional[str] = None   # P1: activate an Agent Skill (SKILL.md) for this message
 
 class SolveRequest(BaseModel):
     question: str
@@ -898,7 +1079,7 @@ async def register(req: UserRegister):
     )
     conn.commit(); conn.close()
     
-    access_token = create_access_token(data={"sub": user_id})
+    access_token = create_access_token(data={"sub": user_id, "tv": 0})
     return {
         "access_token": access_token,
         "token_type": "bearer",
@@ -914,8 +1095,8 @@ async def login(req: UserLogin):
     
     if not user or not verify_password(req.password, user["password_hash"]):
         raise HTTPException(401, "Invalid email or password")
-    
-    access_token = create_access_token(data={"sub": user["id"]})
+
+    access_token = create_access_token(data={"sub": user["id"], "tv": int(user["token_version"] or 0)})
     return {
         "access_token": access_token,
         "token_type": "bearer",
@@ -973,56 +1154,85 @@ async def update_me(req: UserUpdate, current_user: Optional[dict] = Depends(get_
     return {"updated": True}
 
 @app.post("/api/auth/forgot-password")
-async def forgot_password(req: ForgotPassword):
-    """Forgot password — generates reset token (prints to console for demo)."""
+async def forgot_password(req: ForgotPassword, request: Request):
+    """Forgot password — OWASP-hardened reset flow.
+    ① uniform message for existent/non-existent accounts ② crypto-safe token
+    (256-bit) stored HASHED ③ per-IP rate limit (3/h) ④ reset URL from
+    APP_BASE_URL env (never the Host header) ⑤ real email via DirectMail
+    (console fallback in dev)."""
+    ip = request.client.host if request.client else "?"
+    if not _rate_ok(ip):
+        raise HTTPException(429, "请求过于频繁，请 1 小时后再试")
+
+    reset_token = secrets.token_urlsafe(32)
+    token_hash = hashlib.sha256(reset_token.encode()).hexdigest()
+    expires_at = (datetime.utcnow() + timedelta(hours=1)).isoformat()
+
     conn = get_db()
     user = conn.execute("SELECT id, email FROM users WHERE email=?", (req.email,)).fetchone()
-    if not user:
-        conn.close()
-        # Don't reveal whether email exists
-        return {"message": "If the email exists, a reset link has been generated."}
-    
-    reset_token = str(uuid.uuid4())
-    expires_at = (datetime.utcnow() + timedelta(hours=1)).isoformat()
-    
-    conn.execute(
-        "INSERT INTO password_resets (id, user_id, token, expires_at) VALUES (?,?,?,?)",
-        (str(uuid.uuid4())[:8], user["id"], reset_token, expires_at)
-    )
-    conn.commit(); conn.close()
-    
-    # For demo: print reset link to console (no real email sent)
-    reset_url = f"http://localhost:8000/reset-password.html?token={reset_token}"
-    print("=" * 60)
-    print("PASSWORD RESET REQUEST")
-    print(f"Email: {req.email}")
-    print(f"Reset URL: {reset_url}")
-    print("=" * 60)
-    
-    return {"message": "If the email exists, a reset link has been generated. Check server console."}
+    if user:
+        conn.execute(
+            "INSERT INTO password_resets (id, user_id, token, expires_at) VALUES (?,?,?,?)",
+            (uuid.uuid4().hex[:12], user["id"], token_hash, expires_at)
+        )
+        conn.commit()
+    conn.close()
+
+    if user:
+        base = APP_BASE_URL or "http://localhost:8001"
+        reset_url = f"{base}/#/reset?token={reset_token}"
+        sent = _send_email(
+            req.email, "重置你的数跃密码",
+            f'<div style="font-family:system-ui;max-width:480px;margin:0 auto;padding:24px;">'
+            f'<h2 style="color:#1a1a2e;">数跃 ShuYue</h2>'
+            f'<p>你（或他人）请求重置账号密码。点击下方链接设置新密码：</p>'
+            f'<p><a href="{reset_url}" style="display:inline-block;background:#6366f1;color:#fff;'
+            f'padding:10px 24px;border-radius:8px;text-decoration:none;">重置密码</a></p>'
+            f'<p style="color:#888;font-size:12px;">链接 1 小时内有效，仅可使用一次。'
+            f'若非本人操作，请忽略此邮件。</p></div>'
+        )
+        # dev (no SMTP): the link must still be reachable — print it
+        if not sent:
+            print(f"[reset] dev link for {req.email}: {reset_url}")
+
+    # OWASP: identical response whether or not the account exists
+    return {"message": "如果该邮箱已注册，重置链接已发送，请查收邮件。"}
+
 
 @app.post("/api/auth/reset-password")
 async def reset_password(req: ResetPassword):
-    """Reset password using token."""
+    """Reset password with token (hashed lookup, single-use, revokes sessions)."""
     if len(req.new_password) < 6:
         raise HTTPException(400, "Password must be at least 6 characters")
-    
+    if not any(c.isalpha() for c in req.new_password) or not any(c.isdigit() for c in req.new_password):
+        raise HTTPException(400, "Password must contain at least one letter and one number")
+
+    token_hash = hashlib.sha256(req.token.encode()).hexdigest()
     conn = get_db()
     reset = conn.execute(
         "SELECT * FROM password_resets WHERE token=? AND used=0 AND expires_at > ?",
-        (req.token, datetime.utcnow().isoformat())
+        (token_hash, datetime.utcnow().isoformat())
     ).fetchone()
-    
+
     if not reset:
         conn.close()
-        raise HTTPException(400, "Invalid or expired reset token")
-    
+        raise HTTPException(400, "重置链接无效或已过期，请重新申请")
+
+    user = conn.execute("SELECT email FROM users WHERE id=?", (reset["user_id"],)).fetchone()
     new_hash = get_password_hash(req.new_password)
-    conn.execute("UPDATE users SET password_hash=? WHERE id=?", (new_hash, reset["user_id"]))
+    conn.execute(
+        "UPDATE users SET password_hash=?, token_version=token_version+1 WHERE id=?",
+        (new_hash, reset["user_id"]))
     conn.execute("UPDATE password_resets SET used=1 WHERE id=?", (reset["id"],))
     conn.commit(); conn.close()
-    
-    return {"message": "Password reset successfully. Please log in with your new password."}
+
+    # OWASP: notify (never contain the password); old JWTs die via token_version
+    if user:
+        _send_email(user["email"], "你的数跃密码已重置",
+                    '<p>你的数跃账号密码刚刚被重置，所有旧登录已失效。'
+                    '若非本人操作，请立即联系管理员。</p>')
+
+    return {"message": "密码重置成功，请使用新密码登录。"}
 
 # ============================================================================
 # HEALTH
@@ -1032,10 +1242,1819 @@ async def reset_password(req: ResetPassword):
 async def health():
     return {"status": "ok", "model": MODEL, "harness": "enabled"}
 
+# ============================================================================
+# SKILLS (P1 · Agent Skills open standard) — metadata endpoint + chat injection
+# ============================================================================
+
+@app.get("/api/skills")
+def get_skills():
+    """List available Agent Skills (progressive disclosure L1: metadata only)."""
+    return {"skills": list_skills()}
+
+
+@app.get("/api/skills/{skill_name}")
+def get_skill_body(skill_name: str):
+    """P6: return a skill's full SKILL.md body (for Reader-side injection)."""
+    body = load_skill(skill_name)
+    if not body:
+        raise HTTPException(404, f"Skill '{skill_name}' not found")
+    return {"name": skill_name, "body": body}
+
+
+# ============================================================================
+# P6: Reader concept-check (lightweight flash endpoint — NOT the agent loop)
+# ============================================================================
+
+class ConceptCheckRequest(BaseModel):
+    text: str
+
+@app.post("/api/agent/concept-check")
+def concept_check(req: ConceptCheckRequest):
+    """P6: lightweight flash check — is this a concept-explanation request?
+    Returns {"is_concept": true/false}. No tools, no agent loop, ~1s."""
+    from agent.decision import _call, DECISION_MODEL
+    try:
+        out = _call(DECISION_MODEL,
+                    "学生是否在询问或想了解一个数学概念（如：什么是极限/定义/含义/怎么理解/是什么意思/讲讲X）？"
+                    '输出JSON: {"is_concept": true} 或 {"is_concept": false}',
+                    req.text[:300], timeout=10, max_tokens=100)
+        is_concept = out.get("is_concept", False)
+        # handle string "true" from model
+        if isinstance(is_concept, str):
+            is_concept = is_concept.strip().lower() in ("true", "yes", "1")
+        print(f"[concept-check] '{req.text[:40]}' → {out.get('is_concept')} → {is_concept}")
+        return {"is_concept": bool(is_concept)}
+    except Exception as e:
+        print(f"[concept-check] error: {e}")
+        return {"is_concept": False, "error": str(e)[:100]}
+
+
+# ============================================================================
+# P8: Vision chat — paste-and-ask (grade / solve / explain / ask)
+# Ephemeral by design: image arrives as base64, is used once, never stored.
+# Two-tier VL routing: flash extracts/classifies, plus grades/explains (D9).
+# ============================================================================
+
+VISION_MIME_OK = ("image/jpeg", "image/png", "image/webp", "image/bmp")
+VISION_MAX_BYTES = 8 * 1024 * 1024
+
+
+def _vl_headers():
+    return {"Authorization": f"Bearer {DASHSCOPE_API_KEY}",
+            "Content-Type": "application/json"}
+
+
+def _vl_messages(image_b64: str, mime: str, instruction: str, history: list):
+    """Multimodal messages per official qwen-vl guidance: NO system message —
+    instructions ride in the user turn; prior text turns keep follow-up context."""
+    data_uri = f"data:{mime};base64,{image_b64}"
+    msgs = []
+    for m in (history or [])[-6:]:
+        if isinstance(m, dict) and m.get("role") in ("user", "assistant") and m.get("content"):
+            msgs.append({"role": m["role"], "content": str(m["content"])[:1500]})
+    msgs.append({"role": "user", "content": [
+        {"type": "image_url", "image_url": {"url": data_uri}},
+        {"type": "text", "text": instruction},
+    ]})
+    return msgs
+
+
+def _vl_call(model: str, image_b64: str, mime: str, instruction: str,
+             history: list = None, max_tokens: int = 2000):
+    """Non-streaming VL call → (text, total_tokens)."""
+    payload = {"model": model,
+               "messages": _vl_messages(image_b64, mime, instruction, history),
+               "max_tokens": max_tokens}
+    r = requests.post(BASE_URL, headers=_vl_headers(), json=payload, timeout=180)
+    r.raise_for_status()
+    data = r.json()
+    txt = ((data["choices"][0]["message"].get("content") or "")).strip()
+    usage = int((data.get("usage") or {}).get("total_tokens", 0) or 0)
+    return txt, usage
+
+
+def _vl_stream(model: str, image_b64: str, mime: str, instruction: str,
+               history: list = None, max_tokens: int = 3000):
+    """Streaming VL call → requests response with .iter_lines().
+    stream_options.include_usage: final chunk carries token usage (P7 telemetry)."""
+    payload = {"model": model,
+               "messages": _vl_messages(image_b64, mime, instruction, history),
+               "max_tokens": max_tokens, "stream": True,
+               "stream_options": {"include_usage": True}}
+    return requests.post(BASE_URL, headers=_vl_headers(), json=payload,
+                         stream=True, timeout=180)
+
+
+def _vision_intent_from_text(text: str) -> str:
+    """Flash classifies the accompanying text (follow-ups naturally become ask)."""
+    from agent.decision import _call, DECISION_MODEL
+    try:
+        out = _call(DECISION_MODEL,
+                    "学生贴了一张数学相关图片并附言。判断意图："
+                    "grade=批改手写作业/检查对错；solve=求解图中题目；"
+                    "explain=讲解图中知识点/概念；ask=其他图片提问或对先前图片的追问。"
+                    '输出JSON {"intent":"grade|solve|explain|ask"}',
+                    (text or "ask").strip()[:200], timeout=10, max_tokens=50)
+        i = out.get("intent", "")
+        if isinstance(i, str) and i.strip() in ("grade", "solve", "explain", "ask"):
+            return i.strip()
+    except Exception as e:
+        print(f"[vision] intent classify failed: {e}")
+    return "ask"
+
+
+def _vision_intent_from_image(image_b64: str, mime: str) -> str:
+    """Empty note → cheap vl-flash looks at the image itself (auto mode)."""
+    try:
+        txt, _ = _vl_call(VISION_MODEL_FLASH, image_b64, mime,
+                          "这张图最像什么？只输出JSON：{\"intent\":\"grade|solve|explain|ask\"}。"
+                          "grade=学生的手写解答过程；solve=纯题目（印刷或手写题目本身）；"
+                          "explain=教材页/笔记/知识点截图；ask=其他。",
+                          max_tokens=50)
+        txt = txt.strip().strip("`")
+        i = json.loads(txt[txt.find("{"):txt.rfind("}") + 1]).get("intent", "solve")
+        if i in ("grade", "solve", "explain", "ask"):
+            return i
+    except Exception as e:
+        print(f"[vision] image classify failed: {e}")
+    return "solve"   # bare image default: search-and-solve
+
+
+_VISION_GRADE_PROMPT = (
+    "你是数学作业批改老师。图片是学生的手写数学解答。请严格但公正地批改。\n"
+    "批改流程：①先逐题独立解出正确答案（心中演算，不输出过程）；"
+    "②按学生自己的方法逐步检查；③判定最终结论看【数学等价】而非字面一致。\n"
+    "判定规则（务必遵守）：\n"
+    "- 数学等价即 correct：常数乘开（4·4=16）、化简/通分/因式分解、"
+    "等价记号（x²与x^2、y'与dy/dx）、数值形式（1/2与0.5）。"
+    "例：参考答案 4·4cos4x、学生写 16cos4x → correct。\n"
+    "- 方法正确但个别数值错 → result=partial（保留方法分）；"
+    "后续步骤只是沿用前面错误数值而方法本身正确 → verdict=correct，"
+    "reason 注明'承接前步误差'。\n"
+    "- 常规代数化简跳步不算错；仅证明题缺失关键论证才标 逻辑跳步。\n"
+    "- 记号/格式风格差异（省略乘号、中英符号、等号链）不算错误，"
+    "写入 suggestion 提示即可；error_type 用 符号规范 仅当记号会引人数义错误。\n"
+    "- 手写辨认不确定的步骤 verdict=unclear（疑罪从无）；"
+    "仅有 unclear 步骤时 result 仍可判 correct。\n"
+    "- error_type=方法选择 仅当方法本身错误或不适用。\n"
+    "只输出严格 JSON（无任何其他文字、无代码块标记）：\n"
+    '{"problems":[{"no":1,"question":"题目概要",'
+    '"reference_answer":"你独立算出的参考最终答案",'
+    '"student_answer":"识别到的学生最终答案",'
+    '"steps":[{"text":"该步骤内容概要","verdict":"correct|wrong|unclear","reason":"若wrong说明错因，其余留空"}],'
+    '"result":"correct|partial|wrong",'
+    '"error_type":"计算错误|概念误解|逻辑跳步|符号规范|方法选择|无",'
+    '"suggestion":"一条改进建议"}],'
+    '"overall":"总体评价一句话","praise":"值得肯定的一点"}'
+)
+
+_VISION_EXTRACT_PROMPT = (
+    "提取图片中的数学题目为纯文本，公式用 LaTeX（行内 $...$），多题用 1. 2. 3. 编号分行。"
+    "只输出题目文本本身，不要解答、不要任何说明或前缀。如果图中没有题目，只输出 NO_QUESTION。"
+)
+
+_VISION_EXPLAIN_PROMPT = (
+    "你是数跃 AI 数学辅导老师（学生来自高考体系、正读中外合办大学一年级）。图片是教材/笔记/知识点页面。"
+    "请讲解图中知识点，严格用四层结构（markdown 标题）：\n"
+    "## 高考阶段（你已会的）\n## 大学阶段（现在要学的）\n## 深层理解（为什么这样定义）\n## 前沿/应用（哪里会用到）\n"
+    "关键术语首次出现附中英对照（如 supremum 上确界），数学用 LaTeX。"
+)
+
+_VISION_ASK_PROMPT = (
+    "你是数跃 AI 数学辅导老师（中外合办大学一年级，学生来自高考体系）。"
+    "请结合图片内容回答学生的附言问题。数学用 LaTeX，markdown 输出，关键术语附中英对照。"
+)
+
+
+def _extract_grade_json(raw: str):
+    """Tolerant JSON extraction for VL grading output (P8 regression fix).
+    VL occasionally emits stray quotes near structural chars (}"] instead of }])
+    or trailing chatter. Four-level fallback:
+      ① strict parse of the {..} slice
+      ② targeted repairs for VL's frequent glitch patterns (stray quote / trailing comma)
+      ③ balanced-brace salvage: parse each problem object inside "problems":[..]
+      ④ None (caller returns raw + parse_error to the client)."""
+    if not raw:
+        return None
+    body = raw.strip()
+    if body.startswith("```"):
+        body = body.strip("`").lstrip("jsonJSON").strip()
+    i0, i1 = body.find("{"), body.rfind("}")
+    if i0 < 0 or i1 <= i0:
+        return None
+    seg = body[i0:i1 + 1]
+    # ① strict
+    try:
+        return json.loads(seg)
+    except Exception:
+        pass
+    # ② targeted glitch repairs
+    repairs = (
+        lambda s: re.sub(r'(?<=[\}\]])"(?=[\],])', "", s),   # stray " before ]/, (incident case }"])
+        lambda s: re.sub(r'(?<=,)\s*"(?=\])', "", s),        # dangling " before ]
+        lambda s: re.sub(r',\s*([\]}])', r"\1", s),          # trailing comma before ]/}
+    )
+    for rep in repairs:
+        try:
+            return json.loads(rep(seg))
+        except Exception:
+            continue
+    # ③ balanced-brace salvage of individual problem objects
+    m = re.search(r'"problems"\s*:\s*\[', seg)
+    if m:
+        arr = seg[m.end():]
+        problems, depth, start, in_str, esc = [], 0, -1, False, False
+        for idx, ch in enumerate(arr):
+            if esc:
+                esc = False
+                continue
+            if ch == "\\":
+                esc = True
+                continue
+            if ch == '"':
+                in_str = not in_str
+                continue
+            if in_str:
+                continue
+            if ch == "{":
+                if depth == 0:
+                    start = idx
+                depth += 1
+            elif ch == "}":
+                if depth > 0:
+                    depth -= 1
+                    if depth == 0 and start >= 0:
+                        frag = arr[start:idx + 1]
+                        for cand in (frag,) + tuple(rep(frag) for rep in repairs):
+                            try:
+                                po = json.loads(cand)
+                                if isinstance(po, dict):
+                                    problems.append(po)
+                                    break
+                            except Exception:
+                                continue
+        if problems:
+            return {"problems": problems, "overall": "", "praise": "",
+                    "salvaged": True}
+    return None
+
+
+def _vision_quota_left(conn, user_id: str) -> int:
+    row = conn.execute(
+        "SELECT grade_count FROM vision_usage WHERE user_id=? AND day=date('now')",
+        (user_id,)).fetchone()
+    return VISION_GRADE_DAILY_LIMIT - (row["grade_count"] if row else 0)
+
+
+def _vision_metrics(user_id, intent, steps, total_ms, tokens, err, text, out_preview):
+    try:
+        conn = get_db()
+        conn.execute(
+            "INSERT INTO agent_metrics (session_id,user_id,env,intent,skill,fast_path,steps,"
+            "n_tools,tools_fail,total_ms,total_tokens,interrupted,error,input_preview,output_preview) "
+            "VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)",
+            ("", user_id, ENV_NAME, f"vision:{intent}", "", 0,
+             json.dumps(steps, ensure_ascii=False)[:4000],
+             len(steps), sum(1 for s in steps if not s.get("ok")), total_ms, tokens,
+             0, (err or "")[:120], (text or "")[:500], (out_preview or "")[:500]))
+        conn.commit(); conn.close()
+    except Exception as e:
+        print(f"[vision] metrics failed: {e}")
+
+
+class VisionChatRequest(BaseModel):
+    image_base64: str = ""
+    mime: str = "image/jpeg"
+    text: str = ""
+    history: List[dict] = []
+    session_id: str = ""      # P8: workspace persistence (vision turns live in the workspace)
+
+
+def _vision_grade_summary(parsed) -> str:
+    """Human-readable one-liner block for persisting a grade result (image itself is ephemeral)."""
+    try:
+        probs = (parsed or {}).get("problems") or []
+        wrong = [p for p in probs if p.get("result") == "wrong"]
+        lines = [f"📝 手写批改 · 共 {len(probs)} 题，错 {len(wrong)} 题"]
+        for p in wrong:
+            seg = f"题{p.get('no', '?')} ✗ {str(p.get('question', ''))[:40]}"
+            ws = next((s for s in p.get("steps", []) if s.get("verdict") == "wrong"), None)
+            if ws and ws.get("reason"):
+                seg += f"：{str(ws['reason'])[:60]}"
+            if p.get("error_type") and p["error_type"] != "无":
+                seg += f"（{p['error_type']}）"
+            lines.append(seg)
+        if (parsed or {}).get("overall"):
+            lines.append(str(parsed["overall"])[:80])
+        return "\n".join(lines)
+    except Exception:
+        return "📝 手写批改完成"
+
+
+# P8: heartbeat executor — run the blocking grade VL call off-thread so the SSE
+# generator can emit "批改中… Xs" every 5s (no 40s silence for the client).
+import concurrent.futures as _cfe
+_vision_pool = _cfe.ThreadPoolExecutor(max_workers=2, thread_name_prefix="vision")
+
+
+@app.post("/api/vision/chat")
+def vision_chat(req: VisionChatRequest,
+                current_user: Optional[dict] = Depends(get_current_user)):
+    """P8: paste-and-ask vision endpoint (SSE). Image is ephemeral — never stored.
+    grade (20/day quota) | solve (VL extract → harness pipeline) | explain | ask.
+    session_id: turns persist into the workspace like any other chat."""
+    if not current_user:
+        raise HTTPException(401, "请登录后使用图片功能")
+    if not req.image_base64:
+        raise HTTPException(400, "Missing image")
+    if req.mime not in VISION_MIME_OK:
+        raise HTTPException(400, f"不支持的图片格式 {req.mime}（支持 jpg/png/webp/bmp；"
+                                 "iPhone 请设置相机'兼容性最好'）")
+    if len(req.image_base64) * 3 // 4 > VISION_MAX_BYTES:
+        raise HTTPException(413, "图片过大（>8MB），请裁剪后重试")
+    user_id = current_user["id"]
+    text = (req.text or "").strip() or "帮我批改"
+
+    # ---- P8 persistence: user turn + follow-up context from the workspace ----
+    session_ok = False
+    if user_id and req.session_id:
+        conn = get_db()
+        row = conn.execute("SELECT user_id FROM chat_sessions WHERE id=?",
+                           (req.session_id,)).fetchone()
+        session_ok = bool(row and row["user_id"] == user_id)
+        if session_ok:
+            if not req.history:
+                rows = conn.execute(
+                    "SELECT role, content FROM chat_messages WHERE session_id=? "
+                    "ORDER BY id DESC LIMIT 6", (req.session_id,)).fetchall()
+                req.history = [{"role": r["role"], "content": r["content"]}
+                               for r in reversed(rows)]
+            # Day-2.6: persist the (already client-compressed) image with the turn
+            image_id = ""
+            try:
+                image_id = uuid.uuid4().hex[:12]
+                conn.execute(
+                    "INSERT INTO vision_images (id,user_id,mime,b64,kb) VALUES (?,?,?,?,?)",
+                    (image_id, user_id, req.mime, req.image_base64,
+                     len(req.image_base64) * 3 // 4 // 1024))
+            except Exception as _ie:
+                image_id = ""
+                print(f"[vision] image persist failed: {_ie}")
+            conn.execute(
+                "INSERT INTO chat_messages (session_id,role,content,meta) VALUES (?,?,?,?)",
+                (req.session_id, "user",
+                 "📷 图片提问" + (("：" + text) if text != "帮我批改" else ""),
+                 json.dumps({"vision": True, "image_id": image_id, "mime": req.mime},
+                            ensure_ascii=False)))
+            conn.execute("UPDATE chat_sessions SET updated_at=datetime('now') WHERE id=?",
+                         (req.session_id,))
+            conn.commit()
+        conn.close()
+
+    def _persist_vision(full_text, meta=None, naming_hint=""):
+        if not (session_ok and req.session_id and full_text):
+            return
+        try:
+            conn5 = get_db()
+            conn5.execute(
+                "INSERT INTO chat_messages (session_id,role,content,meta) VALUES (?,?,?,?)",
+                (req.session_id, "assistant", full_text,
+                 json.dumps(meta or {"vision": True}, ensure_ascii=False)))
+            # Day-2.7.3: fixed title for vision-first workspaces (user decision —
+            # flash naming was flaky; a stable, predictable name beats a bad guess)
+            trow = conn5.execute("SELECT title FROM chat_sessions WHERE id=?",
+                                 (req.session_id,)).fetchone()
+            if trow and (not trow["title"] or trow["title"] in ("新工作台", "工作台")):
+                try:
+                    conn5.execute("UPDATE chat_sessions SET title=? WHERE id=?",
+                                  ("图片知识点解答", req.session_id))
+                except Exception as _te:
+                    print(f"[vision] title set failed: {_te}")
+            conn5.commit(); conn5.close()
+        except Exception as e:
+            print(f"[vision] persist failed: {e}")
+
+    def sse(ev: dict):
+        return "data: " + json.dumps(ev, ensure_ascii=False) + "\n\n"
+
+    def stream():
+        t0 = time.time()
+        tokens = 0
+        steps = []
+        intent = ""
+        err = ""
+        out = ""
+        out_meta = None   # Day-2.6: grade turns carry the full report JSON for card-level restore
+        naming_hint = text   # Day-2.7: intent-aware material for workspace auto-naming
+        try:
+            # ---- intent routing (flash on text; vl-flash on image when no note) ----
+            if (req.text or "").strip() or req.history:
+                intent = _vision_intent_from_text(req.text)
+            else:
+                yield sse({"type": "status", "text": "识别图片类型…"})
+                intent = _vision_intent_from_image(req.image_base64, req.mime)
+            yield sse({"type": "vision_intent", "intent": intent})
+
+            # ---- grade: quota + structured rubric ----
+            if intent == "grade":
+                conn = get_db()
+                left = _vision_quota_left(conn, user_id)
+                if left <= 0:
+                    conn.close()
+                    yield sse({"type": "quota_exceeded",
+                               "limit": VISION_GRADE_DAILY_LIMIT,
+                               "message": f"今日批改 {VISION_GRADE_DAILY_LIMIT} 次已用完，明天再来～ 解题和讲解不受限制"})
+                    _vision_metrics(user_id, "grade", [], int((time.time()-t0)*1000), 0,
+                                    "quota_exceeded", text, "")
+                    yield "data: [DONE]\n\n"
+                    return
+                conn.execute(
+                    "INSERT INTO vision_usage(user_id,day,grade_count) VALUES(?,date('now'),1) "
+                    "ON CONFLICT(user_id,day) DO UPDATE SET grade_count=grade_count+1",
+                    (user_id,))
+                conn.commit()
+                left2 = _vision_quota_left(conn, user_id)
+                conn.close()
+
+                yield sse({"type": "status", "text": "识别手写内容…"})
+                ts = time.time()
+                # heartbeat: run the blocking VL call off-thread; emit progress
+                # every 5s so a 30-40s grade never looks frozen
+                fut = _vision_pool.submit(_vl_call, VISION_MODEL_PLUS,
+                                          req.image_base64, req.mime,
+                                          _VISION_GRADE_PROMPT, None, 3000)
+                while not fut.done():
+                    yield sse({"type": "status", "text": f"批改中… {int(time.time() - ts)}s"})
+                    time.sleep(5)
+                raw, tokens = fut.result()
+                steps.append({"type": "vl", "name": VISION_MODEL_PLUS,
+                              "ms": int((time.time()-ts)*1000), "ok": bool(raw)})
+                parsed = _extract_grade_json(raw)
+                if parsed is None:
+                    err = "grade_parse_error"
+                # Fix B — equivalence safety net: VL may judge a mathematically
+                # equivalent answer as wrong over notation form (4·4 vs 16).
+                # Cross-check final answers with the F3 verifier (P0-tested 8/8);
+                # equivalent (conf≥0.85) overrides result to correct.
+                if isinstance(parsed, dict):
+                    try:
+                        from agent.decision import answer_equivalence
+                    except Exception:
+                        answer_equivalence = None
+                    for p in parsed.get("problems", []):
+                        if not isinstance(p, dict) or p.get("result") == "correct":
+                            continue
+                        ref = str(p.get("reference_answer") or "").strip()
+                        stu = str(p.get("student_answer") or "").strip()
+                        if not (ref and stu and ref != stu and answer_equivalence):
+                            continue
+                        try:
+                            eq = answer_equivalence(ref, stu)
+                            if eq.get("equivalent") and float(eq.get("confidence", 0)) >= 0.85:
+                                p["result"] = "correct"
+                                p["error_type"] = "无"
+                                p["equivalence_override"] = True
+                                note = "最终答案与参考数学等价（仅记号/化简形式不同）"
+                                p["suggestion"] = ((p.get("suggestion") or "").strip("｜") + "｜" + note).strip("｜")
+                                for s in p.get("steps", []):
+                                    if s.get("verdict") == "wrong" and "等价" not in (s.get("reason") or ""):
+                                        s["verdict"] = "correct"
+                                        s["reason"] = ""
+                        except Exception as _eqe:
+                            print(f"[vision] equivalence check failed: {_eqe}")
+                yield sse({"type": "grade_result",
+                           "result": parsed or {"raw": raw[:2000], "parse_error": True},
+                           "quota_left": left2})
+                out = _vision_grade_summary(parsed) if parsed else raw[:500]
+                # P9: each graded problem is an FSRS review for its topic (D13).
+                # correct→GOOD / partial→HARD / wrong→AGAIN / equivalence→GOOD
+                if isinstance(parsed, dict) and user_id:
+                    for p in (parsed.get("problems") or []):
+                        try:
+                            if not isinstance(p, dict) or not p.get("question"):
+                                continue
+                            _topic = infer_topic(str(p["question"]))
+                            if p.get("equivalence_override") or p.get("result") == "correct":
+                                _rating = 3
+                            elif p.get("result") == "partial":
+                                _rating = 2
+                            else:
+                                _rating = 1
+                            fsrs_review(user_id, _topic, _rating, source="grade")
+                        except Exception as _fe:
+                            print(f"[fsrs] grade hook skipped a problem: {_fe}")
+                if parsed:
+                    try:
+                        _m = json.dumps(parsed, ensure_ascii=False)
+                        if len(_m) <= 100000:   # cap: pathological huge reports fall back to text
+                            out_meta = {"vision": "grade", "result": parsed}
+                    except Exception:
+                        pass
+                    try:   # Day-2.7: name the workspace from the first graded problem
+                        naming_hint = str(
+                            ((parsed.get("problems") or [{}])[0].get("question")) or "手写批改")[:100]
+                    except Exception:
+                        naming_hint = "手写批改"
+
+            # ---- solve: vl-flash extract → harness pipeline (verified) ----
+            elif intent == "solve":
+                yield sse({"type": "status", "text": "提取题目…"})
+                ts = time.time()
+                question, u1 = _vl_call(VISION_MODEL_FLASH, req.image_base64, req.mime,
+                                        _VISION_EXTRACT_PROMPT, max_tokens=800)
+                tokens += u1
+                steps.append({"type": "vl", "name": VISION_MODEL_FLASH,
+                              "ms": int((time.time()-ts)*1000), "ok": True})
+                if not question or "NO_QUESTION" in question:
+                    yield sse({"type": "text", "delta": "图片中未识别出题目。请拍清题目本身，或直接打字描述问题～"})
+                    _vision_metrics(user_id, "solve", steps, int((time.time()-t0)*1000),
+                                    tokens, "no_question", text, "")
+                    yield "data: [DONE]\n\n"
+                    return
+                naming_hint = question[:100]   # Day-2.7: name from the extracted problem (content only)
+                yield sse({"type": "status", "text": f"已识别题目：{question[:60]}…"})
+                yield sse({"type": "text", "delta": f"**识别到的题目**：{question}\n\n"})
+                yield sse({"type": "status", "text": "解题中…（双车道 + 验证器）"})
+                ts = time.time()
+                # Day-2.7: heartbeat — blocking solve off-thread, "解题中… Xs" every 5s
+                fut = _vision_pool.submit(solve_question,
+                                          question_text=question, options=None,
+                                          api_key=DASHSCOPE_API_KEY, model=MODEL,
+                                          base_url=BASE_URL.replace("/chat/completions", ""))
+                while not fut.done():
+                    yield sse({"type": "status", "text": f"解题中… {int(time.time() - ts)}s"})
+                    time.sleep(5)
+                result = fut.result()
+                steps.append({"type": "tool", "name": "solve_problem",
+                              "ms": int((time.time()-ts)*1000),
+                              "ok": bool((result or {}).get("solution"))})
+                solution = (result or {}).get("solution") or "解题失败，请重试或打字描述题目。"
+                yield sse({"type": "status", "text": "解题完成，整理输出…"})
+                # stream in chunks for perceived speed
+                for i in range(0, len(solution), 120):
+                    chunk = solution[i:i+120]
+                    out += chunk
+                    yield sse({"type": "text", "delta": chunk})
+                    time.sleep(0.01)
+
+            # ---- explain / ask: streaming VL-plus (concept-bridge style for explain) ----
+            else:
+                prompt = _VISION_EXPLAIN_PROMPT if intent == "explain" else _VISION_ASK_PROMPT
+                if intent == "explain":
+                    prompt += f"\n学生附言：{text}" if (req.text or "").strip() else ""
+                else:
+                    prompt += f"\n学生问题：{text}"
+                yield sse({"type": "status", "text": "思考中…"})
+                ts = time.time()
+                resp = _vl_stream(VISION_MODEL_PLUS, req.image_base64, req.mime,
+                                  prompt, history=req.history)
+                for line in resp.iter_lines(decode_unicode=True):
+                    if not line or not line.startswith("data:"):
+                        continue
+                    payload = line[5:].strip()
+                    if payload == "[DONE]":
+                        break
+                    try:
+                        ev = json.loads(payload)
+                        delta = (ev.get("choices") or [{}])[0].get("delta", {}).get("content", "")
+                        if ev.get("usage"):
+                            tokens += int(ev["usage"].get("total_tokens", 0) or 0)
+                    except Exception:
+                        continue
+                    if delta:
+                        out += delta
+                        yield sse({"type": "text", "delta": delta})
+                steps.append({"type": "vl", "name": VISION_MODEL_PLUS,
+                              "ms": int((time.time()-ts)*1000), "ok": bool(out)})
+
+            yield sse({"type": "usage", "total_tokens": tokens, "intent": intent})
+            _persist_vision(out, out_meta, naming_hint)   # assistant turn lands BEFORE the client sees DONE
+            yield "data: [DONE]\n\n"
+        except GeneratorExit:
+            # client aborted — keep the partial answer in the workspace (same as agent chat)
+            _persist_vision(out or "（图片处理被中断）", out_meta, naming_hint)
+            raise
+        except Exception as e:
+            err = str(e)[:120]
+            yield sse({"type": "error", "text": f"图片处理失败：{err}（可重试或改打字提问）"})
+            yield "data: [DONE]\n\n"
+        finally:
+            _vision_metrics(user_id, intent or "unknown", steps,
+                            int((time.time()-t0)*1000), tokens, err, text, out)
+
+    return StreamingResponse(stream(), media_type="text/event-stream")
+
+
+@app.get("/api/vision/image/{image_id}")
+def vision_image(image_id: str, current_user: Optional[dict] = Depends(get_current_user)):
+    """P8 Day-2.6: serve a conversation-persisted image (owner only)."""
+    if not current_user:
+        raise HTTPException(401, "Not authenticated")
+    conn = get_db()
+    row = conn.execute("SELECT user_id, mime, b64 FROM vision_images WHERE id=?",
+                       (image_id,)).fetchone()
+    conn.close()
+    if not row or row["user_id"] != current_user["id"]:
+        raise HTTPException(404, "Not found")
+    import base64 as _b64
+    return Response(content=_b64.b64decode(row["b64"]), media_type=row["mime"],
+                    headers={"Cache-Control": "private, max-age=86400"})
+
+
+# ============================================================================
+# P9 (D13): FSRS review pipeline — every quiz/grade/pretest feeds one memory
+# state per (user, topic); R(t) drives review triggers, graph coloring,
+# agent narration and the dynamic proficiency number.
+# ============================================================================
+
+def fsrs_review(user_id: str, topic: str, rating: int, source: str = "quiz",
+                conn=None) -> dict:
+    """One FSRS review event. Upserts srs_queue and returns the new state.
+    Rating: 1=Again(wrong) 2=Hard(partial) 3=Good(correct) 4=Easy(flawless)."""
+    from agent import fsrs as F
+    own = conn is None
+    c = conn or get_db()
+    try:
+        now = datetime.now()
+        row = c.execute("SELECT difficulty, stability, reps, lapses, last_review_at "
+                        "FROM srs_queue WHERE user_id=? AND topic=?",
+                        (user_id, topic)).fetchone()
+        if row is None:
+            d = F.init_difficulty(rating)
+            s = F.init_stability(rating)
+            reps, lapses = 1, (1 if rating == F.AGAIN else 0)
+            r_now = None
+        else:
+            last = row["last_review_at"]
+            days = 0.0
+            if last:
+                try:
+                    days = max((now - datetime.fromisoformat(last)).total_seconds() / 86400.0, 0.0)
+                except Exception:
+                    days = 0.0
+            r_now = F.retrievability(row["stability"], days)
+            d = F.next_difficulty(row["difficulty"], rating)
+            s = F.next_stability(row["difficulty"], row["stability"], r_now, rating,
+                                 same_day=(days < 1.0))
+            reps = row["reps"] + 1
+            lapses = row["lapses"] + (1 if rating == F.AGAIN else 0)
+        due = (now + timedelta(days=F.interval(s, F.TARGET_R))).isoformat()
+        c.execute(
+            "INSERT INTO srs_queue (user_id,topic,difficulty,stability,reps,lapses,"
+            "last_review_at,due_at,source) VALUES (?,?,?,?,?,?,?,?,?) "
+            "ON CONFLICT(user_id,topic) DO UPDATE SET difficulty=?,stability=?,"
+            "reps=?,lapses=?,last_review_at=?,due_at=?,source=?",
+            (user_id, topic, d, s, reps, lapses, now.isoformat(), due, source,
+             d, s, reps, lapses, now.isoformat(), due, source))
+        if own:
+            c.commit()
+        else:
+            c.commit()   # FIX(P9): commit even on a shared conn — callers (quiz
+                         # submit / pretest) close without committing, which
+                         # silently rolled every srs_queue write back
+        return {"topic": topic, "difficulty": round(d, 2), "stability": round(s, 2),
+                "R_now": round(r_now, 3) if r_now is not None else None,
+                "due_at": due, "reps": reps, "lapses": lapses}
+    except Exception as e:
+        print(f"[fsrs] review failed for {user_id}/{topic}: {e}")
+        return {"error": str(e)[:100]}
+    finally:
+        if own:
+            try: c.close()
+            except Exception: pass
+
+
+def fsrs_rating_from_ratio(score: int, total: int) -> int:
+    """Map a quiz attempt (score/total) onto the FSRS 4-grade scale."""
+    from agent import fsrs as F
+    if total <= 0:
+        return F.GOOD
+    ratio = score / total
+    if ratio >= 1.0:
+        return F.EASY
+    if ratio >= 0.8:
+        return F.GOOD
+    if ratio >= 0.5:
+        return F.HARD
+    return F.AGAIN
+
+
+# ---------------------------------------------------------------------------
+# P9 Day-2: due reviews + reminder scheduling (D10/D12/D13 pipeline)
+# ---------------------------------------------------------------------------
+
+def _days_since(ts_iso: str) -> float:
+    try:
+        return max((datetime.now() - datetime.fromisoformat(ts_iso)).total_seconds() / 86400.0, 0.0)
+    except Exception:
+        return 0.0
+
+
+def _email_opted_out(conn, user_id: str) -> bool:
+    """Hard requirement (user directive): opted-out users receive NO email.
+    Preference convention in memory_entries: kind='preference',
+    content='email_reminders=off'."""
+    try:
+        rows = conn.execute(
+            "SELECT content FROM memory_entries WHERE user_id=? AND kind='preference'",
+            (user_id,)).fetchall()
+    except Exception:
+        return False
+    for r in rows:
+        c = (r["content"] or "").strip().lower()
+        if c.startswith("email_reminders") and c.endswith("off"):
+            return True
+        if "邮件" in (r["content"] or "") and ("关闭" in (r["content"] or "") or "off" in c):
+            return True
+    return False
+
+
+class NotifyPrefsRequest(BaseModel):
+    email: bool = True
+
+
+@app.put("/api/notify/prefs")
+def notify_prefs(req: NotifyPrefsRequest, current_user: Optional[dict] = Depends(get_current_user)):
+    """Toggle email reminders (P9 Day-2; the profile-page toggle lands Day-3)."""
+    if not current_user:
+        raise HTTPException(401, "请登录")
+    value = "on" if req.email else "off"
+    conn = get_db()
+    existing = conn.execute(
+        "SELECT id FROM memory_entries WHERE user_id=? AND kind='preference' "
+        "AND content LIKE 'email_reminders%'", (current_user["id"],)).fetchone()
+    if existing:
+        conn.execute("UPDATE memory_entries SET content=? WHERE id=?",
+                     ("email_reminders=" + value, existing["id"]))
+    else:
+        conn.execute("INSERT INTO memory_entries (user_id,kind,content,source_session) "
+                     "VALUES (?,?,?,'')",
+                     (current_user["id"], "preference", "email_reminders=" + value))
+    conn.commit(); conn.close()
+    return {"email": req.email, "saved": True}
+
+
+@app.get("/api/review/due")
+def review_due(current_user: Optional[dict] = Depends(get_current_user)):
+    """Items whose predicted recall RIGHT NOW is below REMIND_R, weakest first."""
+    if not current_user:
+        raise HTTPException(401, "请登录")
+    from agent import fsrs as F
+    conn = get_db()
+    rows = conn.execute(
+        "SELECT topic, difficulty, stability, last_review_at, reps, lapses "
+        "FROM srs_queue WHERE user_id=?", (current_user["id"],)).fetchall()
+    conn.close()
+    due = []
+    for r in rows:
+        days = _days_since(r["last_review_at"])
+        r_now = F.retrievability(r["stability"], days)
+        if r_now < F.REMIND_R:
+            due.append({"topic": r["topic"], "R": round(r_now, 3),
+                        "S": round(r["stability"], 2), "days_since": round(days, 1),
+                        "lapses": r["lapses"]})
+    due.sort(key=lambda x: x["R"])
+    return {"due": due, "count": len(due), "threshold": F.REMIND_R}
+
+
+@app.get("/api/review/mastery")
+def review_mastery(current_user: Optional[dict] = Depends(get_current_user)):
+    """ALL memory states with live R(t) — feeds the knowledge-graph coloring."""
+    if not current_user:
+        raise HTTPException(401, "请登录")
+    from agent import fsrs as F
+    conn = get_db()
+    rows = conn.execute(
+        "SELECT topic, difficulty, stability, last_review_at, reps, lapses "
+        "FROM srs_queue WHERE user_id=?", (current_user["id"],)).fetchall()
+    conn.close()
+    out = []
+    for r in rows:
+        days = _days_since(r["last_review_at"])
+        out.append({"topic": r["topic"], "R": round(F.retrievability(r["stability"], days), 3),
+                    "S": round(r["stability"], 2), "difficulty": round(r["difficulty"], 2),
+                    "reps": r["reps"], "lapses": r["lapses"]})
+    out.sort(key=lambda x: x["R"])
+    return {"mastery": out}
+
+
+@app.get("/api/notify/prefs")
+def notify_prefs_get(current_user: Optional[dict] = Depends(get_current_user)):
+    """Current email-reminder state (profile toggle reads this)."""
+    if not current_user:
+        raise HTTPException(401, "请登录")
+    conn = get_db()
+    off = _email_opted_out(conn, current_user["id"])
+    conn.close()
+    return {"email": not off}
+
+
+def _unsubscribe_token(user_id: str) -> str:
+    import hmac as _hmac
+    return user_id + "-" + _hmac.new(SECRET_KEY.encode(), user_id.encode(),
+                                      hashlib.sha256).hexdigest()[:20]
+
+
+@app.get("/api/notify/unsubscribe", response_class=HTMLResponse)
+def notify_unsubscribe(token: str):
+    """One-click email opt-out from the footer link (user hard requirement).
+    token = <user_id>-<hmac>; no expiry (unsubscribe must always work)."""
+    if not token or "-" not in token:
+        raise HTTPException(400, "无效链接")
+    uid, sig = token.split("-", 1)
+    import hmac as _hmac
+    expect = _hmac.new(SECRET_KEY.encode(), uid.encode(), hashlib.sha256).hexdigest()[:20]
+    if not _hmac.compare_digest(sig, expect):
+        raise HTTPException(400, "无效链接")
+    conn = get_db()
+    user = conn.execute("SELECT id FROM users WHERE id=?", (uid,)).fetchone()
+    if not user:
+        conn.close(); raise HTTPException(400, "无效链接")
+    existing = conn.execute(
+        "SELECT id FROM memory_entries WHERE user_id=? AND kind='preference' "
+        "AND content LIKE 'email_reminders%'", (uid,)).fetchone()
+    if existing:
+        conn.execute("UPDATE memory_entries SET content='email_reminders=off' WHERE id=?",
+                     (existing["id"],))
+    else:
+        conn.execute("INSERT INTO memory_entries (user_id,kind,content,source_session) "
+                     "VALUES (?,?,?,'')", (uid, "preference", "email_reminders=off"))
+    conn.commit(); conn.close()
+    return HTMLResponse("<html><head><meta charset='utf-8'><title>数跃</title></head>"
+                        "<body style='font-family:system-ui;text-align:center;padding:60px 20px;'>"
+                        "<h2>已关闭邮件提醒 ✅</h2>"
+                        "<p>你将不再收到复习提醒与周报邮件。</p>"
+                        "<p style='color:#888;font-size:13px;'>登录后可在个人资料页重新开启；"
+                        "站内待办卡不受影响。</p></body></html>")
+
+
+def _scan_and_remind(now=None):
+    """Daily 08:00 job (D12): for every user with items below REMIND_R, send one
+    reminder email. HARD RULE: opted-out users are skipped entirely; one email
+    per user per day (notify_log dedup)."""
+    from agent import fsrs as F
+    from agent.decision import _call, DECISION_MODEL
+    now = now or datetime.now()
+    day = now.date().isoformat()
+    conn = get_db()
+    try:
+        rows = conn.execute(
+            "SELECT s.user_id, s.topic, s.stability, s.last_review_at, u.email "
+            "FROM srs_queue s JOIN users u ON u.id = s.user_id").fetchall()
+        per_user = {}
+        for r in rows:
+            r_now = F.retrievability(r["stability"], _days_since(r["last_review_at"]))
+            if r_now < F.REMIND_R:
+                per_user.setdefault(r["user_id"], {"email": r["email"], "items": []})
+                per_user[r["user_id"]]["items"].append((r["topic"], r_now))
+        sent = skipped_off = skipped_dupe = 0
+        for uid, info in per_user.items():
+            if _email_opted_out(conn, uid):
+                skipped_off += 1
+                print(f"[p9-remind] {uid}: OPTED-OUT, no email (hard rule)")
+                continue
+            if conn.execute("SELECT 1 FROM notify_log WHERE user_id=? AND kind='review_reminder' "
+                            "AND day=?", (uid, day)).fetchone():
+                skipped_dupe += 1
+                continue
+            items = sorted(info["items"], key=lambda x: x[1])[:5]
+            topics_txt = "、".join(f"{t}（记忆保持{int(rr*100)}%）" for t, rr in items)
+            cheer = ""
+            try:
+                out = _call(DECISION_MODEL,
+                            "给大学生写一句40字以内的复习鼓励语作为邮件结尾，只输出这句话。",
+                            topics_txt, timeout=10, max_tokens=80)
+                cheer = next((v for v in out.values() if isinstance(v, str) and v.strip()), "")
+            except Exception:
+                pass
+            base = APP_BASE_URL or "http://localhost:8001"
+            body = ('<div style="font-family:system-ui;max-width:480px;margin:0 auto;padding:24px;">'
+                    '<h2 style="color:#1a1a2e;">数跃 ShuYue</h2>'
+                    '<p>根据你的学习记录，以下知识点记忆正在消退，建议今天复习：</p>'
+                    + ''.join(f'<p style="padding:6px 12px;border-radius:8px;'
+                              f'background:#f1f2f8;margin:6px 0;">{t} — 记忆保持 {int(rr*100)}%</p>'
+                              for t, rr in items)
+                    + f'<p><a href="{base}/#/quiz" style="display:inline-block;background:#6366f1;'
+                      f'color:#fff;padding:10px 24px;border-radius:8px;text-decoration:none;">开始复习</a></p>'
+                    + (f'<p style="color:#555;">{cheer}</p>' if cheer else '')
+                    + f'<p style="color:#999;font-size:12px;">不想收到邮件？'
+                      f'<a href="{base}/api/notify/unsubscribe?token={_unsubscribe_token(uid)}">一键关闭</a>'
+                      f'（也可登录后在个人资料页开关）</p></div>')
+            ok = _send_email(info["email"], "数跃 · 你有知识点到期复习", body)
+            conn.execute("INSERT OR IGNORE INTO notify_log (user_id,kind,day) VALUES (?,?,?)",
+                         (uid, "review_reminder", day))
+            conn.commit()
+            sent += 1
+            print(f"[p9-remind] {uid}: {len(items)} items, email={'sent' if ok else 'console-fallback'}")
+        print(f"[p9-remind] {day}: users={len(per_user)} sent={sent} "
+              f"opted_out={skipped_off} dup={skipped_dupe}")
+    finally:
+        conn.close()
+
+
+# D12: APScheduler (in-process, starts with the server; no extra infra)
+try:
+    from apscheduler.schedulers.background import BackgroundScheduler
+    _p9_sched = BackgroundScheduler(timezone="Asia/Shanghai")
+    _p9_sched.add_job(_scan_and_remind, "cron", hour=8, minute=0, id="p9_daily_reminder")
+    _p9_sched.add_job(lambda: _weekly_report(send_email=True), "cron",
+                      day_of_week="fri", hour=18, minute=0, id="p9_weekly_report")
+    _p9_sched.add_job(lambda: _plan_adapt(), "cron",
+                      day_of_week="fri", hour=18, minute=5, id="p9_plan_adapt")
+    _p9_sched.start()
+    print("[p9] scheduler started: daily 08:00 reminders + Fri 18:00 weekly/plan-adapt")
+except Exception as _se:
+    print(f"[p9] scheduler NOT started ({_se}) — /api/review/due still live")
+
+
+# ---------------------------------------------------------------------------
+# P9 Day-3.5: weekly plan adaptation — the plan EVOLVES with performance
+# (deterministic data-driven task generation; no flaky LLM in the loop).
+# ---------------------------------------------------------------------------
+
+_TOPIC_ZH = {
+    "Limits": "极限", "Differentiation": "导数", "Integration": "积分",
+    "Series_Convergence": "数列与级数", "Linear_Algebra": "线性代数",
+    "Probability": "概率统计", "Discrete_Math": "离散数学",
+    "Proof_Techniques": "证明方法", "Other": "综合", "三角函数": "三角函数",
+}
+
+
+def _plan_adapt(now=None):
+    """Friday 18:05 job: evolve each learner's study plan from THIS week's
+    evidence (per-topic accuracy + FSRS R). Writes `adapted` tasks + `adapt_log`
+    into study_plans.state_json (bumping lastUpdate so clients pull the new
+    version). Principle: 演进不推倒 — derived plan structure is untouched;
+    adapted tasks render as their own 🔄 group. One run per user per week."""
+    now = now or datetime.now()
+    day = now.date().isoformat()
+    from agent import fsrs as F
+    conn = get_db()
+    try:
+        plans = conn.execute(
+            "SELECT id, user_id, state_json FROM study_plans "
+            "ORDER BY last_updated DESC").fetchall()
+        adapted_users = 0
+        for row in plans:
+            uid = row["user_id"]
+            if conn.execute("SELECT 1 FROM notify_log WHERE user_id=? AND kind='plan_adapt' "
+                            "AND day=?", (uid, day)).fetchone():
+                continue
+            try:
+                st = json.loads(row["state_json"] or "{}")
+            except Exception:
+                continue
+            week = _weekly_data(uid)
+            mem = {m["topic"]: m["R"] for m in week.get("memory", [])}
+            # plan completion rate (same derivation as tools._state)
+            prog, comp = st.get("progress", {}), st.get("completed", {})
+            keys = set(prog) | set(comp)
+            done = sum(1 for k in keys if comp.get(k) or (prog.get(k) or 0) >= 100)
+            rate = round(done / len(keys), 2) if keys else None
+            # candidates: weak accuracy this week → 补强; low R not covered → 复习
+            tasks = []
+            for q in week.get("quizzes", []):
+                if q["accuracy"] < 0.6:
+                    zh = _TOPIC_ZH.get(q["topic"], q["topic"])
+                    tasks.append({"name": f"补强：{zh}",
+                                  "desc": f"本周正确率 {int(q['accuracy']*100)}%——建议专项练习 5 题",
+                                  "kind": "补强", "topic": q["topic"]})
+            for t, rr in sorted(mem.items(), key=lambda x: x[1]):
+                if rr < 0.5 and not any(t == x.get("topic") for x in tasks):
+                    zh = _TOPIC_ZH.get(t, t)
+                    tasks.append({"name": f"复习：{zh}",
+                                  "desc": f"记忆保持 {int(rr*100)}%——已接近遗忘临界",
+                                  "kind": "复习", "topic": t})
+                if len(tasks) >= 4:
+                    break
+            tasks = tasks[:4]
+            summary_bits = []
+            if rate is not None:
+                summary_bits.append(f"任务完成率 {int(rate*100)}%")
+            if tasks:
+                summary_bits.append(f"新增 {len(tasks)} 项自适应任务")
+            entry = {"week": now.isocalendar()[1], "day": day,
+                     "summary": "本周 " + "，".join(summary_bits) if summary_bits else "本周无新任务",
+                     "added": [t["name"] for t in tasks]}
+            # evolve: replace this week's adapted set (last week's completed ones
+            # keep their progress via stable keys), keep log tail
+            st["adapted"] = tasks
+            st["adapt_log"] = (st.get("adapt_log") or [])[-5:] + [entry]
+            st["lastUpdate"] = now.isoformat()
+            conn.execute("UPDATE study_plans SET state_json=?, last_updated=datetime('now') "
+                         "WHERE id=?", (json.dumps(st, ensure_ascii=False), row["id"]))
+            conn.execute("INSERT OR IGNORE INTO notify_log (user_id,kind,day) VALUES (?,?,?)",
+                         (uid, "plan_adapt", day))
+            conn.commit()
+            adapted_users += 1
+            print(f"[p9-plan] {uid}: +{len(tasks)} adapted tasks ({entry['summary']})")
+        print(f"[p9-plan] {day}: plans={len(plans)} adapted={adapted_users}")
+    finally:
+        conn.close()
+
+
+# ---------------------------------------------------------------------------
+# P9 Day-3: weekly report (on-demand endpoint + Friday email job)
+# ---------------------------------------------------------------------------
+
+def _weekly_data(user_id: str) -> dict:
+    """Aggregate THIS week (Mon..now): quiz per-topic stats + FSRS due backlog."""
+    from agent import fsrs as F
+    conn = get_db()
+    monday = (datetime.now() - timedelta(days=datetime.now().weekday())).replace(
+        hour=0, minute=0, second=0, microsecond=0)
+    quizzes = conn.execute(
+        "SELECT topic, score, total, created_at FROM quiz_results "
+        "WHERE user_id=? AND created_at >= ? ORDER BY created_at",
+        (user_id, monday.isoformat())).fetchall()
+    srs = conn.execute(
+        "SELECT topic, stability, last_review_at FROM srs_queue WHERE user_id=?",
+        (user_id,)).fetchall()
+    conn.close()
+    per_topic = {}
+    for q in quizzes:
+        d = per_topic.setdefault(q["topic"], {"n": 0, "correct": 0, "total": 0})
+        d["n"] += 1
+        d["correct"] += q["score"]
+        d["total"] += q["total"]
+    mem = []
+    for r in srs:
+        rr = F.retrievability(r["stability"], _days_since(r["last_review_at"]))
+        mem.append({"topic": r["topic"], "R": round(rr, 2)})
+    mem.sort(key=lambda x: x["R"])
+    return {"week_start": monday.date().isoformat(),
+            "quizzes": [{"topic": t, "attempts": d["n"],
+                         "accuracy": round(d["correct"] / d["total"], 2) if d["total"] else 0,
+                         "answered": d["total"]} for t, d in per_topic.items()],
+            "attempts_total": len(quizzes),
+            "answered_total": sum(q["total"] for q in quizzes),
+            "accuracy_avg": round(sum(q["score"] for q in quizzes) /
+                                  max(sum(q["total"] for q in quizzes), 1), 2),
+            "memory": mem}
+
+
+def _weekly_paragraph(data: dict) -> str:
+    """Flash-polished 2-3 sentence summary paragraph (cheap, ~100 tokens)."""
+    from agent.decision import _call, DECISION_MODEL
+    facts = json.dumps({k: data[k] for k in ("quizzes", "attempts_total",
+                                             "accuracy_avg", "memory")},
+                       ensure_ascii=False)[:800]
+    try:
+        out = _call(DECISION_MODEL,
+                    "根据以下学生学习周数据，写一段80字以内的中文周报点评（本周表现+一个建议），只输出正文。",
+                    facts, timeout=15, max_tokens=200)
+        return next((v for v in out.values() if isinstance(v, str) and v.strip()),
+                    "继续保持每天练习，记忆曲线会感谢你。")
+    except Exception:
+        return "继续保持每天练习，记忆曲线会感谢你。"
+
+
+@app.get("/api/review/weekly")
+def review_weekly(current_user: Optional[dict] = Depends(get_current_user)):
+    """On-demand weekly report (dashboard collapsible reads this)."""
+    if not current_user:
+        raise HTTPException(401, "请登录")
+    data = _weekly_data(current_user["id"])
+    data["paragraph"] = _weekly_paragraph(data)
+    return data
+
+
+def _weekly_report(send_email: bool = True, now=None):
+    """Friday 18:00 job: email the weekly report to active users.
+    Hard rules same as reminders: opted-out → skip; one per week per user."""
+    now = now or datetime.now()
+    day = now.date().isoformat()
+    conn = get_db()
+    try:
+        monday = (now - timedelta(days=now.weekday())).replace(hour=0, minute=0,
+                                                               second=0, microsecond=0)
+        active = conn.execute(
+            "SELECT DISTINCT user_id FROM quiz_results WHERE created_at >= ?",
+            (monday.isoformat(),)).fetchall()
+        sent = skipped_off = skipped_dupe = 0
+        for row in active:
+            uid = row["user_id"]
+            if _email_opted_out(conn, uid):
+                skipped_off += 1
+                continue
+            if conn.execute("SELECT 1 FROM notify_log WHERE user_id=? AND kind='weekly_report' "
+                            "AND day=?", (uid, day)).fetchone():
+                skipped_dupe += 1
+                continue
+            u = conn.execute("SELECT email FROM users WHERE id=?", (uid,)).fetchone()
+            if not u:
+                continue
+            data = _weekly_data(uid)
+            if not data["attempts_total"]:
+                continue
+            para = _weekly_paragraph(data)
+            rows_html = "".join(
+                f'<tr><td style="padding:4px 10px;">{q["topic"]}</td>'
+                f'<td style="padding:4px 10px;text-align:center;">{q["attempts"]}</td>'
+                f'<td style="padding:4px 10px;text-align:center;">{int(q["accuracy"]*100)}%</td></tr>'
+                for q in data["quizzes"])
+            base = APP_BASE_URL or "http://localhost:8001"
+            body = ('<div style="font-family:system-ui;max-width:480px;margin:0 auto;padding:24px;">'
+                    '<h2 style="color:#1a1a2e;">数跃 · 本周学习周报</h2>'
+                    f'<p>本周共完成 {data["attempts_total"]} 次练习 · '
+                    f'{data["answered_total"]} 题 · 平均正确率 {int(data["accuracy_avg"]*100)}%</p>'
+                    '<table style="border-collapse:collapse;font-size:13px;" cellpadding="0" cellspacing="0">'
+                    '<tr style="color:#666;"><th style="padding:4px 10px;text-align:left;">主题</th>'
+                    '<th style="padding:4px 10px;">次数</th><th style="padding:4px 10px;">正确率</th></tr>'
+                    + rows_html + '</table>'
+                    f'<p style="color:#555;">{para}</p>'
+                    f'<p><a href="{base}" style="display:inline-block;background:#6366f1;color:#fff;'
+                    f'padding:10px 24px;border-radius:8px;text-decoration:none;">进入数跃</a></p>'
+                    f'<p style="color:#999;font-size:12px;">不想收到邮件？'
+                    f'<a href="{base}/api/notify/unsubscribe?token={_unsubscribe_token(uid)}">一键关闭</a></p></div>')
+            ok = _send_email(u["email"], "数跃 · 本周学习周报", body)
+            conn.execute("INSERT OR IGNORE INTO notify_log (user_id,kind,day) VALUES (?,?,?)",
+                         (uid, "weekly_report", day))
+            conn.commit()
+            sent += 1
+            print(f"[p9-weekly] {uid}: email={'sent' if ok else 'console-fallback'}")
+        print(f"[p9-weekly] {day}: active={len(active)} sent={sent} "
+              f"opted_out={skipped_off} dup={skipped_dupe}")
+    finally:
+        conn.close()
+
+
+# ============================================================================
+# AGENT V4 (P2) · Workspaces (G1) + agent chat loop (A1/F/B)
+# ============================================================================
+
+class AgentSessionCreate(BaseModel):
+    title: str = ""
+
+class AgentSessionRename(BaseModel):
+    title: str
+
+class AgentChatRequest(BaseModel):
+    session_id: Optional[str] = None
+    message: str
+    skill: Optional[str] = None
+    history: List[dict] = []   # guest / no-workspace context (client-held)
+    approved_tools: List[str] = []   # P3 E1: session write-tool approvals
+
+# ============================================================================
+# P3 · G2: Context Compaction (auto ≥80% budget + manual)
+# ============================================================================
+
+_COMPACT_CONTEXT_BUDGET = 16000   # ~chars of message history before compaction
+_KEEP_RECENT_TURNS = 5            # recent rounds kept verbatim after compaction
+
+_COMPACT_SYSTEM = (
+    "你是学习助手数跃。将以下学习对话压缩为结构化摘要，用于后续继续辅导。"
+    "用中文输出以下四节（Markdown）：\n"
+    "## 学过的概念\n（列出讨论过的知识点，一行一个）\n"
+    "## 犯过的错误\n（学生的错误模式和纠正，如有）\n"
+    "## 当前卡点\n（学生目前在哪里卡住/正在解决的问题）\n"
+    "## 教学要点\n（哪些讲解方式有效、学生的偏好）\n"
+    "保留所有数学细节和术语，控制在500字以内。"
+)
+
+def _should_compact(history: list) -> bool:
+    total = sum(len(str(m.get("content", ""))) for m in history)
+    return total >= _COMPACT_CONTEXT_BUDGET * 0.8
+
+def _compact_session(conn, session_id: str, user_id: str):
+    """G2: summarize old messages → replace with a summary row, keep recent N turns."""
+    rows = conn.execute(
+        "SELECT id, role, content FROM chat_messages WHERE session_id=? ORDER BY id",
+        (session_id,)).fetchall()
+    if len(rows) <= _KEEP_RECENT_TURNS * 2:
+        return {"compacted": False, "reason": "too_short", "kept": len(rows)}
+    recent = rows[-(_KEEP_RECENT_TURNS * 2):]
+    old = rows[:-(_KEEP_RECENT_TURNS * 2)]
+    old_text = "\n".join(f"[{r['role']}]: {r['content'][:500]}" for r in old[:40])
+    try:
+        resp = requests.post(BASE_URL, headers={
+            "Authorization": f"Bearer {DASHSCOPE_API_KEY}",
+            "Content-Type": "application/json",
+        }, json={
+            "model": MODEL,
+            "messages": [
+                {"role": "system", "content": _COMPACT_SYSTEM},
+                {"role": "user", "content": old_text[:12000]},
+            ],
+            "temperature": 0.2, "max_tokens": 1500, "enable_thinking": False,
+        }, timeout=90)
+        resp.raise_for_status()
+        summary = resp.json()["choices"][0]["message"].get("content", "").strip()
+    except Exception as e:
+        return {"compacted": False, "reason": f"summarize_failed: {e}", "kept": len(rows)}
+    if not summary:
+        return {"compacted": False, "reason": "empty_summary", "kept": len(rows)}
+    recent_ids = [r["id"] for r in recent]
+    conn.execute(
+        f"DELETE FROM chat_messages WHERE session_id=? AND id NOT IN "
+        f"({','.join('?' * len(recent_ids))})",
+        [session_id] + recent_ids)
+    conn.execute(
+        "INSERT INTO chat_messages (session_id,role,content,meta) VALUES (?,?,?,?)",
+        (session_id, "system", summary,
+         json.dumps({"type": "compaction_summary"}, ensure_ascii=False)))
+    conn.commit()
+    return {"compacted": True, "summary": summary[:200], "removed": len(old),
+            "kept": len(recent) + 1}
+
+
+@app.post("/api/agent/sessions/{sid}/compact")
+def compact_session(sid: str, current_user: dict = Depends(get_current_user)):
+    """G2: manually trigger context compaction."""
+    if not current_user:
+        raise HTTPException(401, "Please log in")
+    conn = get_db()
+    try:
+        row = conn.execute("SELECT user_id FROM chat_sessions WHERE id=?", (sid,)).fetchone()
+        if not row:
+            conn.close(); raise HTTPException(404, "Not found")
+        if row["user_id"] != current_user["id"]:
+            conn.close(); raise HTTPException(403, "Access denied")
+        return _compact_session(conn, sid, current_user["id"])
+    finally:
+        try: conn.close()
+        except Exception: pass
+
+
+# ============================================================================
+# P3 · G5: Long-term memory (semi-auto: /finish extracts candidates → user
+# confirms → stored; injected into new sessions ≤300tk; transparency page)
+# ============================================================================
+
+_FINISH_SYSTEM = (
+    "你是学习助手数跃。根据以下对话完成两个任务：\n"
+    "1. 用3-5句中文总结本次学习对话的核心内容。\n"
+    "2. 提取值得长期记住的信息（学生的偏好、薄弱点、学习习惯、重要事实）。\n"
+    "输出JSON:\n"
+    '{"summary": "...", "candidates": [{"kind": "profile|episodic|preference", "content": "..."}]}\n'
+    "kind说明: profile=学生画像（水平/背景）, episodic=学习事件（某次卡在哪）, preference=偏好（喜欢中文讲解等）。\n"
+    "candidates 最多5条，每条≤50字。没有值得记的就返回空数组。"
+)
+
+class MemorySaveRequest(BaseModel):
+    items: List[dict] = []          # [{kind, content}]
+    session_id: str = ""
+
+@app.post("/api/agent/sessions/{sid}/finish")
+def finish_session(sid: str, current_user: dict = Depends(get_current_user)):
+    """G5 /完成: summarize the session + extract memory candidates (user confirms)."""
+    if not current_user:
+        raise HTTPException(401, "Please log in")
+    conn = get_db()
+    try:
+        row = conn.execute("SELECT user_id FROM chat_sessions WHERE id=?", (sid,)).fetchone()
+        if not row:
+            conn.close(); raise HTTPException(404, "Not found")
+        if row["user_id"] != current_user["id"]:
+            conn.close(); raise HTTPException(403, "Access denied")
+        msgs = conn.execute(
+            "SELECT role, content FROM chat_messages WHERE session_id=? "
+            "ORDER BY id DESC LIMIT 30", (sid,)).fetchall()
+    finally:
+        conn.close()
+    if not msgs:
+        raise HTTPException(400, "会话为空")
+    transcript = "\n".join(f"[{m['role']}]: {m['content'][:400]}" for m in reversed(msgs))
+    try:
+        resp = requests.post(BASE_URL, headers={
+            "Authorization": f"Bearer {DASHSCOPE_API_KEY}",
+            "Content-Type": "application/json",
+        }, json={
+            "model": MODEL,
+            "messages": [
+                {"role": "system", "content": _FINISH_SYSTEM},
+                {"role": "user", "content": transcript[:12000]},
+            ],
+            "temperature": 0.2, "max_tokens": 1500, "enable_thinking": False,
+            "response_format": {"type": "json_object"},
+        }, timeout=90)
+        resp.raise_for_status()
+        txt = resp.json()["choices"][0]["message"].get("content", "{}")
+        data = json.loads(txt)
+    except Exception as e:
+        raise HTTPException(502, f"Finish failed: {e}")
+    return {
+        "summary": data.get("summary", ""),
+        "candidates": [c for c in (data.get("candidates") or [])
+                       if isinstance(c, dict) and c.get("content")][:5],
+    }
+
+@app.post("/api/agent/memory")
+def save_memory(req: MemorySaveRequest, current_user: dict = Depends(get_current_user)):
+    """Store confirmed memory entries."""
+    if not current_user:
+        raise HTTPException(401, "Please log in")
+    conn = get_db()
+    try:
+        saved = 0
+        for item in req.items[:10]:
+            kind = str(item.get("kind", "episodic"))
+            content = str(item.get("content", "")).strip()[:200]
+            if content and kind in ("profile", "episodic", "preference"):
+                conn.execute(
+                    "INSERT INTO memory_entries (user_id,kind,content,source_session) "
+                    "VALUES (?,?,?,?)",
+                    (current_user["id"], kind, content, req.session_id))
+                saved += 1
+        conn.commit()
+    finally:
+        conn.close()
+    return {"saved": saved}
+
+@app.get("/api/agent/memory")
+def list_memory(current_user: dict = Depends(get_current_user)):
+    """Transparency: list what the assistant remembers."""
+    if not current_user:
+        raise HTTPException(401, "Please log in")
+    conn = get_db()
+    try:
+        rows = conn.execute(
+            "SELECT id, kind, content, created_at FROM memory_entries "
+            "WHERE user_id=? ORDER BY id DESC LIMIT 100",
+            (current_user["id"],)).fetchall()
+    finally:
+        conn.close()
+    return [{"id": r["id"], "kind": r["kind"], "content": r["content"],
+             "created_at": r["created_at"]} for r in rows]
+
+@app.delete("/api/agent/memory/{mid}")
+def delete_memory(mid: int, current_user: dict = Depends(get_current_user)):
+    if not current_user:
+        raise HTTPException(401, "Please log in")
+    conn = get_db()
+    try:
+        row = conn.execute("SELECT user_id FROM memory_entries WHERE id=?", (mid,)).fetchone()
+        if not row:
+            conn.close(); raise HTTPException(404, "Not found")
+        if row["user_id"] != current_user["id"]:
+            conn.close(); raise HTTPException(403, "Access denied")
+        conn.execute("DELETE FROM memory_entries WHERE id=?", (mid,))
+        conn.commit()
+    finally:
+        try: conn.close()
+        except Exception: pass
+    return {"deleted": True}
+
+@app.delete("/api/agent/memory")
+def clear_memory(current_user: dict = Depends(get_current_user)):
+    if not current_user:
+        raise HTTPException(401, "Please log in")
+    conn = get_db()
+    try:
+        conn.execute("DELETE FROM memory_entries WHERE user_id=?", (current_user["id"],))
+        conn.commit()
+    finally:
+        conn.close()
+    return {"cleared": True}
+
+@app.get("/api/agent/audit")
+def get_audit_log(limit: int = 50, current_user: dict = Depends(get_current_user)):
+    """P4 E5: recent tool calls for the user."""
+    if not current_user:
+        raise HTTPException(401, "Please log in")
+    conn = get_db()
+    try:
+        rows = conn.execute(
+            "SELECT tool_name, args_summary, result_summary, created_at "
+            "FROM tool_audit_log WHERE user_id=? ORDER BY id DESC LIMIT ?",
+            (current_user["id"], max(1, min(200, limit)))).fetchall()
+    finally:
+        conn.close()
+    return [{"tool": r["tool_name"], "args": r["args_summary"],
+             "result": r["result_summary"], "time": r["created_at"]} for r in rows]
+
+
+# ============================================================================
+# P5 C13: Document Study Guide (textbook → structured knowledge, book-to-skill inspired)
+# ============================================================================
+
+_STUDY_GUIDE_SYSTEM = (
+    "你是教材知识蒸馏器。将教材文本蒸馏为结构化学习指南（JSON格式）。"
+    "只输出 JSON，不要其他文字。格式：\n"
+    '{"chapters": [{"id": "ch01", "title": "章节名", "summary": "核心内容摘要(200字内)"}],'
+    ' "glossary": [{"term_en": "supremum", "term_zh": "上确界", "chapter": "ch03", "def": "定义(50字内)"}],'
+    ' "patterns": [{"name": "证明极限三步法", "desc": "猜值→找N→正向书写(100字内)"}]}\n'
+    "规则：章节按教材实际结构划分（通常4-10章）；术语选大学级数学术语（10-20个）；"
+    "模式是解题方法论（3-8个）；全部用中英双语。"
+)
+
+@app.post("/api/documents/{doc_id}/study-guide")
+def generate_study_guide(doc_id: str, current_user: dict = Depends(get_current_user)):
+    """C13: AI-distill a document into a structured study guide (chapters+glossary+patterns).
+    Auto-triggered on textbook upload; manually triggerable for any document via the agent tool."""
+    if not current_user:
+        raise HTTPException(401, "Please log in")
+    conn = get_db()
+    row = conn.execute(
+        "SELECT user_id, title FROM documents WHERE id=?", (doc_id,)).fetchone()
+    if not row:
+        conn.close(); raise HTTPException(404, "Not found")
+    if row["user_id"] != current_user["id"]:
+        conn.close(); raise HTTPException(403, "Access denied")
+    conn.close()
+    return _generate_guide_core(doc_id, row["title"])
+
+
+def _generate_guide_core(doc_id: str, title: str) -> dict:
+    """Shared study-guide generation logic — called by the REST endpoint AND the agent tool directly.
+    No category restriction: textbooks auto-trigger, any doc can be manually distilled."""
+    # Get text (ensure extraction first)
+    if not ensure_pages_json(doc_id):
+        raise HTTPException(400, "Document has no extractable text")
+    pages_path = os.path.join(MINERU_DATA_DIR, doc_id, "pages.json")
+    try:
+        pages = json.load(open(pages_path, encoding="utf-8"))
+    except Exception:
+        raise HTTPException(500, "Failed to read extracted pages")
+    full_text = "\n".join((p.get("text") or "") for p in pages)[:12000]  # cap for prompt
+
+    # AI distillation
+    try:
+        resp = requests.post(BASE_URL, headers={
+            "Authorization": f"Bearer {DASHSCOPE_API_KEY}",
+            "Content-Type": "application/json",
+        }, json={
+            "model": MODEL,
+            "messages": [
+                {"role": "system", "content": _STUDY_GUIDE_SYSTEM},
+                {"role": "user", "content": f"文档标题：{title}\n\n{full_text}"[:15000]},
+            ],
+            "temperature": 0.2, "max_tokens": 3000, "enable_thinking": False,
+            "response_format": {"type": "json_object"},
+        }, timeout=120)
+        resp.raise_for_status()
+        guide_text = resp.json()["choices"][0]["message"].get("content", "{}")
+        guide = json.loads(guide_text)
+    except json.JSONDecodeError:
+        raise HTTPException(502, "AI returned invalid JSON for study guide")
+    except Exception as e:
+        raise HTTPException(502, f"Study guide generation failed: {e}")
+
+    # Save to DB
+    conn = get_db()
+    conn.execute("UPDATE documents SET study_guide=? WHERE id=?",
+                 (json.dumps(guide, ensure_ascii=False), doc_id))
+    conn.commit(); conn.close()
+    chapter_count = len(guide.get("chapters", []))
+    glossary_count = len(guide.get("glossary", []))
+    pattern_count = len(guide.get("patterns", []))
+    return {"ok": True, "chapters": chapter_count, "glossary": glossary_count,
+            "patterns": pattern_count}
+
+def _memory_injection(user_id: str) -> str:
+    """G5: build the ≤300tk memory block for the system prompt."""
+    if not user_id:
+        return ""
+    conn = get_db()
+    try:
+        rows = conn.execute(
+            "SELECT kind, content FROM memory_entries WHERE user_id=? "
+            "ORDER BY id DESC LIMIT 8", (user_id,)).fetchall()
+    except Exception:
+        return ""
+    finally:
+        try: conn.close()
+        except Exception: pass
+    if not rows:
+        return ""
+    lines = [f"- [{r['kind']}] {r['content']}" for r in reversed(rows)]
+    block = "\n".join(lines)
+    if len(block) > 1200:   # ~300 tokens
+        block = block[:1200] + "\n…"
+    return ("\n\n===== 你记得关于这个学生的事 =====\n" + block +
+            "\n（自然运用这些记忆，不要逐条朗读。）")
+
+@app.get("/api/agent/sessions")
+def list_agent_sessions(current_user: dict = Depends(get_current_user)):
+    """G1 — list the user's workspaces (newest first)."""
+    if not current_user:
+        raise HTTPException(401, "Please log in")
+    conn = get_db()
+    rows = conn.execute(
+        "SELECT s.id, s.title, s.updated_at,"
+        " (SELECT COUNT(*) FROM chat_messages m WHERE m.session_id=s.id) AS msgs"
+        " FROM chat_sessions s WHERE s.user_id=?"
+        " ORDER BY s.updated_at DESC LIMIT 100",
+        (current_user["id"],),
+    ).fetchall()
+    conn.close()
+    return [{"id": r["id"], "title": r["title"], "updated_at": r["updated_at"],
+             "messages": r["msgs"]} for r in rows]
+
+@app.post("/api/agent/sessions")
+def create_agent_session(req: AgentSessionCreate, current_user: dict = Depends(get_current_user)):
+    if not current_user:
+        raise HTTPException(401, "Please log in")
+    sid = "ws_" + str(uuid.uuid4())[:10]
+    title = (req.title or "").strip()[:40] or "新工作台"
+    conn = get_db()
+    conn.execute("INSERT INTO chat_sessions (id,user_id,title) VALUES (?,?,?)",
+                 (sid, current_user["id"], title))
+    conn.commit(); conn.close()
+    return {"id": sid, "title": title}
+
+@app.put("/api/agent/sessions/{sid}")
+def rename_agent_session(sid: str, req: AgentSessionRename,
+                         current_user: dict = Depends(get_current_user)):
+    if not current_user:
+        raise HTTPException(401, "Please log in")
+    conn = get_db()
+    row = conn.execute("SELECT user_id FROM chat_sessions WHERE id=?", (sid,)).fetchone()
+    if not row:
+        conn.close(); raise HTTPException(404, "Not found")
+    if row["user_id"] != current_user["id"]:
+        conn.close(); raise HTTPException(403, "Access denied")
+    conn.execute("UPDATE chat_sessions SET title=?, updated_at=datetime('now') WHERE id=?",
+                 ((req.title or "").strip()[:40] or "新工作台", sid))
+    conn.commit(); conn.close()
+    return {"renamed": True}
+
+@app.delete("/api/agent/sessions/{sid}")
+def delete_agent_session(sid: str, current_user: dict = Depends(get_current_user)):
+    if not current_user:
+        raise HTTPException(401, "Please log in")
+    conn = get_db()
+    row = conn.execute("SELECT user_id FROM chat_sessions WHERE id=?", (sid,)).fetchone()
+    if not row:
+        conn.close(); raise HTTPException(404, "Not found")
+    if row["user_id"] != current_user["id"]:
+        conn.close(); raise HTTPException(403, "Access denied")
+    conn.execute("DELETE FROM chat_messages WHERE session_id=?", (sid,))
+    conn.execute("DELETE FROM chat_sessions WHERE id=?", (sid,))
+    conn.commit(); conn.close()
+    return {"deleted": True}
+
+@app.get("/api/agent/sessions/{sid}/messages")
+def get_agent_session_messages(sid: str, current_user: dict = Depends(get_current_user)):
+    """Restore a workspace's conversation (G1 — refresh-proof)."""
+    if not current_user:
+        raise HTTPException(401, "Please log in")
+    conn = get_db()
+    row = conn.execute("SELECT user_id FROM chat_sessions WHERE id=?", (sid,)).fetchone()
+    if not row:
+        conn.close(); raise HTTPException(404, "Not found")
+    if row["user_id"] != current_user["id"]:
+        conn.close(); raise HTTPException(403, "Access denied")
+    msgs = conn.execute(
+        "SELECT role, content, meta FROM chat_messages WHERE session_id=? ORDER BY id",
+        (sid,)).fetchall()
+    conn.close()
+    return [{"role": m["role"], "content": m["content"],
+             "meta": json.loads(m["meta"] or "{}")} for m in msgs]
+
+@app.post("/api/agent/chat")
+def agent_chat(req: AgentChatRequest,
+               current_user: Optional[dict] = Depends(get_current_user)):
+    """
+    V4 agent chat (A1 loop, decision-layer routed) as an SSE stream.
+    Guests: full agent features minus persistence (E3 — tools see no user data).
+    """
+    from agent import loop as agent_loop
+    from agent import decision as agent_decision
+
+    user_id = current_user["id"] if current_user else None
+    message = (req.message or "").strip()
+    if not message:
+        raise HTTPException(400, "Empty message")
+
+    # load workspace history (G1) — guests run context-free
+    history = []
+    conn = None
+    if user_id and req.session_id:
+        conn = get_db()
+        row = conn.execute("SELECT user_id FROM chat_sessions WHERE id=?",
+                           (req.session_id,)).fetchone()
+        if row and row["user_id"] == user_id:
+            rows = conn.execute(
+                "SELECT role, content FROM chat_messages WHERE session_id=? "
+                "ORDER BY id DESC LIMIT 24", (req.session_id,)).fetchall()
+            history = [{"role": r["role"], "content": r["content"]} for r in reversed(rows)]
+            # persist the user turn
+            conn.execute("INSERT INTO chat_messages (session_id,role,content,meta) "
+                         "VALUES (?,?,?,?)",
+                         (req.session_id, "user", message,
+                          json.dumps({"skill": req.skill or ""}, ensure_ascii=False)))
+            conn.execute("UPDATE chat_sessions SET updated_at=datetime('now') WHERE id=?",
+                         (req.session_id,))
+            conn.commit()
+            # P3 G2: auto-compact when history ≥ 80% budget (before building context)
+            if _should_compact(history):
+                try:
+                    _c = _compact_session(conn, req.session_id, user_id)
+                    if _c.get("compacted"):
+                        rows = conn.execute(
+                            "SELECT role, content FROM chat_messages WHERE session_id=? "
+                            "ORDER BY id DESC LIMIT 24", (req.session_id,)).fetchall()
+                        history = [{"role": r["role"], "content": r["content"]}
+                                   for r in reversed(rows)]
+                        print(f"[agent] auto-compacted session {req.session_id}: "
+                              f"removed {_c['removed']} msgs")
+                except Exception as e:
+                    print(f"[agent] auto-compact failed: {e}")
+        if conn:
+            conn.close()
+    elif not req.session_id and req.history:
+        # guest / temporary chat: honour client-held context (server stays stateless)
+        history = [m for m in req.history[-24:]
+                   if isinstance(m, dict) and m.get("role") in ("user", "assistant")]
+
+    # P3 G5: inject long-term memory as a leading system item (≤300tk)
+    if user_id:
+        _mb = _memory_injection(user_id)
+        if _mb:
+            history = [{"role": "system", "content": _mb}] + history
+
+    # P3 D7: resolve @title references → inject document context
+    import re as _re
+    _at_refs = _re.findall(r'@([^\s@]{2,80})', message)
+    if user_id and _at_refs:
+        _doc_ctx = []
+        conn3 = get_db()
+        try:
+            for ref in _at_refs[:3]:
+                row = conn3.execute(
+                    "SELECT id, title FROM documents WHERE user_id=? AND title LIKE ? "
+                    "ORDER BY created_at DESC LIMIT 1",
+                    (user_id, f"%{ref}%")).fetchone()
+                if row:
+                    pages_path = os.path.join(MINERU_DATA_DIR, row["id"], "pages.json")
+                    text = ""
+                    if os.path.exists(pages_path):
+                        try:
+                            pages = json.load(open(pages_path, encoding="utf-8"))
+                            text = "\n".join((p.get("text") or "") for p in pages)[:2000]
+                        except Exception:
+                            pass
+                    if not text:
+                        from agent.tools import _read_doc
+                        _rd = _read_doc(ref, user_id)
+                        text = str((_rd.get("data") or {}).get("text", ""))[:2000]
+                    if text:
+                        _doc_ctx.append(f"=== 《{row['title']}》内容节选 ===\n{text}")
+        finally:
+            try: conn3.close()
+            except Exception: pass
+        if _doc_ctx:
+            history = history + [{"role": "system", "content":
+                "以下是学生引用的文档内容：\n" + "\n\n".join(_doc_ctx)}]
+
+    def _persist(full_text):
+        """Save the assistant turn + auto-title on first exchange (G1)."""
+        if not (user_id and req.session_id and full_text):
+            return
+        try:
+            conn2 = get_db()
+            conn2.execute(
+                "INSERT INTO chat_messages (session_id,role,content,meta) VALUES (?,?,?,?)",
+                (req.session_id, "assistant", full_text, "{}"))
+            row = conn2.execute(
+                "SELECT title, (SELECT COUNT(*) FROM chat_messages WHERE session_id=?) n"
+                " FROM chat_sessions WHERE id=?",
+                (req.session_id, req.session_id)).fetchone()
+            if row and (row["title"] == "新工作台" or not row["title"]):
+                # v1.4: fire on any first successful persist (count guard removed —
+                # an interrupted first turn no longer blocks auto-naming)
+                title = agent_decision.auto_title(message)
+                conn2.execute("UPDATE chat_sessions SET title=? WHERE id=?",
+                              (title, req.session_id))
+            conn2.commit(); conn2.close()
+        except Exception as e:
+            print(f"[agent] persist failed: {e}")
+
+    # ---- P7 telemetry: per-run trace (Langfuse-style, low-cardinality names) ----
+    _mx = {"steps": [], "pending_tool": None, "decision": {}, "tokens": 0,
+           "t0": time.time(), "error": ""}
+
+    def _mx_track(chunk: str):
+        if not chunk.startswith("data: "):
+            return
+        try:
+            ev = json.loads(chunk[6:].strip())
+        except Exception:
+            return
+        et = ev.get("type")
+        if et == "decision":
+            _mx["decision"] = {"intent": ev.get("intent", ""),
+                               "confidence": ev.get("confidence", 0),
+                               "skill": ev.get("skill") or ""}
+        elif et == "tool_call":
+            _mx["pending_tool"] = {"name": ev.get("name", ""), "t0": time.time()}
+        elif et == "tool_result":
+            pt = _mx["pending_tool"] or {"name": ev.get("name", ""), "t0": _mx["t0"]}
+            summary = str(ev.get("summary", ""))
+            ok = not any(k in summary for k in ("失败", "未知工具", "上限", "error", "Error"))
+            _mx["steps"].append({"type": "tool", "name": ev.get("name") or pt["name"],
+                                 "ms": int((time.time() - pt["t0"]) * 1000), "ok": ok,
+                                 "summary": summary[:80]})
+            _mx["pending_tool"] = None
+        elif et == "usage":
+            _mx["tokens"] = int(ev.get("total_tokens") or 0)
+        elif et == "error":
+            _mx["error"] = str(ev.get("text", ""))[:120]
+
+    def _mx_write(output_preview: str, interrupted: bool = False):
+        """Single INSERT after the run — normal completion AND abort paths."""
+        try:
+            d = _mx["decision"]
+            n_tools = sum(1 for s in _mx["steps"] if s["type"] == "tool")
+            tools_fail = sum(1 for s in _mx["steps"] if s["type"] == "tool" and not s["ok"])
+            fast_path = 1 if (d.get("intent") == "chat" and not d.get("skill")
+                              and n_tools == 0) else 0
+            conn4 = get_db()
+            conn4.execute(
+                "INSERT INTO agent_metrics (session_id,user_id,env,intent,skill,fast_path,"
+                "steps,n_tools,tools_fail,total_ms,total_tokens,interrupted,error,"
+                "input_preview,output_preview) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)",
+                (req.session_id or "", user_id, ENV_NAME, d.get("intent", ""),
+                 d.get("skill", ""), fast_path,
+                 json.dumps(_mx["steps"], ensure_ascii=False)[:4000],
+                 n_tools, tools_fail, int((time.time() - _mx["t0"]) * 1000),
+                 _mx["tokens"], 1 if interrupted else 0, _mx["error"],
+                 message[:500], output_preview[:500]))
+            conn4.commit(); conn4.close()
+        except Exception as e:
+            print(f"[metrics] write failed: {e}")
+
+    def stream():
+        full_text = ""
+        try:
+            for chunk in agent_loop.run_agent(message, history, req.skill, user_id,
+                                              approved_tools=req.approved_tools):
+                yield chunk
+                if chunk.startswith("data: "):
+                    try:
+                        ev = json.loads(chunk[6:].strip())
+                        if ev.get("type") == "text" and ev.get("delta"):
+                            full_text += ev["delta"]
+                    except Exception:
+                        pass
+                    _mx_track(chunk)
+            # persist BEFORE [DONE]: when the client sees DONE, the answer is
+            # guaranteed to be in the DB (background-completion race fix).
+            _persist(full_text)
+            _mx_write(full_text)
+            yield "data: [DONE]\n\n"
+        except GeneratorExit:
+            # client aborted (Esc/stop) — keep the partial answer for the workspace
+            _persist(full_text)
+            _mx_write(full_text, interrupted=True)
+            raise
+        except Exception as e:
+            yield f"data: {json.dumps({'type': 'error', 'text': str(e)[:200]}, ensure_ascii=False)}\n\n"
+            yield "data: [DONE]\n\n"
+            return
+
+    return StreamingResponse(stream(), media_type="text/event-stream")
+
+
+@app.get("/api/agent/metrics/stats")
+def agent_metrics_stats(days: int = 7, current_user: Optional[dict] = Depends(get_current_user)):
+    """P7: production telemetry aggregates. Admin-only when ADMIN_EMAIL is set."""
+    if not current_user:
+        raise HTTPException(401, "Not authenticated")
+    if ADMIN_EMAIL and current_user["email"] != ADMIN_EMAIL:
+        raise HTTPException(403, "Admin only")
+    conn = get_db()
+    rows = conn.execute(
+        "SELECT total_ms, n_tools, tools_fail, interrupted, fast_path, total_tokens, "
+        "intent, error, env, created_at FROM agent_metrics "
+        "WHERE created_at >= datetime('now', ?) AND env=?",
+        (f"-{int(days)} days", ENV_NAME)).fetchall()
+    conn.close()
+    if not rows:
+        return {"days": days, "env": ENV_NAME, "runs": 0}
+    lat = sorted(r["total_ms"] for r in rows)
+    n = len(rows)
+    p95 = lat[min(n - 1, int(n * 0.95))]
+    by_intent = {}
+    for r in rows:
+        by_intent[r["intent"] or "?"] = by_intent.get(r["intent"] or "?", 0) + 1
+    tools = sum(r["n_tools"] for r in rows)
+    fails = sum(r["tools_fail"] for r in rows)
+    return {
+        "days": days, "env": ENV_NAME, "runs": n,
+        "avg_ms": sum(lat) // n, "p95_ms": p95,
+        "interrupted_rate": round(sum(r["interrupted"] for r in rows) / n, 3),
+        "fast_path_share": round(sum(r["fast_path"] for r in rows) / n, 3),
+        "tool_calls": tools,
+        "tool_fail_rate": round(fails / tools, 3) if tools else 0.0,
+        "total_tokens": sum(r["total_tokens"] for r in rows),
+        "errors": sum(1 for r in rows if r["error"]),
+        "by_intent": by_intent,
+    }
+
+
 @app.post("/api/chat")
 async def chat(req: ChatRequest):
     """Streaming chat endpoint — routed through Harness V3 analysis layer."""
     question = req.messages[-1].get("content", "") if req.messages else ""
+
+    # P1 · Skills: validate + load the requested Agent Skill (SKILL.md).
+    # Unknown/absent names are silently ignored — chips are advisory, never fatal.
+    skill_body = None
+    if req.skill:
+        skill_body = load_skill(req.skill)
 
     # Use the V3 analysis layer (TopicDetector + QuestionClassifier +
     # SmartRouter) when available; fall back to the legacy lexicon otherwise.
@@ -1055,6 +3074,17 @@ async def chat(req: ChatRequest):
 
     model = get_model_for_task(req.task_type)
     system_prompt = get_system_prompt(req.task_type)
+
+    # P1 · Skills: append the active skill's instructions to the system prompt.
+    # The skill rides AFTER the base persona so its methodology rules win.
+    if skill_body:
+        system_prompt = (
+            system_prompt
+            + "\n\n===== 当前启用的教学技能 ["
+            + skill_label(req.skill)
+            + "] =====\n请严格遵守以下教学方法的每一个要求：\n\n"
+            + skill_body
+        )
 
     # Build messages with Harness system prompt
     # Filter out any system messages from frontend to avoid conflicting instructions
@@ -1292,15 +3322,31 @@ async def upload_document(
     )
     conn.commit(); conn.close()
     icons = {"pdf": "file-text", "pptx": "presentation"}
+
+    # P5 C13: auto-generate study guide for textbooks (background, ~30s one-time cost)
+    if category == "textbooks":
+        import threading
+        def _bg_guide():
+            try:
+                if ensure_pages_json(doc_id):
+                    _r = requests.post(
+                        f"http://127.0.0.1:{PORT}/api/documents/{doc_id}/study-guide",
+                        headers={"Authorization": "Bearer " + create_access_token(data={"sub": current_user["id"]})},
+                        timeout=180)
+                    if _r.status_code == 200:
+                        _g = _r.json()
+                        print(f"[guide] {doc_id}: {_g.get('chapters',0)} chapters, {_g.get('glossary',0)} terms, {_g.get('patterns',0)} patterns")
+                    else:
+                        print(f"[guide] auto-guide for {doc_id} returned {_r.status_code}")
+            except Exception as e:
+                print(f"[guide] auto-guide failed for {doc_id}: {e}")
+        threading.Thread(target=_bg_guide, daemon=True).start()
+
     return {"id": doc_id, "title": title, "filename": file.filename,
             "category": category, "icon": icons.get(ext, "file-text"),
             "fileType": ext, "fileSize": file_size,
             "sizeText": f"{file_size/1024/1024:.1f} MB", "source": "upload",
             "needsOcr": bool(needs_ocr), "parseStatus": "none", "aiDeclined": False}
-    # NOTE: vocab extraction stays an explicit frontend-triggered action
-    # (bookshelf card 单词本 button / vocab-upload flow → POST /api/vocab/auto).
-    # A server-side post-upload auto-extract hook was drafted here once but sat
-    # after this return (unreachable). Removed — one trigger path only.
 
 
 @app.get("/api/documents")
@@ -2059,8 +4105,10 @@ QUIZ_LANG_POLICIES = {
 
 
 def _quiz_generate_batch(topic: str, count: int, difficulty: str, qtype: str,
-                         weak_context: str, quiz_lang: str = "en") -> list:
-    """One model call that returns up to `count` parsed question dicts."""
+                         weak_context: str, quiz_lang: str = "en",
+                         no_repeat: str = "", _retry: int = 0) -> list:
+    """One model call that returns up to `count` parsed question dicts.
+    Retries with exponential backoff (up to 2 retries) on transient API failures."""
     qtype_desc = {
         "MCQ": "multiple-choice only",
         "short": "short-answer (fill-in-the-blank) only",
@@ -2070,6 +4118,7 @@ def _quiz_generate_batch(topic: str, count: int, difficulty: str, qtype: str,
         topic=topic, count=count, difficulty=difficulty,
         qtype_desc=qtype_desc, weak_context=weak_context,
         lang_policy=QUIZ_LANG_POLICIES.get(quiz_lang, QUIZ_LANG_POLICIES["en"]),
+        no_repeat=no_repeat,
     )
     try:
         resp = requests.post(BASE_URL, headers={
@@ -2118,7 +4167,14 @@ def _quiz_generate_batch(topic: str, count: int, difficulty: str, qtype: str,
             out.append(qd)
         return out
     except Exception as e:
-        print(f"[quiz] generation error: {e}")
+        # P5 fix: exponential backoff retry on transient failures (DashScope rate-limit/timeout)
+        if _retry < 2:
+            wait = 2 ** _retry  # 1s, 2s
+            print(f"[quiz] batch failed (attempt {_retry + 1}), retrying in {wait}s: {str(e)[:60]}")
+            time.sleep(wait)
+            return _quiz_generate_batch(topic, count, difficulty, qtype,
+                                       weak_context, quiz_lang, no_repeat, _retry + 1)
+        print(f"[quiz] generation error after 3 attempts: {e}")
         return []
 
 def _quiz_verify_question(qd: dict) -> bool:
@@ -2199,6 +4255,20 @@ def quiz_generate(req: QuizGenerateRequest):
     if not questions:
         raise HTTPException(502, "Quiz generation failed, please retry")
 
+    # P5 fix: top-up — if concurrent batches returned fewer than requested
+    # (flaky VPN kills some batches), fill the gap with SERIAL retries
+    # (serial is slower but much more reliable on unstable connections).
+    if len(questions) < count:
+        deficit = count - len(questions)
+        print(f"[quiz] concurrent batches returned {len(questions)}/{count}, topping up {deficit} serially")
+        for _ in range(2):  # max 2 serial top-up rounds
+            if len(questions) >= count:
+                break
+            extra = _quiz_generate_batch(req.topic, min(6, deficit + 1), req.difficulty,
+                                         req.qtype, weak_context, req.quiz_lang)
+            questions.extend(extra)
+            deficit = count - len(questions)
+
     # 2) Optional Harness cross-verification — PARALLEL (each question already
     #    carries its own 45s solve timeout inside _quiz_verify_question).
     if req.verify:
@@ -2207,10 +4277,12 @@ def quiz_generate(req: QuizGenerateRequest):
         kept = [qd for qd, ok in zip(questions, verdicts) if ok]
         for qd in kept:
             qd["verified"] = True
-        # One concurrent retry batch if verification dropped too many
-        if len(kept) < count:
-            extra = _quiz_generate_batch(req.topic, min(6, count), req.difficulty,
-                                         req.qtype, weak_context, req.quiz_lang)
+        # Serial top-up rounds if verification dropped too many
+        while len(kept) < count:
+            extra = _quiz_generate_batch(req.topic, min(6, count - len(kept) + 1),
+                                         req.difficulty, req.qtype, weak_context, req.quiz_lang)
+            if not extra:
+                break
             with _cf.ThreadPoolExecutor(max_workers=6) as ex:
                 verdicts2 = list(ex.map(_quiz_verify_question, extra))
             for qd, ok in zip(extra, verdicts2):
@@ -2225,6 +4297,9 @@ def quiz_generate(req: QuizGenerateRequest):
 
     if not questions:
         raise HTTPException(502, "Generated questions failed verification, please retry")
+    if len(questions) < count:
+        # partial success is better than 502 — return what we have with a note
+        print(f"[quiz] returning {len(questions)}/{count} questions (network-limited)")
 
     quiz_id = f"quiz_{int(time.time()*1000)}"
     QUIZ_CACHE[quiz_id] = {
@@ -2269,6 +4344,17 @@ def quiz_grade(req: QuizGradeRequest, current_user: Optional[dict] = Depends(get
             correct = False
         correct_answer = gold
         if not correct:
+            # F3 decision-layer fast path (flash, ~1s): confident verdicts in
+            # BOTH directions terminate here; only uncertain cases fall through
+            # to the slower per-token model check below.
+            try:
+                from agent.decision import answer_equivalence
+                fast = answer_equivalence(gold, student)
+                if fast.get("confidence", 0) >= 0.85 and fast.get("equivalent") is not None:
+                    correct = bool(fast["equivalent"])
+            except Exception:
+                pass
+        if not correct:
             # Soft fallback: cheap model judges equivalence (free local check failed)
             try:
                 resp = requests.post(BASE_URL, headers={
@@ -2306,13 +4392,19 @@ async def quiz_submit(req: QuizSubmitRequest, current_user: Optional[dict] = Dep
         return {"saved": False, "reason": "guest"}
     result_id = f"qr_{int(time.time()*1000)}"
     conn = get_db()
+    topic = QUIZ_CACHE.get(req.quiz_id, {}).get("topic", req.quiz_id)
     conn.execute(
         "INSERT INTO quiz_results (id,user_id,topic,score,total,detail_json) VALUES (?,?,?,?,?,?)",
-        (result_id, current_user["id"], QUIZ_CACHE.get(req.quiz_id, {}).get("topic", req.quiz_id),
+        (result_id, current_user["id"], topic,
          req.score, req.total, req.detail_json)
     )
-    conn.commit(); conn.close()
-    return {"saved": True, "id": result_id}
+    conn.commit()
+    # P9: every attempt is an FSRS review event for its topic (D13 pipeline)
+    fsrs_state = fsrs_review(current_user["id"], topic,
+                             fsrs_rating_from_ratio(req.score, req.total),
+                             source="quiz", conn=conn)
+    conn.close()
+    return {"saved": True, "id": result_id, "fsrs": fsrs_state}
 
 @app.get("/api/quiz/history")
 def quiz_history(current_user: Optional[dict] = Depends(get_current_user)):
@@ -2360,15 +4452,28 @@ async def create_assessment(
     assessment_id = f"asm_{int(time.time()*1000)}"
     conn = get_db()
     conn.execute(
-        """INSERT INTO assessments 
-           (id, user_id, knowledge_json, transition_json, quiz_correct, quiz_total, 
+        """INSERT INTO assessments
+           (id, user_id, knowledge_json, transition_json, quiz_correct, quiz_total,
             avg_score, weak_topics, strong_topics, danger_topics, result_json)
            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
         (assessment_id, current_user["id"], req.knowledge_json, req.transition_json,
-         req.quiz_correct, req.quiz_total, req.avg_score, req.weak_topics, 
+         req.quiz_correct, req.quiz_total, req.avg_score, req.weak_topics,
          req.strong_topics, req.danger_topics, req.result_json)
     )
-    conn.commit(); conn.close()
+    conn.commit()
+    # P9: pretest seeds the FSRS queue — weak/danger topics enter as AGAIN
+    # (due immediately), strong topics as GOOD. Splits on common separators.
+    from agent import fsrs as _F
+    import re as _re
+    def _seed(field, rating):
+        for t in _re.split(r"[,，、;；\s]+", field or ""):
+            t = t.strip()
+            if t:
+                fsrs_review(current_user["id"], t, rating, source="pretest", conn=conn)
+    _seed(getattr(req, "danger_topics", ""), _F.AGAIN)
+    _seed(getattr(req, "weak_topics", ""), _F.AGAIN)
+    _seed(getattr(req, "strong_topics", ""), _F.GOOD)
+    conn.close()
     return {"id": assessment_id, "saved": True}
 
 @app.get("/api/assessments/latest")
@@ -2691,6 +4796,27 @@ def _extract_vocab_batch(text_chunk: str) -> list:
     except Exception:
         return []
 
+def _chunk_has_math_terms(chunk: str) -> bool:
+    """P5 F6: quick flash check — does this chunk contain math terminology?
+    Saves 40-60% of Qwen-Turbo extraction calls by skipping ToC/preface pages."""
+    # Fast heuristic first: math symbols or LaTeX present → definitely yes
+    import re as _re
+    if _re.search(r'[∑∫∂∇∀∃≤≥≠∈⊂∞]|\\frac|\\lim|\\sum|theorem|lemma|proof|定义|定理|引理|证明|极限|导数|积分|矩阵|行列式|特征值|收敛|级数', chunk):
+        return True
+    # Pure CJK/no math → definitely no
+    if not _re.search(r'[a-zA-Z]{4,}', chunk):
+        return False
+    # Ambiguous: use flash for a cheap judgment (~50 tokens, ~0.5s)
+    try:
+        from agent.decision import _call, DECISION_MODEL
+        out = _call(DECISION_MODEL,
+                    "判断这段文本是否包含数学学术术语。输出JSON: {\"has_terms\": true/false}",
+                    chunk[:300], timeout=10, max_tokens=50)
+        return bool(out.get("has_terms", True))
+    except Exception:
+        return True  # filter failed → don't block extraction
+
+
 def extract_vocab_for_doc(conn, user_id: str, doc_id: str, category: str):
     """Batch-extract terminology from a parsed document into vocab_entries."""
     pages_path = os.path.join(MINERU_DATA_DIR, doc_id, "pages.json")
@@ -2714,6 +4840,10 @@ def extract_vocab_for_doc(conn, user_id: str, doc_id: str, category: str):
     seen, inserted = set(), 0
     for chunk in chunks:
         if inserted >= MAX_VOCAB_PER_DOC: break
+        # P5 F6: flash pre-filter — skip chunks without math terminology
+        # (saves 40-60% Qwen-Turbo calls: ToC/preface/acknowledgement pages)
+        if not _chunk_has_math_terms(chunk):
+            continue
         items = _extract_vocab_batch(chunk)
         for it in items:
             te = str(it.get("term_en", "")).strip()[:80]
@@ -2781,7 +4911,26 @@ async def get_stats(current_user: Optional[dict] = Depends(get_current_user)):
         "SELECT avg_score FROM assessments WHERE user_id=? ORDER BY created_at DESC LIMIT 1",
         (user_id,)
     ).fetchone()
-    math_proficiency = assessment["avg_score"] if assessment else 0
+    # P9 Day-3.5: dynamic proficiency — average FSRS R(t) across tracked topics
+    # (live: rises with good reviews, decays with neglect). Cold-start guard:
+    # with sparse coverage (<3 topics) a blend of pretest + memory health avoids
+    # overstating overall ability from one fresh topic (user-flagged: 1 topic
+    # at R=0.99 must not read as "99% math mastery" when the pretest said 61).
+    _srs = conn.execute(
+        "SELECT stability, last_review_at FROM srs_queue WHERE user_id=?",
+        (user_id,)).fetchall()
+    _pre = assessment["avg_score"] if assessment else None
+    if _srs:
+        from agent import fsrs as _F
+        _rs = [_F.retrievability(r["stability"], _days_since(r["last_review_at"]))
+               for r in _srs]
+        _mem = sum(_rs) / len(_rs) * 100
+        if len(_srs) >= 3 or _pre is None:
+            math_proficiency = round(_mem)       # full dynamic once coverage exists
+        else:
+            math_proficiency = round(0.5 * _pre + 0.5 * _mem)   # cold-start blend
+    else:
+        math_proficiency = _pre if _pre is not None else 0
 
     # Documents Read: count of user's documents
     doc_count = conn.execute(
@@ -2841,6 +4990,34 @@ async def get_stats(current_user: Optional[dict] = Depends(get_current_user)):
         "problems_solved": solved,
         "day_streak": streak,
     }
+
+# ============================================================================
+# Phase 0: same-origin static hosting (whitelist catch-all — LAST route)
+# Serves the SPA from this FastAPI process so the frontend ships with the
+# backend (no CORS, no separate web server). Whitelist-based: .env, the
+# SQLite DB, server source and uploads are NEVER reachable.
+# ============================================================================
+
+_STATIC_ROOT = os.path.dirname(__file__)
+_STATIC_SUBDIRS = ("app/", "styles/")          # code assets only
+_STATIC_ROOT_FILE = re.compile(r'^[A-Za-z0-9._-]+\.(html|js|css|png|svg|ico|woff2?|map)$')
+
+@app.get("/{path:path}")
+async def spa_static(path: str):
+    if not path:
+        return FileResponse(os.path.join(_STATIC_ROOT, "index.html"))
+    p = path.replace("\\", "/")
+    # explicit sensitive-prefix block (defence in depth on top of the whitelist)
+    if p.startswith((".", "uploads/", "mineru_data/", "agent/", "skills/", "core/",
+                     "verification/", "models/", "harness", "__pycache__/")):
+        raise HTTPException(404, "Not Found")
+    allowed = p.startswith(_STATIC_SUBDIRS) or ("/" not in p and _STATIC_ROOT_FILE.match(p))
+    if not allowed:
+        raise HTTPException(404, "Not Found")
+    full = os.path.normpath(os.path.join(_STATIC_ROOT, p))
+    if not full.startswith(_STATIC_ROOT) or not os.path.isfile(full):
+        raise HTTPException(404, "Not Found")
+    return FileResponse(full)
 
 # ============================================================================
 # MAIN
