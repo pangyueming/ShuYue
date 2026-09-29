@@ -8,3 +8,5 @@ python-jose[cryptography]
 pypdf
 cryptography
 python-pptx
+
+apscheduler>=3.10

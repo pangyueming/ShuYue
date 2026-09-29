@@ -113,4 +113,61 @@ function dashContinueTileHtml(cat) {
 function dashboardInit() {
     renderDashHead();
     renderActivity();
+    renderReviewDue();
+}
+
+// ===== P9: review-due card (FSRS R(t) < 0.85 → due) =====
+// Skill rules applied: aria-atomic full-sentence status (no bare-number live
+// region), labeled CTA button ≥44px (no icon-only), Lucide icons.
+async function renderReviewDue(){
+    var c = document.getElementById('review-due-card');
+    if (!c) return;
+    if (!localStorage.getItem('cb_cn_token')) { c.style.display = 'none'; return; }
+    try {
+        var res = await apiFetch('/api/review/due');
+        if (!res.ok) throw new Error('HTTP ' + res.status);
+        var data = await res.json();
+        window.__reviewDue = data.due || [];
+        if (!data.count) { c.style.display = 'none'; return; }
+        var items = data.due.slice(0, 3);
+        var chips = items.map(function (d) {
+            return '<span style="display:inline-flex;align-items:center;gap:3px;">'
+                + escapeHtml(d.topic) + ' <b style="color:' + (d.R < 0.4 ? '#ff8a8a' : '#faad14') + ';">'
+                + Math.round(d.R * 100) + '%</b></span>';
+        }).join('<span style="opacity:.4;margin:0 4px;">·</span>');
+        c.style.display = 'block';
+        c.innerHTML = '<div class="card glass" style="margin-bottom:14px;padding:14px 16px;'
+            + 'border:1px solid rgba(122,107,255,.28);background:linear-gradient(135deg,'
+            + 'rgba(122,107,255,.08),rgba(122,107,255,.02));">'
+            + '<div style="display:flex;align-items:center;gap:12px;">'
+            + '<span style="color:var(--iris-400,var(--accent));display:flex;">' + iconHtml('timer', 20) + '</span>'
+            + '<div style="flex:1;min-width:0;">'
+            + '<div role="status" aria-atomic="true" style="font-size:13.5px;font-weight:600;'
+            + 'color:var(--text-primary);">' + data.count + ' 个知识点到期复习</div>'
+            + '<div style="font-size:11.5px;color:var(--text-muted);margin-top:3px;overflow:hidden;'
+            + 'text-overflow:ellipsis;white-space:nowrap;">' + chips + '</div></div>'
+            + '<button onclick="startReviewQuiz()" style="min-height:44px;min-width:96px;display:inline-flex;'
+            + 'align-items:center;justify-content:center;gap:5px;font-size:12.5px;font-weight:600;padding:8px 16px;'
+            + 'border-radius:10px;border:none;background:rgba(122,107,255,.16);color:var(--iris-400,var(--accent));'
+            + 'cursor:pointer;transition:background .15s;" onmouseover="this.style.background=\'rgba(122,107,255,.28)\'" '
+            + 'onmouseout="this.style.background=\'rgba(122,107,255,.16)\'">'
+            + iconHtml('play', 12) + '开始复习</button>'
+            + '</div></div>';
+        refreshIcons();
+    } catch (e) {
+        c.style.display = 'none';
+    }
+}
+
+// One-click review: prefill the quiz page with the WEAKEST due topic and
+// auto-start (reuses the agent action-card jump mechanism).
+function startReviewQuiz(){
+    var first = window.__reviewDue && window.__reviewDue[0];
+    if (first && first.topic) {
+        if (typeof tutorActionData !== 'undefined') {
+            tutorActionData['quiz'] = { topic: first.topic, count: 5 };
+        }
+        if (typeof tutorActionJump === 'function') { tutorActionJump('quiz'); return; }
+    }
+    showPage('quiz');
 }

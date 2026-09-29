@@ -273,6 +273,8 @@ async function quizFinish(){
         await apiFetch('/api/quiz/submit',{method:'POST',body:JSON.stringify({
             quiz_id:quizState.quizId,score:quizState.score,total,
             detail_json:JSON.stringify(quizState.detail.map(d=>({q:d.q,ok:d.correct})))})});
+        // P9: refresh the review-due card right after FSRS state updated
+        if(typeof renderReviewDue==='function'){try{renderReviewDue();}catch(_e){}}
     }catch(e){/* guests: ignore */}
 }
 

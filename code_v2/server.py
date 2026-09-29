@@ -392,6 +392,15 @@ def init_db():
         PRIMARY KEY (user_id, topic)
     );
     CREATE INDEX IF NOT EXISTS idx_srs_due ON srs_queue(due_at);
+
+    -- P9 Day-2: reminder dedup log (one email per user per kind per day)
+    CREATE TABLE IF NOT EXISTS notify_log (
+        user_id TEXT NOT NULL,
+        kind TEXT NOT NULL,               -- review_reminder | weekly_report
+        day TEXT NOT NULL,
+        created_at TEXT DEFAULT (datetime('now')),
+        PRIMARY KEY (user_id, kind, day)
+    );
     """)
 
     # === Migration: add user_id to legacy tables (notes/documents) ===
@@ -1928,6 +1937,157 @@ def fsrs_rating_from_ratio(score: int, total: int) -> int:
     if ratio >= 0.5:
         return F.HARD
     return F.AGAIN
+
+
+# ---------------------------------------------------------------------------
+# P9 Day-2: due reviews + reminder scheduling (D10/D12/D13 pipeline)
+# ---------------------------------------------------------------------------
+
+def _days_since(ts_iso: str) -> float:
+    try:
+        return max((datetime.now() - datetime.fromisoformat(ts_iso)).total_seconds() / 86400.0, 0.0)
+    except Exception:
+        return 0.0
+
+
+def _email_opted_out(conn, user_id: str) -> bool:
+    """Hard requirement (user directive): opted-out users receive NO email.
+    Preference convention in memory_entries: kind='preference',
+    content='email_reminders=off'."""
+    try:
+        rows = conn.execute(
+            "SELECT content FROM memory_entries WHERE user_id=? AND kind='preference'",
+            (user_id,)).fetchall()
+    except Exception:
+        return False
+    for r in rows:
+        c = (r["content"] or "").strip().lower()
+        if c.startswith("email_reminders") and c.endswith("off"):
+            return True
+        if "邮件" in (r["content"] or "") and ("关闭" in (r["content"] or "") or "off" in c):
+            return True
+    return False
+
+
+class NotifyPrefsRequest(BaseModel):
+    email: bool = True
+
+
+@app.put("/api/notify/prefs")
+def notify_prefs(req: NotifyPrefsRequest, current_user: Optional[dict] = Depends(get_current_user)):
+    """Toggle email reminders (P9 Day-2; the profile-page toggle lands Day-3)."""
+    if not current_user:
+        raise HTTPException(401, "请登录")
+    value = "on" if req.email else "off"
+    conn = get_db()
+    existing = conn.execute(
+        "SELECT id FROM memory_entries WHERE user_id=? AND kind='preference' "
+        "AND content LIKE 'email_reminders%'", (current_user["id"],)).fetchone()
+    if existing:
+        conn.execute("UPDATE memory_entries SET content=? WHERE id=?",
+                     ("email_reminders=" + value, existing["id"]))
+    else:
+        conn.execute("INSERT INTO memory_entries (user_id,kind,content,source_session) "
+                     "VALUES (?,?,?,'')",
+                     (current_user["id"], "preference", "email_reminders=" + value))
+    conn.commit(); conn.close()
+    return {"email": req.email, "saved": True}
+
+
+@app.get("/api/review/due")
+def review_due(current_user: Optional[dict] = Depends(get_current_user)):
+    """Items whose predicted recall RIGHT NOW is below REMIND_R, weakest first."""
+    if not current_user:
+        raise HTTPException(401, "请登录")
+    from agent import fsrs as F
+    conn = get_db()
+    rows = conn.execute(
+        "SELECT topic, difficulty, stability, last_review_at, reps, lapses "
+        "FROM srs_queue WHERE user_id=?", (current_user["id"],)).fetchall()
+    conn.close()
+    due = []
+    for r in rows:
+        days = _days_since(r["last_review_at"])
+        r_now = F.retrievability(r["stability"], days)
+        if r_now < F.REMIND_R:
+            due.append({"topic": r["topic"], "R": round(r_now, 3),
+                        "S": round(r["stability"], 2), "days_since": round(days, 1),
+                        "lapses": r["lapses"]})
+    due.sort(key=lambda x: x["R"])
+    return {"due": due, "count": len(due), "threshold": F.REMIND_R}
+
+
+def _scan_and_remind(now=None):
+    """Daily 08:00 job (D12): for every user with items below REMIND_R, send one
+    reminder email. HARD RULE: opted-out users are skipped entirely; one email
+    per user per day (notify_log dedup)."""
+    from agent import fsrs as F
+    from agent.decision import _call, DECISION_MODEL
+    now = now or datetime.now()
+    day = now.date().isoformat()
+    conn = get_db()
+    try:
+        rows = conn.execute(
+            "SELECT s.user_id, s.topic, s.stability, s.last_review_at, u.email "
+            "FROM srs_queue s JOIN users u ON u.id = s.user_id").fetchall()
+        per_user = {}
+        for r in rows:
+            r_now = F.retrievability(r["stability"], _days_since(r["last_review_at"]))
+            if r_now < F.REMIND_R:
+                per_user.setdefault(r["user_id"], {"email": r["email"], "items": []})
+                per_user[r["user_id"]]["items"].append((r["topic"], r_now))
+        sent = skipped_off = skipped_dupe = 0
+        for uid, info in per_user.items():
+            if _email_opted_out(conn, uid):
+                skipped_off += 1
+                print(f"[p9-remind] {uid}: OPTED-OUT, no email (hard rule)")
+                continue
+            if conn.execute("SELECT 1 FROM notify_log WHERE user_id=? AND kind='review_reminder' "
+                            "AND day=?", (uid, day)).fetchone():
+                skipped_dupe += 1
+                continue
+            items = sorted(info["items"], key=lambda x: x[1])[:5]
+            topics_txt = "、".join(f"{t}（记忆保持{int(rr*100)}%）" for t, rr in items)
+            cheer = ""
+            try:
+                out = _call(DECISION_MODEL,
+                            "给大学生写一句40字以内的复习鼓励语作为邮件结尾，只输出这句话。",
+                            topics_txt, timeout=10, max_tokens=80)
+                cheer = next((v for v in out.values() if isinstance(v, str) and v.strip()), "")
+            except Exception:
+                pass
+            base = APP_BASE_URL or "http://localhost:8001"
+            body = ('<div style="font-family:system-ui;max-width:480px;margin:0 auto;padding:24px;">'
+                    '<h2 style="color:#1a1a2e;">数跃 ShuYue</h2>'
+                    '<p>根据你的学习记录，以下知识点记忆正在消退，建议今天复习：</p>'
+                    + ''.join(f'<p style="padding:6px 12px;border-radius:8px;'
+                              f'background:#f1f2f8;margin:6px 0;">{t} — 记忆保持 {int(rr*100)}%</p>'
+                              for t, rr in items)
+                    + f'<p><a href="{base}/#/quiz" style="display:inline-block;background:#6366f1;'
+                      f'color:#fff;padding:10px 24px;border-radius:8px;text-decoration:none;">开始复习</a></p>'
+                    + (f'<p style="color:#555;">{cheer}</p>' if cheer else '')
+                    + '<p style="color:#999;font-size:12px;">不想到邮件？登录后在个人资料页可关闭邮件提醒。</p></div>')
+            ok = _send_email(info["email"], "数跃 · 你有知识点到期复习", body)
+            conn.execute("INSERT OR IGNORE INTO notify_log (user_id,kind,day) VALUES (?,?,?)",
+                         (uid, "review_reminder", day))
+            conn.commit()
+            sent += 1
+            print(f"[p9-remind] {uid}: {len(items)} items, email={'sent' if ok else 'console-fallback'}")
+        print(f"[p9-remind] {day}: users={len(per_user)} sent={sent} "
+              f"opted_out={skipped_off} dup={skipped_dupe}")
+    finally:
+        conn.close()
+
+
+# D12: APScheduler (in-process, starts with the server; no extra infra)
+try:
+    from apscheduler.schedulers.background import BackgroundScheduler
+    _p9_sched = BackgroundScheduler(timezone="Asia/Shanghai")
+    _p9_sched.add_job(_scan_and_remind, "cron", hour=8, minute=0, id="p9_daily_reminder")
+    _p9_sched.start()
+    print("[p9] scheduler started: daily 08:00 review-reminder scan")
+except Exception as _se:
+    print(f"[p9] scheduler NOT started ({_se}) — /api/review/due still live")
 
 
 # ============================================================================
