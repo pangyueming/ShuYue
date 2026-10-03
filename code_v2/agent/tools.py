@@ -786,7 +786,7 @@ def _gen_guide(title_query: str, user_id) -> dict:
                          "glossary": g.get("glossary", 0),
                          "patterns": g.get("patterns", 0)}}
     except Exception as e:
-        return {"summary": f"生成失败：{err_msg[:80]}", "data": {}}
+            return {"summary": f"生成失败：{str(e)[:80]}", "data": {}}
 
 
 # ---- P5 C15: get student's quiz mistakes with detail ----
