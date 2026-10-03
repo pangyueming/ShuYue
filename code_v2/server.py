@@ -1024,14 +1024,10 @@ def _verify_proof_v3(question: str, solution: str):
 
 app = FastAPI(title="数跃 AI Backend", version="1.0")
 
-app.add_middleware(
-    CORSMiddleware,
-    allow_origins=["*"],
-    allow_methods=["*"],
-    allow_headers=["*"],
-)
-
-# Phase 0: baseline security headers (OWASP reset-page referrer-leak guidance)
+# AUDIT FIX #2: CORS wildcard removed — the SPA is served same-origin from this
+# process (spa_static below); wildcard only added attack surface (any origin
+# could use a stolen JWT). Cross-origin dev (file://) uses the browser's
+# no-preflight simple-request path for GET/POST JSON, which works without CORS.
 @app.middleware("http")
 async def security_headers(request: Request, call_next):
     response = await call_next(request)
@@ -4254,17 +4250,21 @@ def _quiz_verify_question(qd: dict) -> bool:
 # calls (DashScope generation + Harness verification); FastAPI runs sync endpoints
 # in its threadpool, so the event loop (and every other request) stays responsive.
 @app.post("/api/quiz/generate")
-def quiz_generate(req: QuizGenerateRequest):
+def quiz_generate(req: QuizGenerateRequest,
+                  current_user: Optional[dict] = Depends(get_current_user)):
     """Generate a quiz. Answers stay server-side (never sent to the client)."""
     count = max(1, min(15, req.count))
     # Weak-topic context from the latest assessment (stronger guidance)
+    # AUDIT FIX #4: bound to the requesting user — was leaking other students'
+    # pretest results into quiz prompts (privacy + logic bug)
     weak_context = ""
-    if req.topic != "Mixed":
+    if req.topic != "Mixed" and current_user:
         try:
             conn = get_db()
             row = conn.execute(
-                "SELECT weak_topics FROM assessments WHERE user_id IS NOT NULL "
-                "ORDER BY created_at DESC LIMIT 1"
+                "SELECT weak_topics FROM assessments WHERE user_id=? "
+                "ORDER BY created_at DESC LIMIT 1",
+                (current_user["id"],)
             ).fetchone()
             conn.close()
             if row and row["weak_topics"] and req.topic in row["weak_topics"]:
@@ -5047,11 +5047,19 @@ async def spa_static(path: str):
     if p.startswith((".", "uploads/", "mineru_data/", "agent/", "skills/", "core/",
                      "verification/", "models/", "harness", "__pycache__/")):
         raise HTTPException(404, "Not Found")
-    allowed = p.startswith(_STATIC_SUBDIRS) or ("/" not in p and _STATIC_ROOT_FILE.match(p))
-    if not allowed:
+    # CRITICAL FIX (audit #1): reject path traversal BEFORE any prefix check —
+    # "app/../.env" passed startswith("app/") then normpath collapsed it back
+    # to the root, bypassing every subsequent guard. After normalisation we
+    # RE-VALIDATE the whitelisted-prefix rule against the canonical path.
+    if ".." in p:
         raise HTTPException(404, "Not Found")
     full = os.path.normpath(os.path.join(_STATIC_ROOT, p))
-    if not full.startswith(_STATIC_ROOT) or not os.path.isfile(full):
+    # re-check: the resolved path must still live inside an allowed subdir
+    # (or be a root-level whitelisted file) — not just under _STATIC_ROOT
+    rel = os.path.relpath(full, _STATIC_ROOT).replace("\\", "/")
+    allowed_after = (rel.startswith(_STATIC_SUBDIRS)
+                     or ("/" not in rel and _STATIC_ROOT_FILE.match(rel)))
+    if not allowed_after or not os.path.isfile(full):
         raise HTTPException(404, "Not Found")
     return FileResponse(full)
 
