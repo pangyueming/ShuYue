@@ -1024,10 +1024,21 @@ def _verify_proof_v3(question: str, solution: str):
 
 app = FastAPI(title="数跃 AI Backend", version="1.0")
 
-# AUDIT FIX #2: CORS wildcard removed — the SPA is served same-origin from this
-# process (spa_static below); wildcard only added attack surface (any origin
-# could use a stolen JWT). Cross-origin dev (file://) uses the browser's
-# no-preflight simple-request path for GET/POST JSON, which works without CORS.
+# CORS: minimal allowlist for local development only (file:// + cross-port).
+# Production (same-origin spa_static) doesn't need CORS — requests are same-origin.
+# AUDIT FIX #2 (revised): was allow_origins=["*"] (any origin could use stolen
+# JWTs) → removed entirely (broke file:// dev) → now scoped to localhost only.
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=[
+        "http://localhost:8001", "http://localhost:8003",
+        "http://127.0.0.1:8001", "http://127.0.0.1:8003",
+        "null",   # file:// development (Origin: null)
+    ],
+    allow_methods=["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
+    allow_headers=["*"],
+    allow_credentials=False,
+)
 @app.middleware("http")
 async def security_headers(request: Request, call_next):
     response = await call_next(request)
@@ -4953,7 +4964,8 @@ async def get_stats(current_user: Optional[dict] = Depends(get_current_user)):
     # overstating overall ability from one fresh topic (user-flagged: 1 topic
     # at R=0.99 must not read as "99% math mastery" when the pretest said 61).
     _srs = conn.execute(
-        "SELECT stability, last_review_at FROM srs_queue WHERE user_id=?",
+        "SELECT stability, last_review_at FROM srs_queue "
+        "WHERE user_id=? AND source != 'pretest'",
         (user_id,)).fetchall()
     _pre = assessment["avg_score"] if assessment else None
     if _srs:
