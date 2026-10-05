@@ -94,6 +94,28 @@ TOOL_SPECS = [
     {
         "type": "function",
         "function": {
+            "name": "update_plan_task",
+            "description": "标记学生的学习计划中某个任务为已完成。当学生说'完成了X任务/做完了X/标记X为完成'时使用。",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "task_name": {"type": "string", "description": "任务名称（模糊匹配计划中的任务名）"},
+                },
+                "required": ["task_name"],
+            },
+        },
+    },
+    {
+        "type": "function",
+        "function": {
+            "name": "start_assessment",
+            "description": "引导学生做学前诊断测试（3分钟，帮助定位知识断层）。当学生想了解自己的数学水平/做测试/做诊断时使用。",
+            "parameters": {"type": "object", "properties": {}},
+        },
+    },
+    {
+        "type": "function",
+        "function": {
             "name": "list_documents",
             "description": "列出学生书架上的全部文档（标题+分类）。当学生问'我有哪些文档/书架里有什么'时使用。",
             "parameters": {"type": "object", "properties": {}},
@@ -311,17 +333,12 @@ _DOC_CATS = {"slides": "课件", "textbooks": "教材", "exercises": "习题",
 
 
 def _find_doc(conn, user_id: str, title: str):
-    """Owner-scoped fuzzy title match (same matching philosophy as _read_doc)."""
-    row = conn.execute(
+    """Owner-scoped fuzzy title match. AUDIT FIX #5: removed the dangerous
+    fallback-to-most-recent — a failed match now returns None instead of
+    risking a move/delete of the wrong (irrecoverable) document."""
+    return conn.execute(
         "SELECT id, title, category FROM documents WHERE user_id=? AND title LIKE ? "
         "ORDER BY created_at DESC LIMIT 1", (user_id, f"%{title}%")).fetchone()
-    if not row:
-        row = conn.execute(
-            "SELECT id, title, category FROM documents WHERE user_id=? "
-            "ORDER BY created_at DESC LIMIT 1", (user_id,)).fetchone()
-        if not row or (title and title[:3] not in (row["title"] or "")):
-            return None
-    return row
 
 
 def _move_doc(title: str, category: str, user_id: str) -> dict:
@@ -348,7 +365,7 @@ def _move_doc(title: str, category: str, user_id: str) -> dict:
 def _delete_doc(title: str, user_id: str) -> dict:
     if not user_id:
         return _no_login()
-    from server import get_db, UPLOAD_DIR
+    from server import get_db, UPLOAD_DIR, MINERU_DATA_DIR
     import os as _os, shutil as _sh
     conn = get_db()
     try:
@@ -367,10 +384,19 @@ def _delete_doc(title: str, user_id: str) -> dict:
     finally:
         conn.close()
     # purge stored file + parse artifacts (same as the manual DELETE endpoint)
+    # AUDIT FIX #5: also clean mineru_data/{doc_id}/ — the manual endpoint
+    # (server.py) does rmtree here; the agent tool previously skipped it,
+    # leaving orphan parse data accumulating on disk
     try:
         for fn in _os.listdir(UPLOAD_DIR):
             if fn.startswith(doc_id + "_"):
                 _os.remove(_os.path.join(UPLOAD_DIR, fn))
+    except Exception:
+        pass
+    try:
+        mineru_dir = _os.path.join(MINERU_DATA_DIR, doc_id)
+        if _os.path.isdir(mineru_dir):
+            _sh.rmtree(mineru_dir, ignore_errors=True)
     except Exception:
         pass
     return {"summary": f"已删除《{doc_title[:30]}》及其解析数据",

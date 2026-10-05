@@ -216,8 +216,25 @@ def run_agent(message: str, history: list, user_skill, user_id, approved_tools=N
                              "工具完成执行；若再次收到 pending_user_approval，必须如实说明操作尚未"
                              "完成、需在弹窗中点击允许，严禁声称已成功。）")
 
+    # AUDIT FIX #4: tool-verb exclusion — "画一下 sin(x)/x" or "帮我记个笔记"
+    # classified as chat@0.9+ would take the fast path with ZERO tools, but the
+    # system prompt demands "必须调用" → model could only violate and answer
+    # in plain text. These messages now reach the tool loop.
+    _TOOL_TRIGGER_WORDS = (
+        "\u753b", "\u7ed8\u56fe", "\u53ef\u89c6\u5316",           # 画/绘图/可视化
+        "\u51fa\u9898", "\u505a\u9898", "\u7ec3\u4e60", "\u6d4b\u9a8c",  # 出题/做题/练习/测验
+        "\u6d4b\u8bd5", "\u8bca\u65ad", "\u524d\u6d4b",           # 测试/诊断/前测
+        "\u8bb0\u7b14\u8bb0", "\u4fdd\u5b58\u7b14\u8bb0",       # 记笔记/保存笔记
+        "\u9519\u9898", "\u9519\u56e0",                         # 错题/错因
+        "\u79fb\u52a8", "\u79fb\u5230", "\u6362\u5206\u7c7b",     # 移动/移到/换分类
+        "\u5220\u9664", "\u5220\u6389",                         # 删除/删掉
+        "\u4efb\u52a1\u5b8c\u6210", "\u6807\u8bb0\u5b8c\u6210",   # 任务完成/标记完成
+        "\u4e66\u67b6", "\u6587\u6863\u5217\u8868",             # 书架/文档列表
+    )
+    _needs_tools = any(w in message for w in _TOOL_TRIGGER_WORDS)
+
     if not user_id or (intent == "chat" and not skill and conf >= 0.90
-                       and not _approval):
+                       and not _approval and not _needs_tools):
         messages = [{"role": "system", "content": system_prompt}] + _hist + \
                    [{"role": "user", "content": message}]
         full = ""
